@@ -12,6 +12,14 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      '/hive': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+      '/expenses': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
     },
   },
 })
