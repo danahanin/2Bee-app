@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function MainPage() {
@@ -34,10 +35,18 @@ function MainPage() {
             <p className="mt-2 text-sm text-slate-700">{user?.user?.email}</p>
           </article>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Hive</h3>
-            <p className="mt-2 text-sm text-slate-600">Placeholder for shared balance overview.</p>
-          </article>
+          <Link
+            to="/app/hive"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+          >
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 group-hover:text-indigo-600">
+              Hive
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">View shared expenses and balance with your partner.</p>
+            <span className="mt-3 inline-block text-xs font-semibold text-indigo-600 opacity-0 transition group-hover:opacity-100">
+              Open &rarr;
+            </span>
+          </Link>
 
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Personal</h3>

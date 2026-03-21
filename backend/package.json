@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node index.js",
     "start": "node index.js",
+    "seed": "node scripts/seed.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -17,7 +18,8 @@
   "type": "commonjs",
   "dependencies": {
     "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mongoose": "^9.3.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

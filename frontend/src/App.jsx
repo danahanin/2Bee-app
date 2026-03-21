@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
 import MainPage from './pages/MainPage.jsx'
+import HiveScreen from './pages/HiveScreen.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
 
@@ -20,6 +21,14 @@ function App() {
         element={
           <ProtectedRoute>
             <MainPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/hive"
+        element={
+          <ProtectedRoute>
+            <HiveScreen />
           </ProtectedRoute>
         }
       />
