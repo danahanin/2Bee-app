@@ -11,8 +11,7 @@ function authHeaders(token) {
 }
 
 export function useHive(hiveId) {
-  const { user } = useAuth()
-  const token = user?.token
+  const { token } = useAuth()
   const [hive, setHive] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -40,8 +39,7 @@ export function useHive(hiveId) {
 }
 
 export function useExpenses(hiveId, view) {
-  const { user } = useAuth()
-  const token = user?.token
+  const { token } = useAuth()
   const [expenses, setExpenses] = useState([])
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 1 })
   const [isLoading, setIsLoading] = useState(false)
@@ -80,8 +78,7 @@ export function useExpenses(hiveId, view) {
 }
 
 export function useCreateExpense(hiveId) {
-  const { user } = useAuth()
-  const token = user?.token
+  const { token } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const create = useCallback(
