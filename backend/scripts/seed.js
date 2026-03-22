@@ -1,6 +1,8 @@
 const mongoose = require('mongoose')
 const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
+const Budget = require('../models/Budget')
+const Goal = require('../models/Goal')
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/twobee'
 
@@ -31,6 +33,8 @@ async function seed() {
 
   await Hive.deleteMany({})
   await Expense.deleteMany({})
+  await Budget.deleteMany({})
+  await Goal.deleteMany({})
   console.log('Cleared existing data')
 
   const hive = await Hive.create({ userIds: [DEMO_USER_A, DEMO_USER_B] })
@@ -57,6 +61,39 @@ async function seed() {
 
   await Expense.insertMany([...sharedDocs, ...personalDocs])
   console.log(`Seeded ${sharedDocs.length} shared + ${personalDocs.length} personal expenses`)
+
+  const nextYear = new Date(now.getFullYear() + 1, 11, 31)
+  await Budget.insertMany([
+    {
+      userId: DEMO_USER_A,
+      hiveId: null,
+      category: 'dining',
+      limitAmount: 400,
+      period: 'monthly',
+      type: 'personal',
+    },
+    {
+      userId: DEMO_USER_A,
+      hiveId: hive._id,
+      category: 'groceries',
+      limitAmount: 900,
+      period: 'monthly',
+      type: 'shared',
+    },
+  ])
+  await Goal.insertMany([
+    {
+      userId: DEMO_USER_A,
+      hiveId: hive._id,
+      title: 'Vacation fund',
+      targetAmount: 8000,
+      currentAmount: 1200,
+      deadline: nextYear,
+      category: 'travel',
+    },
+  ])
+  console.log('Seeded sample budgets and goals')
+
   console.log(`\nHive ID for testing: ${hive._id}`)
 
   await mongoose.disconnect()

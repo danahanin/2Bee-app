@@ -4,13 +4,16 @@ info:
   title: 2Bee API
   description: |
     API specification for the 2Bee shared finance application.
-    PR 1 (Dana Hanin): Profile & Settings endpoint stubs are documented here.
+    Profile & Settings stubs live under /api (Dana Hanin).
+    Dashboard & Analytics endpoints are at the server root (Mishelle — PR1).
     Remaining API groups will be added by each domain owner as per plan.md.
   version: 0.1.0-stubs
 
 servers:
   - url: http://localhost:4000/api
-    description: Local development server
+    description: Profile API (path prefix /api)
+  - url: http://localhost:4000
+    description: Root API (dashboard, hive, expenses, auth)
 
 # ---------------------------------------------------------------------------
 # Security
@@ -187,6 +190,110 @@ components:
           type: string
           example: Unauthorized
 
+    DashboardTopCategory:
+      type: object
+      nullable: true
+      properties:
+        category:
+          type: string
+          example: dining
+        amount:
+          type: number
+          example: 245.5
+
+    BudgetStatusItem:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+        period:
+          type: string
+          enum: [monthly, weekly, yearly]
+        type:
+          type: string
+          enum: [personal, shared]
+        limit:
+          type: number
+        spent:
+          type: number
+        percentUsed:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    PersonalDashboardResponse:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+        hiveId:
+          type: string
+          nullable: true
+        totalSpendThisMonth:
+          type: number
+        topCategory:
+          $ref: '#/components/schemas/DashboardTopCategory'
+        budgetStatus:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetStatusItem'
+        insightPlaceholder:
+          type: string
+          nullable: true
+          description: Reserved for PR5 — embedded AI insight.
+
+    SharedDashboardContribution:
+      type: object
+      properties:
+        userId:
+          type: string
+        total:
+          type: number
+
+    SharedDashboardResponse:
+      type: object
+      properties:
+        paired:
+          type: boolean
+        period:
+          type: object
+          nullable: true
+          properties:
+            from:
+              type: string
+              format: date-time
+            to:
+              type: string
+              format: date-time
+        hiveId:
+          type: string
+          nullable: true
+        totalJointSpendThisMonth:
+          type: number
+        topSharedCategory:
+          $ref: '#/components/schemas/DashboardTopCategory'
+        contributions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SharedDashboardContribution'
+        sharedBudgetStatus:
+          type: array
+          items:
+            $ref: '#/components/schemas/BudgetStatusItem'
+        message:
+          type: string
+          nullable: true
+          description: Present when the user has no hive.
+
 # ---------------------------------------------------------------------------
 # Apply bearer auth globally to all endpoints
 # ---------------------------------------------------------------------------
@@ -197,6 +304,65 @@ security:
 # Paths
 # ---------------------------------------------------------------------------
 paths:
+
+  # --------------------------------------------------------------------------
+  # Dashboard & Analytics (Mishelle — PR1)
+  # --------------------------------------------------------------------------
+  /dashboard/personal:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Personal dashboard summary
+      description: |
+        Aggregates the current user's personal expenses for the current calendar month (UTC),
+        top spending category, and budget rollups. AI insight embedding is added in PR5.
+      operationId: getDashboardPersonal
+      tags:
+        - Dashboard & Analytics
+      responses:
+        '200':
+          description: Personal dashboard summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonalDashboardResponse'
+        '401':
+          description: Missing or invalid authorization token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dashboard/shared:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Shared (Hive) dashboard summary
+      description: |
+        Joint spending for the current month, per-partner contributions, and shared budgets.
+        When the user has no hive, returns paired=false and a short message.
+      operationId: getDashboardShared
+      tags:
+        - Dashboard & Analytics
+      responses:
+        '200':
+          description: Shared dashboard summary or unpaired placeholder.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharedDashboardResponse'
+        '401':
+          description: Missing or invalid authorization token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Hive not found or user is not a member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   # --------------------------------------------------------------------------
   # Profile
