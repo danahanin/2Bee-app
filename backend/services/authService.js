@@ -1,22 +1,29 @@
 const crypto = require('crypto')
 const bcrypt = require('bcrypt')
 const {
+  addRefreshToken,
   addSession,
   addUser,
+  findRefreshToken,
   findSessionByToken,
   findUserByEmail,
   findUserById,
   normalizeEmail,
+  revokeRefreshToken,
   revokeSession,
 } = require('./authStore')
 const { AppError } = require('../utils/appError')
 
 const ACCESS_TOKEN_TTL_MINUTES = Number(process.env.ACCESS_TOKEN_TTL_MINUTES || 15)
+const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS || 7)
+const ROTATE_ON_REFRESH = process.env.ROTATE_REFRESH_TOKENS !== 'false'
 const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10)
 
 function toSafeUser(user) {
   if (!user) return null
-  const { passwordHash, emailLower, ...safe } = user
+  const safe = { ...user }
+  delete safe.passwordHash
+  delete safe.emailLower
   return {
     ...safe,
     pairId: user.pairId ?? null,
@@ -35,6 +42,19 @@ function createSession(userId) {
   }
 
   return addSession(session)
+}
+
+function createRefreshToken(userId) {
+  const createdAt = new Date()
+  const expiresAt = new Date(createdAt.getTime() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const refreshToken = {
+    token: crypto.randomBytes(48).toString('hex'),
+    userId,
+    createdAt: createdAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  }
+
+  return addRefreshToken(refreshToken)
 }
 
 function ensureDemoUser() {
@@ -106,20 +126,28 @@ async function loginUser({ email, password }) {
   }
 
   const session = createSession(user.id)
+  const refreshToken = createRefreshToken(user.id)
   return {
     session,
+    refreshToken,
     user: toSafeUser(user),
   }
 }
 
-function logoutUser(token) {
-  if (!token) {
-    throw new AppError(400, 'TOKEN_REQUIRED', 'A valid session token is required.')
+function logoutUser({ accessToken, refreshToken }) {
+  if (!accessToken && !refreshToken) {
+    throw new AppError(400, 'TOKEN_REQUIRED', 'A valid session or refresh token is required.')
   }
 
-  const removed = revokeSession(token)
-  if (!removed) {
-    throw new AppError(404, 'SESSION_NOT_FOUND', 'Session already closed or missing.')
+  if (accessToken) {
+    const removed = revokeSession(accessToken)
+    if (!removed) {
+      throw new AppError(404, 'SESSION_NOT_FOUND', 'Session already closed or missing.')
+    }
+  }
+
+  if (refreshToken) {
+    revokeRefreshToken(refreshToken)
   }
 }
 
@@ -145,9 +173,40 @@ function getUserFromToken(token) {
   }
 }
 
+async function refreshSession({ refreshToken: tokenValue }) {
+  if (!tokenValue) {
+    throw new AppError(400, 'TOKEN_REQUIRED', 'Refresh token is required.')
+  }
+
+  const existing = findRefreshToken(tokenValue)
+  if (!existing) {
+    throw new AppError(401, 'INVALID_REFRESH', 'Refresh token expired or invalid.')
+  }
+
+  const user = findUserById(existing.userId)
+  if (!user) {
+    revokeRefreshToken(tokenValue)
+    throw new AppError(401, 'INVALID_REFRESH', 'Refresh token expired or invalid.')
+  }
+
+  const newSession = createSession(user.id)
+  const newRefreshToken = createRefreshToken(user.id)
+
+  if (ROTATE_ON_REFRESH) {
+    revokeRefreshToken(tokenValue)
+  }
+
+  return {
+    session: newSession,
+    refreshToken: newRefreshToken,
+    user: toSafeUser(user),
+  }
+}
+
 module.exports = {
   getUserFromToken,
   loginUser,
+  refreshSession,
   logoutUser,
   registerUser,
 }

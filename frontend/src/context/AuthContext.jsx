@@ -1,91 +1,235 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { apiUrl } from '../lib/api.js'
 
 const AuthContext = createContext(null)
 const storageKey = 'twobee_auth'
+const REFRESH_MARGIN_MS = 60 * 1000
+
+function isBrowser() {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+}
 
 function parseStoredSession() {
-  const raw = localStorage.getItem(storageKey)
+  if (!isBrowser()) return null
+  const raw = window.localStorage.getItem(storageKey)
   if (!raw) return null
   try {
     const parsed = JSON.parse(raw)
     const token = parsed.accessToken || parsed.token
+    const refreshToken = parsed.refreshToken || null
     if (!token || !parsed.user) {
-      localStorage.removeItem(storageKey)
+      window.localStorage.removeItem(storageKey)
       return null
     }
 
-    if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() <= Date.now()) {
-      localStorage.removeItem(storageKey)
+    const expiresAt = parsed.expiresAt || null
+    const refreshExpiresAt = parsed.refreshExpiresAt || null
+
+    if (refreshToken && refreshExpiresAt && new Date(refreshExpiresAt).getTime() <= Date.now()) {
+      window.localStorage.removeItem(storageKey)
+      return null
+    }
+
+    if (!refreshToken && expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+      window.localStorage.removeItem(storageKey)
       return null
     }
 
     return {
       token,
       user: parsed.user,
-      expiresAt: parsed.expiresAt || null,
+      expiresAt,
+      refreshToken,
+      refreshExpiresAt,
     }
   } catch (error) {
     console.warn('Failed to restore auth session', error)
-    localStorage.removeItem(storageKey)
+    window.localStorage.removeItem(storageKey)
     return null
   }
 }
 
 function persistSession(session) {
-  localStorage.setItem(storageKey, JSON.stringify(session))
+  if (!isBrowser()) return
+  window.localStorage.setItem(storageKey, JSON.stringify(session))
+}
+
+function clearStoredSession() {
+  if (!isBrowser()) return
+  window.localStorage.removeItem(storageKey)
+}
+
+function shouldRefreshSoon(expiresAt) {
+  if (!expiresAt) return false
+  const expireMs = new Date(expiresAt).getTime()
+  if (Number.isNaN(expireMs)) return false
+  return expireMs - Date.now() <= REFRESH_MARGIN_MS
+}
+
+function toSessionValue(payload) {
+  const token = payload?.accessToken || payload?.token || null
+  const refreshToken = payload?.refreshToken || null
+  if (!token || !refreshToken || !payload?.user) {
+    throw new Error('Incomplete auth payload')
+  }
+
+  return {
+    token,
+    user: payload.user,
+    expiresAt: payload.expiresAt ?? null,
+    refreshToken,
+    refreshExpiresAt: payload.refreshExpiresAt ?? null,
+  }
 }
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => parseStoredSession())
   const [isLoading, setIsLoading] = useState(false)
+  const [isBootstrapping, setIsBootstrapping] = useState(true)
+  const refreshPromiseRef = useRef(null)
 
-  const login = async (email, password) => {
-    setIsLoading(true)
-    try {
-      const response = await fetch('/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-      if (!response.ok) {
-        throw new Error(data.error?.message || 'Unable to login')
-      }
-
-      const authPayload = {
-        token: data.accessToken,
-        user: data.user,
-        expiresAt: data.expiresAt,
-      }
-      setSession(authPayload)
-      persistSession(authPayload)
-      return { ok: true }
-    } catch (error) {
-      return { ok: false, message: error.message }
-    } finally {
-      setIsLoading(false)
+  const setAndPersistSession = useCallback((nextSession) => {
+    setSession(nextSession)
+    if (nextSession) {
+      persistSession(nextSession)
+    } else {
+      clearStoredSession()
     }
-  }
+  }, [])
 
-  const logout = async () => {
-    try {
-      if (session?.token) {
-        await fetch('/auth/logout', {
+  const refreshWithToken = useCallback(
+    async (refreshTokenValue) => {
+      if (!refreshTokenValue) {
+        return { ok: false, message: 'Missing refresh token' }
+      }
+
+      if (refreshPromiseRef.current) {
+        return refreshPromiseRef.current
+      }
+
+      const promise = (async () => {
+        try {
+          const response = await fetch(apiUrl('/auth/refresh'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: refreshTokenValue }),
+          })
+          const data = await response.json()
+          if (!response.ok) {
+            throw new Error(data.error?.message || 'Unable to refresh session')
+          }
+
+          const next = toSessionValue(data)
+          setAndPersistSession(next)
+          return { ok: true, session: next }
+        } catch (error) {
+          console.warn('Session refresh failed', error)
+          setAndPersistSession(null)
+          return { ok: false, message: error.message }
+        } finally {
+          refreshPromiseRef.current = null
+        }
+      })()
+
+      refreshPromiseRef.current = promise
+      return promise
+    },
+    [setAndPersistSession],
+  )
+
+  const refreshSession = useCallback(() => refreshWithToken(session?.refreshToken ?? null), [refreshWithToken, session?.refreshToken])
+
+  useEffect(() => {
+    let cancelled = false
+    async function bootstrap() {
+      try {
+        const stored = parseStoredSession()
+        if (stored) {
+          setAndPersistSession(stored)
+          if (stored.refreshToken && (!stored.expiresAt || shouldRefreshSoon(stored.expiresAt))) {
+            const result = await refreshWithToken(stored.refreshToken)
+            if (!result.ok && !cancelled) {
+              setAndPersistSession(null)
+            }
+          }
+        } else {
+          clearStoredSession()
+        }
+      } finally {
+        if (!cancelled) {
+          setIsBootstrapping(false)
+        }
+      }
+    }
+
+    bootstrap()
+    return () => {
+      cancelled = true
+    }
+  }, [refreshWithToken, setAndPersistSession])
+
+  useEffect(() => {
+    if (!session?.refreshToken || !session?.expiresAt) {
+      return undefined
+    }
+
+    const expiresAtMs = new Date(session.expiresAt).getTime()
+    if (Number.isNaN(expiresAtMs)) {
+      return undefined
+    }
+
+    const delay = Math.max(expiresAtMs - Date.now() - REFRESH_MARGIN_MS, 0)
+    const handle = setTimeout(() => {
+      refreshSession()
+    }, delay)
+
+    return () => clearTimeout(handle)
+  }, [refreshSession, session?.expiresAt, session?.refreshToken])
+
+  const login = useCallback(
+    async (email, password) => {
+      setIsLoading(true)
+      try {
+        const response = await fetch(apiUrl('/auth/login'), {
           method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        })
+
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error?.message || 'Unable to login')
+        }
+
+        const next = toSessionValue(data)
+        setAndPersistSession(next)
+        return { ok: true }
+      } catch (error) {
+        return { ok: false, message: error.message }
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [setAndPersistSession],
+  )
+
+  const logout = useCallback(async () => {
+    try {
+      if (session?.token || session?.refreshToken) {
+        const headers = session?.token ? { Authorization: `Bearer ${session.token}` } : {}
+        await fetch(apiUrl('/auth/logout'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: JSON.stringify(session?.refreshToken ? { refreshToken: session.refreshToken } : {}),
         })
       }
     } catch (error) {
       console.warn('Logout failed', error)
     } finally {
-      setSession(null)
-      localStorage.removeItem(storageKey)
+      setAndPersistSession(null)
     }
-  }
+  }, [session, setAndPersistSession])
 
   const value = useMemo(
     () => ({
@@ -94,10 +238,12 @@ export function AuthProvider({ children }) {
       token: session?.token ?? null,
       isAuthenticated: Boolean(session?.token),
       isLoading,
+      isBootstrapping,
       login,
       logout,
+      refreshSession,
     }),
-    [session, isLoading],
+    [session, isBootstrapping, isLoading, login, logout, refreshSession],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
