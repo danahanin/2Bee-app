@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function MainPage() {
-  const { user, logout } = useAuth()
+  const { currentUser, logout } = useAuth()
+  const displayName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}`.trim() : 'User'
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -23,7 +24,7 @@ function MainPage() {
 
         <section className="grid gap-4 md:grid-cols-3">
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
-            <h2 className="text-lg font-semibold text-slate-900">Welcome, {user?.user?.name || 'User'}!</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Welcome, {displayName || 'User'}!</h2>
             <p className="mt-2 text-sm text-slate-600">
               This is the initial post-login dashboard shell. Next modules (Hive, Analytics, AI insights) can plug
               into these cards without changing the auth flow.
@@ -32,7 +33,7 @@ function MainPage() {
 
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Account</h3>
-            <p className="mt-2 text-sm text-slate-700">{user?.user?.email}</p>
+            <p className="mt-2 text-sm text-slate-700">{currentUser?.email}</p>
           </article>
 
           <Link
