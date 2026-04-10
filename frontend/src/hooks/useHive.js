@@ -107,3 +107,64 @@ export function useCreateExpense(hiveId) {
 
   return { create, isSubmitting }
 }
+
+export function useUpdateExpense(hiveId) {
+  const { token } = useAuth()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const update = useCallback(
+    async (expenseId, data) => {
+      if (!token || !hiveId) return { ok: false, message: 'Not ready' }
+      setIsSubmitting(true)
+      try {
+        const res = await fetch(`${API_PREFIX}/hive/${hiveId}/expenses/${expenseId}`, {
+          method: 'PUT',
+          headers: authHeaders(token),
+          body: JSON.stringify(data),
+        })
+        if (!res.ok) {
+          const body = await res.json()
+          throw new Error(body.error?.message || 'Failed to update expense')
+        }
+        return { ok: true, expense: await res.json() }
+      } catch (err) {
+        return { ok: false, message: err.message }
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [hiveId, token],
+  )
+
+  return { update, isSubmitting }
+}
+
+export function useDeleteExpense(hiveId) {
+  const { token } = useAuth()
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const remove = useCallback(
+    async (expenseId) => {
+      if (!token || !hiveId) return { ok: false, message: 'Not ready' }
+      setIsDeleting(true)
+      try {
+        const res = await fetch(`${API_PREFIX}/hive/${hiveId}/expenses/${expenseId}`, {
+          method: 'DELETE',
+          headers: authHeaders(token),
+        })
+        if (!res.ok) {
+          const body = await res.json()
+          throw new Error(body.error?.message || 'Failed to delete expense')
+        }
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, message: err.message }
+      } finally {
+        setIsDeleting(false)
+      }
+    },
+    [hiveId, token],
+  )
+
+  return { remove, isDeleting }
+}
