@@ -3,7 +3,14 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import ViewToggle from '../components/hive/ViewToggle.jsx'
 import ExpenseList from '../components/hive/ExpenseList.jsx'
-import { useHive, useExpenses } from '../hooks/useHive.js'
+import ExpenseFormModal from '../components/hive/ExpenseFormModal.jsx'
+import {
+  useHive,
+  useExpenses,
+  useCreateExpense,
+  useUpdateExpense,
+  useDeleteExpense,
+} from '../hooks/useHive.js'
 
 const DEMO_HIVE_ID = localStorage.getItem('twobee_hive_id') || ''
 
@@ -44,7 +51,50 @@ function HiveScreen() {
   const { logout } = useAuth()
   const [view, setView] = useState('shared')
   const { hive, isLoading: hiveLoading } = useHive(DEMO_HIVE_ID)
-  const { expenses, isLoading: expLoading, error } = useExpenses(DEMO_HIVE_ID, view)
+  const { expenses, isLoading: expLoading, error, refetch } = useExpenses(DEMO_HIVE_ID, view)
+  const { create, isSubmitting: isCreating } = useCreateExpense(DEMO_HIVE_ID)
+  const { update, isSubmitting: isUpdating } = useUpdateExpense(DEMO_HIVE_ID)
+  const { remove } = useDeleteExpense(DEMO_HIVE_ID)
+
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingExpense, setEditingExpense] = useState(null)
+
+  function handleAdd() {
+    setEditingExpense(null)
+    setModalOpen(true)
+  }
+
+  function handleEdit(expense) {
+    setEditingExpense(expense)
+    setModalOpen(true)
+  }
+
+  async function handleDelete(expenseId) {
+    if (!window.confirm('Are you sure you want to delete this expense?')) return
+    const result = await remove(expenseId)
+    if (result.ok) {
+      refetch()
+    }
+  }
+
+  async function handleSubmit(data) {
+    let result
+    if (editingExpense) {
+      result = await update(editingExpense._id, data)
+    } else {
+      result = await create(data)
+    }
+    if (result.ok) {
+      setModalOpen(false)
+      setEditingExpense(null)
+      refetch()
+    }
+  }
+
+  function handleCloseModal() {
+    setModalOpen(false)
+    setEditingExpense(null)
+  }
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -75,10 +125,34 @@ function HiveScreen() {
 
         <div className="flex items-center justify-between">
           <ViewToggle active={view} onChange={setView} />
+          {view === 'shared' && (
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+            >
+              + Add Expense
+            </button>
+          )}
         </div>
 
-        <ExpenseList expenses={expenses} isLoading={expLoading} error={error} />
+        <ExpenseList
+          expenses={expenses}
+          isLoading={expLoading}
+          error={error}
+          onEdit={view === 'shared' ? handleEdit : undefined}
+          onDelete={view === 'shared' ? handleDelete : undefined}
+        />
       </div>
+
+      {modalOpen && (
+        <ExpenseFormModal
+          expense={editingExpense}
+          onSubmit={handleSubmit}
+          onClose={handleCloseModal}
+          isSubmitting={isCreating || isUpdating}
+        />
+      )}
     </main>
   )
 }

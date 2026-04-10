@@ -73,6 +73,76 @@ async function createHiveExpense(req, res) {
   }
 }
 
+function validateExpenseBodyPartial(body) {
+  const errors = []
+  if (body.amount !== undefined && (typeof body.amount !== 'number' || body.amount <= 0)) {
+    errors.push('amount must be a positive number')
+  }
+  if (body.category !== undefined && !CATEGORIES.includes(body.category)) {
+    errors.push(`category must be one of: ${CATEGORIES.join(', ')}`)
+  }
+  if (body.description !== undefined) {
+    if (typeof body.description !== 'string' || body.description.trim().length === 0) {
+      errors.push('description is required')
+    } else if (body.description.length > 200) {
+      errors.push('description must be 200 characters or less')
+    }
+  }
+  if (body.date !== undefined && isNaN(Date.parse(body.date))) {
+    errors.push('date must be a valid date string')
+  }
+  return errors
+}
+
+async function updateHiveExpense(req, res) {
+  try {
+    const hive = await hiveService.getHiveById(req.params.id, req.user.userId)
+    if (!hive) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Hive not found' } })
+    }
+
+    const errors = validateExpenseBodyPartial(req.body)
+    if (errors.length > 0) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: errors.join('; ') } })
+    }
+
+    const expense = await hiveService.updateSharedExpense(
+      req.params.id,
+      req.params.expId,
+      req.user.userId,
+      req.body
+    )
+    if (!expense) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Expense not found' } })
+    }
+
+    res.json(expense)
+  } catch (err) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } })
+  }
+}
+
+async function deleteHiveExpense(req, res) {
+  try {
+    const hive = await hiveService.getHiveById(req.params.id, req.user.userId)
+    if (!hive) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Hive not found' } })
+    }
+
+    const expense = await hiveService.deleteSharedExpense(
+      req.params.id,
+      req.params.expId
+    )
+    if (!expense) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Expense not found' } })
+    }
+
+    res.json({ success: true, message: 'Expense deleted' })
+  } catch (err) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } })
+  }
+}
+
 async function getPersonalExpenses(req, res) {
   try {
     const { category, from, to, page, limit } = req.query
@@ -93,5 +163,7 @@ module.exports = {
   getHive,
   getHiveExpenses,
   createHiveExpense,
+  updateHiveExpense,
+  deleteHiveExpense,
   getPersonalExpenses,
 }
