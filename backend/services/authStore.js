@@ -7,6 +7,7 @@ const STORE_FILE = path.join(DATA_DIR, 'auth-store.json')
 const defaultState = {
   users: [],
   sessions: [],
+  refreshTokens: [],
 }
 
 let state = null
@@ -29,7 +30,7 @@ function loadState() {
   ensureStoreFile()
   const raw = fs.readFileSync(STORE_FILE, 'utf-8')
   if (!raw) {
-    state = { users: [], sessions: [] }
+    state = clone(defaultState)
     return state
   }
 
@@ -38,9 +39,10 @@ function loadState() {
     state = {
       users: Array.isArray(parsed.users) ? parsed.users : [],
       sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+      refreshTokens: Array.isArray(parsed.refreshTokens) ? parsed.refreshTokens : [],
     }
-  } catch (error) {
-    state = { users: [], sessions: [] }
+  } catch {
+    state = clone(defaultState)
   }
 
   return state
@@ -75,11 +77,27 @@ function isSessionExpired(session) {
   return new Date(session.expiresAt).getTime() <= Date.now()
 }
 
+function isRefreshTokenExpired(token) {
+  if (!token) return true
+  if (token.revokedAt) return true
+  if (!token.expiresAt) return false
+  return new Date(token.expiresAt).getTime() <= Date.now()
+}
+
 function pruneExpiredSessions() {
   const currentState = loadState()
   const nextSessions = currentState.sessions.filter((session) => !isSessionExpired(session))
   if (nextSessions.length !== currentState.sessions.length) {
     currentState.sessions = nextSessions
+    persistState()
+  }
+}
+
+function pruneExpiredRefreshTokens() {
+  const currentState = loadState()
+  const nextTokens = currentState.refreshTokens.filter((token) => !isRefreshTokenExpired(token))
+  if (nextTokens.length !== currentState.refreshTokens.length) {
+    currentState.refreshTokens = nextTokens
     persistState()
   }
 }
@@ -142,14 +160,54 @@ function revokeSession(token) {
   return removed
 }
 
+function addRefreshToken(token) {
+  pruneExpiredRefreshTokens()
+  const currentState = loadState()
+  currentState.refreshTokens.push(token)
+  persistState()
+  return clone(token)
+}
+
+function findRefreshToken(tokenValue) {
+  pruneExpiredRefreshTokens()
+  const currentState = loadState()
+  const token = currentState.refreshTokens.find((entry) => entry.token === tokenValue)
+  if (!token) {
+    return null
+  }
+
+  if (isRefreshTokenExpired(token)) {
+    currentState.refreshTokens = currentState.refreshTokens.filter((entry) => entry.token !== tokenValue)
+    persistState()
+    return null
+  }
+
+  return clone(token)
+}
+
+function revokeRefreshToken(tokenValue) {
+  const currentState = loadState()
+  const nextTokens = currentState.refreshTokens.filter((token) => token.token !== tokenValue)
+  const removed = nextTokens.length !== currentState.refreshTokens.length
+  if (removed) {
+    currentState.refreshTokens = nextTokens
+    persistState()
+  }
+  return removed
+}
+
 module.exports = {
   addUser,
   addSession,
+  addRefreshToken,
   findSessionByToken,
+  findRefreshToken,
   findUserByEmail,
   findUserById,
   getUsers,
   normalizeEmail,
+  pruneExpiredRefreshTokens,
   pruneExpiredSessions,
+  revokeRefreshToken,
   revokeSession,
 }

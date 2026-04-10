@@ -24,6 +24,20 @@ function extractToken(req) {
   return null
 }
 
+function formatAuthResponse({ session, refreshToken, user }) {
+  if (!session || !refreshToken) {
+    throw new AppError(500, 'AUTH_RESPONSE_ERROR', 'Missing session tokens.')
+  }
+
+  return {
+    accessToken: session.token,
+    expiresAt: session.expiresAt,
+    refreshToken: refreshToken.token,
+    refreshExpiresAt: refreshToken.expiresAt,
+    user,
+  }
+}
+
 function validateRegisterPayload(body = {}) {
   const errors = {}
   const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : ''
@@ -88,12 +102,8 @@ async function login(req, res) {
   }
 
   try {
-    const { session, user } = await authService.loginUser({ email, password })
-    return res.json({
-      accessToken: session.token,
-      expiresAt: session.expiresAt,
-      user,
-    })
+    const result = await authService.loginUser({ email, password })
+    return res.json(formatAuthResponse(result))
   } catch (error) {
     if (error instanceof AppError) {
       return sendError(res, error, error.message)
@@ -104,19 +114,35 @@ async function login(req, res) {
 
 async function logout(req, res) {
   try {
-    const token = extractToken(req)
-    if (!token) {
+    const accessToken = extractToken(req)
+    const refreshToken = req.body?.refreshToken || null
+    if (!accessToken && !refreshToken) {
       throw new AppError(400, 'TOKEN_REQUIRED', 'Missing token.')
     }
-    await authService.logoutUser(token)
+    await authService.logoutUser({ accessToken, refreshToken })
     return res.json({ success: true })
   } catch (error) {
     return sendError(res, error, 'Unable to logout right now.')
   }
 }
 
+async function refresh(req, res) {
+  try {
+    const { refreshToken } = req.body || {}
+    if (!refreshToken) {
+      throw new AppError(400, 'TOKEN_REQUIRED', 'Refresh token is required.')
+    }
+
+    const result = await authService.refreshSession({ refreshToken })
+    return res.json(formatAuthResponse(result))
+  } catch (error) {
+    return sendError(res, error, 'Unable to refresh session right now.')
+  }
+}
+
 module.exports = {
   login,
   logout,
+  refresh,
   register,
 }
