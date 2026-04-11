@@ -1,46 +1,6 @@
-const CATEGORY_EMOJI = {
-  groceries: '🛒',
-  dining: '🍽️',
-  transport: '🚗',
-  utilities: '💡',
-  rent: '🏠',
-  entertainment: '🎬',
-  health: '💊',
-  shopping: '🛍️',
-  subscriptions: '📺',
-  travel: '✈️',
-  education: '📚',
-  other: '📌',
-}
+import ExpenseCard from './ExpenseCard.jsx'
 
-function ExpenseRow({ expense }) {
-  const emoji = CATEGORY_EMOJI[expense.category] || '📌'
-  const formattedDate = new Date(expense.date).toLocaleDateString('en-IL', {
-    day: 'numeric',
-    month: 'short',
-  })
-
-  return (
-    <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-lg">
-        {emoji}
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-slate-900">{expense.description}</p>
-        <p className="text-xs text-slate-500">
-          {expense.category} &middot; {formattedDate}
-        </p>
-      </div>
-
-      <span className="whitespace-nowrap text-sm font-bold text-slate-900">
-        ₪{expense.amount.toLocaleString('en-IL', { minimumFractionDigits: 2 })}
-      </span>
-    </div>
-  )
-}
-
-function ExpenseList({ expenses, isLoading, error }) {
+function ExpenseList({ expenses, isLoading, error, onEdit, onDelete }) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -68,7 +28,12 @@ function ExpenseList({ expenses, isLoading, error }) {
   return (
     <div className="space-y-2">
       {expenses.map((expense) => (
-        <ExpenseRow key={expense._id} expense={expense} />
+        <ExpenseCard
+          key={expense._id}
+          expense={expense}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
       ))}
     </div>
   )

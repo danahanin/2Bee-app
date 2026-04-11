@@ -42,6 +42,38 @@ async function createSharedExpense(hiveId, userId, data) {
   return expense.save()
 }
 
+async function updateSharedExpense(hiveId, expenseId, userId, data) {
+  const expense = await Expense.findOne({
+    _id: expenseId,
+    hiveId,
+    type: 'shared',
+    isDeleted: false,
+  })
+  if (!expense) return null
+
+  const allowedFields = ['amount', 'category', 'description', 'date']
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) {
+      expense[field] = field === 'date' ? new Date(data[field]) : data[field]
+    }
+  }
+
+  return expense.save()
+}
+
+async function deleteSharedExpense(hiveId, expenseId) {
+  const expense = await Expense.findOne({
+    _id: expenseId,
+    hiveId,
+    type: 'shared',
+    isDeleted: false,
+  })
+  if (!expense) return null
+
+  expense.isDeleted = true
+  return expense.save()
+}
+
 async function getPersonalExpenses(userId, { category, from, to, page = 1, limit = 20 }) {
   const filter = { userId, type: 'personal', isDeleted: false }
 
@@ -65,5 +97,7 @@ module.exports = {
   getHiveById,
   getHiveExpenses,
   createSharedExpense,
+  updateSharedExpense,
+  deleteSharedExpense,
   getPersonalExpenses,
 }
