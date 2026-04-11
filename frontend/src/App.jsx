@@ -2,6 +2,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
 import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
 
@@ -29,6 +31,22 @@ function App() {
         element={
           <ProtectedRoute>
             <HiveScreen />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />

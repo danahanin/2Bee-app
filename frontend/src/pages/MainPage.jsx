@@ -13,13 +13,21 @@ function MainPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
             <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">Main Screen</h1>
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            Log out
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/app/profile"
+              className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            >
+              Profile
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Log out
+            </button>
+          </div>
         </header>
 
         <section className="grid gap-4 md:grid-cols-3">
