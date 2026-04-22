@@ -16,17 +16,36 @@ function getRecommendations(_req, res) {
 }
 
 function classifyExpense(req, res) {
-  const { description, amount } = req.body || {};
-  if (!description) {
+  const { description, amount, category } = req.body || {};
+
+  if (description === undefined) {
     return res.status(400).json({ error: 'description is required' });
   }
   if (typeof description !== 'string') {
     return res.status(400).json({ error: 'description must be a string' });
   }
-  if (amount !== undefined && typeof amount !== 'number') {
+  if (description.trim() === '') {
+    return res.status(400).json({ error: 'description cannot be empty' });
+  }
+
+  if (amount === undefined) {
+    return res.status(400).json({ error: 'amount is required' });
+  }
+  if (typeof amount !== 'number' || Number.isNaN(amount)) {
     return res.status(400).json({ error: 'amount must be a number' });
   }
-  const result = aiService.classifyExpense({ description, amount });
+
+  if (category === undefined) {
+    return res.status(400).json({ error: 'category is required' });
+  }
+  if (typeof category !== 'string') {
+    return res.status(400).json({ error: 'category must be a string' });
+  }
+  if (category.trim() === '') {
+    return res.status(400).json({ error: 'category cannot be empty' });
+  }
+
+  const result = aiService.classifyExpense({ description, amount, category });
   res.json({ data: result });
 }
 
