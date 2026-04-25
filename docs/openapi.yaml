@@ -7,7 +7,7 @@ info:
     Profile & Settings stubs live under /api (Dana Hanin).
     Dashboard & Analytics endpoints are at the server root (Mishelle — PR1).
     Remaining API groups will be added by each domain owner as per plan.md.
-  version: 0.1.0-stubs
+  version: 0.2.0
 
 servers:
   - url: http://localhost:4000/api
@@ -102,15 +102,54 @@ components:
           type: string
           maxLength: 200
           example: ''
-        pairedWith:
+        pairId:
           type: string
           nullable: true
-          description: Display name of the paired partner, or null if unpaired.
-          example: Jane
+          description: Partner user ID, or null if unpaired.
+          example: user_demo_2
         hiveId:
           type: string
           nullable: true
-          example: hive_demo_1
+          example: 64a1b2c3d4e5f6a7b8c9d0e1
+        sharedCategories:
+          type: array
+          items:
+            type: string
+          example:
+            - groceries
+            - rent
+            - utilities
+
+    UpdatePrivacySettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        hidePersonalIncome:
+          type: boolean
+          example: false
+        hidePersonalExpenses:
+          type: boolean
+          example: false
+        hidePersonalBalance:
+          type: boolean
+          example: false
+
+    UpdateNotificationSettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        budgetAlerts:
+          type: boolean
+          example: true
+        imbalanceAlerts:
+          type: boolean
+          example: true
+        newExpenseAlerts:
+          type: boolean
+          example: true
+        weeklyDigest:
+          type: boolean
+          example: false
 
     UpdateProfileRequest:
       type: object
@@ -172,8 +211,8 @@ components:
           example: AB12CD
         partnerId:
           type: string
-          description: MongoDB ObjectId of the partner (alternative to partnerCode).
-          example: 64a1b2c3d4e5f6a7b8c9d0e1
+          description: Partner user ID (e.g. user_demo_2) or MongoDB ObjectId.
+          example: user_demo_2
       description: Provide either partnerCode or partnerId — not both.
 
     AuthUser:
@@ -594,8 +633,12 @@ paths:
                 email: dana@2bee.app
                 avatarUrl: null
                 bio: ''
-                pairedWith: Jane
-                hiveId: hive_demo_1
+                pairId: user_demo_2
+                hiveId: 64a1b2c3d4e5f6a7b8c9d0e1
+                sharedCategories:
+                  - groceries
+                  - rent
+                  - utilities
         '401':
           description: Missing or invalid authorization token.
           content:
@@ -638,7 +681,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: "firstName must be at most 50 characters"
+                error:
+                  code: VALIDATION_ERROR
+                  message: String must contain at most 50 character(s)
+                  details: null
         '401':
           description: Missing or invalid authorization token.
           content:
@@ -685,7 +731,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PrivacySettings'
+              $ref: '#/components/schemas/UpdatePrivacySettingsRequest'
             example:
               hidePersonalIncome: true
       responses:
@@ -753,7 +799,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NotificationSettings'
+              $ref: '#/components/schemas/UpdateNotificationSettingsRequest'
             example:
               weeklyDigest: true
       responses:
@@ -884,7 +930,7 @@ paths:
       description: |
         Re-pairs the current user with the same or a new partner.
         Provide either partnerCode (6-char alphanumeric) or partnerId (MongoDB ObjectId).
-        Creates a new Pair document and a new Hive document.
+        Creates a new Hive and links both users via pairId/hiveId fields.
         Returns the new hiveId on success.
       operationId: reconnectPair
       tags:
@@ -912,7 +958,7 @@ paths:
                         example: Reconnected
                       hiveId:
                         type: string
-                        example: hive_new_1
+                        example: 64a1b2c3d4e5f6a7b8c9d0e1
         '400':
           description: Validation error — invalid partnerCode format.
           content:
@@ -932,4 +978,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Partner not found for the provided code
+                error:
+                  code: PARTNER_NOT_FOUND
+                  message: Partner was not found.
+                  details: null
