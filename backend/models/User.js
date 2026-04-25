@@ -1,17 +1,4 @@
-/**
- * User schema definition — Dana Hanin (Profile & Settings domain)
- *
- * This file documents the fields Dana owns within the shared User document
- * and exports the default values and constants used across the Profile &
- * Settings domain. Mongoose model wiring happens in Sprint 3 (PR 3) once
- * the MongoDB connection is established.
- *
- * Fields owned by Bar Cohen (Auth domain):
- *   _id, email, passwordHash, firstName, lastName, createdAt, pairId, hiveId
- *
- * Fields owned by Dana Hanin (Profile & Settings domain):
- *   avatarUrl, bio, privacySettings, notificationSettings, sharedCategories
- */
+const mongoose = require('mongoose')
 
 const AVAILABLE_SHARED_CATEGORIES = [
   'groceries',
@@ -41,29 +28,54 @@ const DEFAULT_NOTIFICATION_SETTINGS = {
 
 const DEFAULT_SHARED_CATEGORIES = ['groceries', 'rent', 'utilities', 'dining']
 
-/**
- * Full User document shape (for documentation and shared/types.ts alignment).
- *
- * {
- *   _id:                   string          — set by Bar (Auth)
- *   email:                 string          — set by Bar (Auth)
- *   passwordHash:          string          — set by Bar (Auth)
- *   firstName:             string          — set by Bar (Auth)
- *   lastName:              string          — set by Bar (Auth)
- *   pairId:                string | null   — set by Bar (Auth / Pairing)
- *   hiveId:                string | null   — set by Bar (Auth / Pairing)
- *   createdAt:             Date            — set by Bar (Auth)
- *   avatarUrl:             string | null   — owned by Dana
- *   bio:                   string          — owned by Dana
- *   privacySettings:       PrivacySettings — owned by Dana
- *   notificationSettings:  NotificationSettings — owned by Dana
- *   sharedCategories:      string[]        — owned by Dana
- * }
- */
+const userSchema = new mongoose.Schema(
+  {
+    // The auth layer currently uses string IDs (e.g. user_demo_1), so this
+    // collection keeps the same key type for compatibility.
+    _id: { type: String, required: true },
+    email: { type: String, required: true, trim: true, index: true },
+    emailLower: { type: String, required: true, trim: true, lowercase: true, index: true },
+    passwordHash: { type: String, required: true },
+    firstName: { type: String, required: true, trim: true, minlength: 1, maxlength: 50 },
+    lastName: { type: String, required: true, trim: true, minlength: 1, maxlength: 50 },
+    pairId: { type: String, default: null, index: true },
+    hiveId: { type: String, default: null },
+    pairCode: { type: String, default: null, index: true },
+    avatarUrl: { type: String, default: null },
+    bio: { type: String, default: '', maxlength: 200 },
+    privacySettings: {
+      hidePersonalIncome: { type: Boolean, default: DEFAULT_PRIVACY_SETTINGS.hidePersonalIncome },
+      hidePersonalExpenses: { type: Boolean, default: DEFAULT_PRIVACY_SETTINGS.hidePersonalExpenses },
+      hidePersonalBalance: { type: Boolean, default: DEFAULT_PRIVACY_SETTINGS.hidePersonalBalance },
+    },
+    notificationSettings: {
+      budgetAlerts: { type: Boolean, default: DEFAULT_NOTIFICATION_SETTINGS.budgetAlerts },
+      imbalanceAlerts: { type: Boolean, default: DEFAULT_NOTIFICATION_SETTINGS.imbalanceAlerts },
+      newExpenseAlerts: { type: Boolean, default: DEFAULT_NOTIFICATION_SETTINGS.newExpenseAlerts },
+      weeklyDigest: { type: Boolean, default: DEFAULT_NOTIFICATION_SETTINGS.weeklyDigest },
+    },
+    sharedCategories: {
+      type: [String],
+      enum: AVAILABLE_SHARED_CATEGORIES,
+      default: DEFAULT_SHARED_CATEGORIES,
+    },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+  },
+  {
+    versionKey: false,
+    collection: 'users',
+  }
+)
 
-module.exports = {
-  AVAILABLE_SHARED_CATEGORIES,
-  DEFAULT_PRIVACY_SETTINGS,
-  DEFAULT_NOTIFICATION_SETTINGS,
-  DEFAULT_SHARED_CATEGORIES,
-}
+userSchema.pre('save', function beforeSave() {
+  this.updatedAt = new Date()
+})
+
+const User = mongoose.models.User || mongoose.model('User', userSchema)
+
+module.exports = User
+module.exports.AVAILABLE_SHARED_CATEGORIES = AVAILABLE_SHARED_CATEGORIES
+module.exports.DEFAULT_PRIVACY_SETTINGS = DEFAULT_PRIVACY_SETTINGS
+module.exports.DEFAULT_NOTIFICATION_SETTINGS = DEFAULT_NOTIFICATION_SETTINGS
+module.exports.DEFAULT_SHARED_CATEGORIES = DEFAULT_SHARED_CATEGORIES

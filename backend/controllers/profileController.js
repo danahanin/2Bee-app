@@ -1,157 +1,202 @@
-/**
- * Profile & Settings controller — Dana Hanin
- *
- * PR 1: All handlers are stubs returning hardcoded mock data.
- * PR 3: Stubs will be replaced with real profileService calls and DB logic.
- *
- * Every handler receives req.user from authMiddleware (Bar's middleware),
- * which provides { userId, email, firstName, lastName, hiveId, pairId }.
- */
+const { z } = require('zod')
+const profileService = require('../services/profileService')
+const { AVAILABLE_SHARED_CATEGORIES } = require('../models/User')
+const { AppError } = require('../utils/appError')
 
-const {
-  DEFAULT_PRIVACY_SETTINGS,
-  DEFAULT_NOTIFICATION_SETTINGS,
-  DEFAULT_SHARED_CATEGORIES,
-} = require('../models/User')
+const profileUpdateSchema = z
+  .object({
+    firstName: z.string().trim().min(1).max(50).optional(),
+    lastName: z.string().trim().min(1).max(50).optional(),
+    avatarUrl: z.union([z.url(), z.null()]).optional(),
+    bio: z.string().max(200).optional(),
+  })
+  .strict()
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one profile field is required.',
+  })
 
-// ---------------------------------------------------------------------------
-// Profile
-// ---------------------------------------------------------------------------
+const privacySettingsSchema = z
+  .object({
+    hidePersonalIncome: z.boolean().optional(),
+    hidePersonalExpenses: z.boolean().optional(),
+    hidePersonalBalance: z.boolean().optional(),
+  })
+  .strict()
 
-/**
- * GET /profile
- * Returns the current user's profile.
- * TODO (PR 3): Replace with profileService.getProfile(req.user.userId)
- */
-function getProfile(req, res) {
-  res.json({
-    id: req.user.userId,
+const notificationSettingsSchema = z
+  .object({
+    budgetAlerts: z.boolean().optional(),
+    imbalanceAlerts: z.boolean().optional(),
+    newExpenseAlerts: z.boolean().optional(),
+    weeklyDigest: z.boolean().optional(),
+  })
+  .strict()
+
+const sharedCategoriesSchema = z
+  .object({
+    categories: z.array(z.enum(AVAILABLE_SHARED_CATEGORIES)).min(0).max(20),
+  })
+  .strict()
+
+const reconnectSchema = z
+  .object({
+    partnerCode: z.string().regex(/^[A-Za-z0-9]{6}$/).optional(),
+    partnerId: z
+      .string()
+      .regex(/^(?:[a-fA-F0-9]{24}|user_[A-Za-z0-9\-_]+)$/)
+      .optional(),
+  })
+  .strict()
+  .refine((data) => Boolean(data.partnerId) !== Boolean(data.partnerCode), {
+    message: 'Provide either partnerId or partnerCode.',
+  })
+
+function userFallback(req) {
+  return {
+    email: req.user.email,
     firstName: req.user.firstName,
     lastName: req.user.lastName,
-    email: req.user.email,
-    avatarUrl: null,
-    bio: '',
-    pairedWith: 'Jane',
+    pairId: req.user.pairId,
     hiveId: req.user.hiveId,
-  })
+  }
 }
 
-/**
- * PUT /profile
- * Updates the current user's profile fields.
- * TODO (PR 3): Replace with profileService.updateProfile(req.user.userId, req.body)
- */
-function updateProfile(req, res) {
-  const { firstName, lastName, avatarUrl, bio } = req.body || {}
-  res.json({
-    success: true,
-    user: {
-      id: req.user.userId,
-      firstName: firstName ?? req.user.firstName,
-      lastName: lastName ?? req.user.lastName,
-      email: req.user.email,
-      avatarUrl: avatarUrl ?? null,
-      bio: bio ?? '',
-    },
-  })
+function validationErrorFromZod(err) {
+  return err.issues?.map((issue) => issue.message).join('; ') || 'Invalid request payload.'
 }
 
-// ---------------------------------------------------------------------------
-// Privacy settings
-// ---------------------------------------------------------------------------
-
-/**
- * GET /settings/privacy
- * Returns the current user's privacy settings.
- * TODO (PR 3): Replace with profileService.getPrivacySettings(req.user.userId)
- */
-function getPrivacySettings(_req, res) {
-  res.json({ ...DEFAULT_PRIVACY_SETTINGS })
+async function getProfile(req, res, next) {
+  try {
+    const profile = await profileService.getProfile(req.user.userId, userFallback(req))
+    return res.json(profile)
+  } catch (error) {
+    return next(error)
+  }
 }
 
-/**
- * PUT /settings/privacy
- * Updates one or more privacy setting flags.
- * TODO (PR 3): Replace with profileService.updatePrivacySettings(req.user.userId, req.body)
- */
-function updatePrivacySettings(req, res) {
-  const incoming = req.body || {}
-  res.json({
-    success: true,
-    privacySettings: { ...DEFAULT_PRIVACY_SETTINGS, ...incoming },
-  })
+async function updateProfile(req, res, next) {
+  const parsed = profileUpdateSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: { code: 'VALIDATION_ERROR', message: validationErrorFromZod(parsed.error) } })
+  }
+
+  try {
+    const user = await profileService.updateProfile(req.user.userId, parsed.data, userFallback(req))
+    return res.json({ success: true, user })
+  } catch (error) {
+    return next(error)
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Notification settings
-// ---------------------------------------------------------------------------
-
-/**
- * GET /settings/notifications
- * Returns the current user's notification preferences.
- * TODO (PR 3): Replace with profileService.getNotificationSettings(req.user.userId)
- */
-function getNotificationSettings(_req, res) {
-  res.json({ ...DEFAULT_NOTIFICATION_SETTINGS })
+async function getPrivacySettings(req, res, next) {
+  try {
+    const privacySettings = await profileService.getPrivacySettings(req.user.userId, userFallback(req))
+    return res.json(privacySettings)
+  } catch (error) {
+    return next(error)
+  }
 }
 
-/**
- * PUT /settings/notifications
- * Updates one or more notification preference flags.
- * TODO (PR 3): Replace with profileService.updateNotificationSettings(req.user.userId, req.body)
- */
-function updateNotificationSettings(req, res) {
-  const incoming = req.body || {}
-  res.json({
-    success: true,
-    notificationSettings: { ...DEFAULT_NOTIFICATION_SETTINGS, ...incoming },
-  })
+async function updatePrivacySettings(req, res, next) {
+  const parsed = privacySettingsSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: { code: 'VALIDATION_ERROR', message: validationErrorFromZod(parsed.error) } })
+  }
+
+  try {
+    const privacySettings = await profileService.updatePrivacySettings(
+      req.user.userId,
+      parsed.data,
+      userFallback(req)
+    )
+    return res.json({ success: true, privacySettings })
+  } catch (error) {
+    return next(error)
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Shared categories
-// ---------------------------------------------------------------------------
-
-/**
- * PUT /settings/shared-categories
- * Replaces the user's shared expense category list.
- * TODO (PR 3): Replace with profileService.updateSharedCategories(req.user.userId, req.body.categories)
- */
-function updateSharedCategories(req, res) {
-  const { categories } = req.body || {}
-  res.json({
-    success: true,
-    sharedCategories: Array.isArray(categories) ? categories : DEFAULT_SHARED_CATEGORIES,
-  })
+async function getNotificationSettings(req, res, next) {
+  try {
+    const notificationSettings = await profileService.getNotificationSettings(
+      req.user.userId,
+      userFallback(req)
+    )
+    return res.json(notificationSettings)
+  } catch (error) {
+    return next(error)
+  }
 }
 
-// ---------------------------------------------------------------------------
-// Pairing management
-// ---------------------------------------------------------------------------
+async function updateNotificationSettings(req, res, next) {
+  const parsed = notificationSettingsSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: { code: 'VALIDATION_ERROR', message: validationErrorFromZod(parsed.error) } })
+  }
 
-/**
- * DELETE /pair
- * Disconnects the current user from their partner and archives the Hive.
- * TODO (PR 3): Replace with profileService.disconnectPair(req.user.userId)
- */
-function disconnectPair(_req, res) {
-  res.json({
-    success: true,
-    message: 'Pair disconnected',
-  })
+  try {
+    const notificationSettings = await profileService.updateNotificationSettings(
+      req.user.userId,
+      parsed.data,
+      userFallback(req)
+    )
+    return res.json({ success: true, notificationSettings })
+  } catch (error) {
+    return next(error)
+  }
 }
 
-/**
- * POST /pair/reconnect
- * Re-pairs the current user with the same or a new partner.
- * TODO (PR 3): Replace with profileService.reconnectPair(req.user.userId, req.body)
- */
-function reconnectPair(_req, res) {
-  res.json({
-    success: true,
-    message: 'Reconnected',
-    hiveId: 'hive_demo_1',
-  })
+async function updateSharedCategories(req, res, next) {
+  const parsed = sharedCategoriesSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: { code: 'VALIDATION_ERROR', message: validationErrorFromZod(parsed.error) } })
+  }
+
+  try {
+    const sharedCategories = await profileService.updateSharedCategories(
+      req.user.userId,
+      parsed.data.categories,
+      userFallback(req)
+    )
+    return res.json({ success: true, sharedCategories })
+  } catch (error) {
+    return next(error)
+  }
+}
+
+async function disconnectPair(req, res, next) {
+  try {
+    const result = await profileService.disconnectPair(req.user.userId, userFallback(req))
+    return res.json(result)
+  } catch (error) {
+    return next(error)
+  }
+}
+
+async function reconnectPair(req, res, next) {
+  const parsed = reconnectSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: { code: 'VALIDATION_ERROR', message: validationErrorFromZod(parsed.error) } })
+  }
+
+  try {
+    const result = await profileService.reconnectPair(req.user.userId, parsed.data, userFallback(req))
+    return res.json(result)
+  } catch (error) {
+    if (error instanceof AppError) {
+      return next(error)
+    }
+    return next(error)
+  }
 }
 
 module.exports = {
