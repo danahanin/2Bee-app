@@ -2,9 +2,9 @@ const {
   INSIGHT_TYPES,
   RECOMMENDATION_TYPES,
   GOAL_TYPES,
-  CLASSIFICATION_LABELS,
   FORECAST_PERIODS,
 } = require('../constants/ai.constants');
+const { classifyExpenseRuleBased } = require('../ai/classifier');
 
 function getInsights() {
   return [
@@ -96,24 +96,14 @@ function getRecommendations() {
   ];
 }
 
-function classifyExpense({ description, amount }) {
-  const sharedKeywords = ['rent', 'utilities', 'groceries', 'internet', 'electricity'];
-  const lowerDesc = description.toLowerCase();
-  const isShared = sharedKeywords.some((keyword) => lowerDesc.includes(keyword));
-
-  return {
-    label: isShared ? CLASSIFICATION_LABELS.SHARED : CLASSIFICATION_LABELS.INDIVIDUAL,
-    confidence: isShared ? 0.89 : 0.76,
-    category: detectCategory(lowerDesc, amount),
-  };
-}
-
-function detectCategory(description, _amount) {
-  if (description.includes('grocery') || description.includes('food')) return 'groceries';
-  if (description.includes('rent')) return 'housing';
-  if (description.includes('electric') || description.includes('water') || description.includes('gas')) return 'utilities';
-  if (description.includes('internet') || description.includes('phone')) return 'telecom';
-  return 'other';
+function classifyExpense({ description, amount, category, sharedCategories, keywordMap }) {
+  return classifyExpenseRuleBased({
+    description,
+    amount,
+    category,
+    sharedCategories,
+    keywordMap,
+  });
 }
 
 function getImbalance() {
