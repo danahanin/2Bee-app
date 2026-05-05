@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
+import SignupPage from './pages/SignupPage.jsx'
 import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
@@ -15,6 +16,14 @@ function App() {
         element={
           <PublicRoute>
             <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <PublicRoute>
+            <SignupPage />
           </PublicRoute>
         }
       />
