@@ -41,6 +41,8 @@ const userSchema = new mongoose.Schema(
     pairId: { type: String, default: null, index: true },
     hiveId: { type: String, default: null },
     pairCode: { type: String, default: null, index: true },
+    pairCodeExpiresAt: { type: Date, default: null, index: true },
+    pairCodeUsedAt: { type: Date, default: null },
     avatarUrl: { type: String, default: null },
     bio: { type: String, default: '', maxlength: 200 },
     privacySettings: {
