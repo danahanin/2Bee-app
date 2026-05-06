@@ -25,14 +25,14 @@ export async function fetchRecommendations() {
   return res.json();
 }
 
-export async function classifyExpense({ description, amount }) {
+export async function classifyExpense({ description, amount, category }) {
   const res = await fetch('/ai/classify-expense', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeaders(),
     },
-    body: JSON.stringify({ description, amount }),
+    body: JSON.stringify({ description, amount, category }),
   });
   if (!res.ok) throw new Error('Failed to classify expense');
   return res.json();

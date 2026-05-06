@@ -2,7 +2,8 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function MainPage() {
-  const { user, logout } = useAuth()
+  const { currentUser, logout } = useAuth()
+  const displayName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}`.trim() : 'User'
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -12,18 +13,26 @@ function MainPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
             <h1 className="text-xl font-semibold text-slate-900 md:text-2xl">Main Screen</h1>
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            Log out
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/app/profile"
+              className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            >
+              Profile
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            >
+              Log out
+            </button>
+          </div>
         </header>
 
         <section className="grid gap-4 md:grid-cols-3">
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
-            <h2 className="text-lg font-semibold text-slate-900">Welcome, {user?.user?.name || 'User'}!</h2>
+            <h2 className="text-lg font-semibold text-slate-900">Welcome, {displayName || 'User'}!</h2>
             <p className="mt-2 text-sm text-slate-600">
               Your navigation hub for Hive and dashboard modules. Open personal or shared summaries using the cards
               below.
@@ -32,7 +41,7 @@ function MainPage() {
 
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Account</h3>
-            <p className="mt-2 text-sm text-slate-700">{user?.user?.email}</p>
+            <p className="mt-2 text-sm text-slate-700">{currentUser?.email}</p>
           </article>
 
           <Link

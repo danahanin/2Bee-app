@@ -4,6 +4,8 @@ import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
 import PersonalDashboard from './pages/PersonalDashboard.jsx'
 import SharedDashboard from './pages/SharedDashboard.jsx'
+import ProfilePage from './pages/ProfilePage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
 
@@ -35,10 +37,19 @@ function App() {
         }
       />
       <Route
-        path="/app/dashboard/personal"
+       path="/app/dashboard/personal"
         element={
           <ProtectedRoute>
             <PersonalDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/app/profile"
+        element={
+          <ProtectedRoute>
+            <ProfilePage />
           </ProtectedRoute>
         }
       />
@@ -47,6 +58,15 @@ function App() {
         element={
           <ProtectedRoute>
             <SharedDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/app/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />
