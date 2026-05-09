@@ -214,6 +214,31 @@ export function AuthProvider({ children }) {
     [setAndPersistSession],
   )
 
+  const register = useCallback(
+    async ({ firstName, lastName, email, password }) => {
+      setIsLoading(true)
+      try {
+        const response = await fetch(apiUrl('/auth/register'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ firstName, lastName, email, password }),
+        })
+
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error?.message || 'Unable to register')
+        }
+
+        return { ok: true, user: data.user }
+      } catch (error) {
+        return { ok: false, message: error.message }
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [],
+  )
+
   const logout = useCallback(async () => {
     try {
       if (session?.token || session?.refreshToken) {
@@ -240,10 +265,11 @@ export function AuthProvider({ children }) {
       isLoading,
       isBootstrapping,
       login,
+      register,
       logout,
       refreshSession,
     }),
-    [session, isBootstrapping, isLoading, login, logout, refreshSession],
+    [session, isBootstrapping, isLoading, login, register, logout, refreshSession],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -1,39 +1,64 @@
 import { useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
-function LoginPage() {
-  const location = useLocation()
+function SignupPage() {
   const navigate = useNavigate()
-  const { login, isLoading } = useAuth()
-  const [email, setEmail] = useState(location.state?.registeredEmail || 'demo@2bee.app')
-  const [password, setPassword] = useState('123456')
+  const { register, isLoading } = useAuth()
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const [successMessage] = useState(
-    location.state?.registrationSuccess ? 'Account created. You can sign in now.' : ''
-  )
 
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
 
-    const result = await login(email, password)
+    const result = await register({ firstName, lastName, email, password })
     if (!result.ok) {
-      setError(result.message || 'Login failed')
+      setError(result.message || 'Sign up failed')
       return
     }
 
-    navigate('/app', { replace: true })
+    navigate('/login', {
+      replace: true,
+      state: { registrationSuccess: true, registeredEmail: email },
+    })
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-lg shadow-slate-200/60">
         <p className="text-sm font-medium uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
-        <h1 className="mt-3 text-3xl font-semibold text-slate-900">Welcome</h1>
-        <p className="mt-2 text-sm text-slate-600">Sign in to continue to your shared finance hub.</p>
+        <h1 className="mt-3 text-3xl font-semibold text-slate-900">Create account</h1>
+        <p className="mt-2 text-sm text-slate-600">Sign up to start managing shared finances.</p>
 
         <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">First name</span>
+            <input
+              type="text"
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              placeholder="Dana"
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">Last name</span>
+            <input
+              type="text"
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              placeholder="Hanin"
+              required
+            />
+          </label>
+
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Email</span>
             <input
@@ -53,33 +78,31 @@ function LoginPage() {
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              placeholder="Enter your password"
+              placeholder="At least 8 characters"
               required
             />
           </label>
 
           {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
-          {successMessage ? <p className="text-sm font-medium text-emerald-600">{successMessage}</p> : null}
 
           <button
             type="submit"
             disabled={isLoading}
             className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isLoading ? 'Signing in...' : 'Sign in'}
+            {isLoading ? 'Creating account...' : 'Sign up'}
           </button>
         </form>
 
         <p className="mt-4 text-sm text-slate-600">
-          New here?{' '}
-          <Link to="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
-            Create account
+          Already have an account?{' '}
+          <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-500">
+            Sign in
           </Link>
         </p>
-        <p className="mt-2 text-xs text-slate-500">Demo credentials are prefilled for this initial slice.</p>
       </section>
     </main>
   )
 }
 
-export default LoginPage
+export default SignupPage
