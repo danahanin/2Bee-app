@@ -7,14 +7,30 @@ function getAuthHeaders() {
   return {};
 }
 
+function forecastUrl({ scope, hiveId } = {}) {
+  const params = new URLSearchParams();
+  if (scope != null && scope !== '') params.set('scope', scope);
+  if (hiveId != null && hiveId !== '') params.set('hiveId', hiveId);
+  const q = params.toString();
+  return q ? `/ai/forecast?${q}` : '/ai/forecast';
+}
+
+function imbalanceUrl({ hiveId } = {}) {
+  const params = new URLSearchParams();
+  if (hiveId != null && hiveId !== '') params.set('hiveId', hiveId);
+  const q = params.toString();
+  return q ? `/ai/imbalance?${q}` : '/ai/imbalance';
+}
+
 export async function fetchInsights() {
   const res = await fetch('/ai/insights', { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch insights');
   return res.json();
 }
 
-export async function fetchForecast() {
-  const res = await fetch('/ai/forecast', { headers: getAuthHeaders() });
+export async function fetchForecast(options) {
+  const path = forecastUrl(options ?? {});
+  const res = await fetch(path, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch forecast');
   return res.json();
 }
@@ -38,8 +54,9 @@ export async function classifyExpense({ description, amount, category }) {
   return res.json();
 }
 
-export async function fetchImbalance() {
-  const res = await fetch('/ai/imbalance', { headers: getAuthHeaders() });
+export async function fetchImbalance(options) {
+  const path = imbalanceUrl(options ?? {});
+  const res = await fetch(path, { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch imbalance');
   return res.json();
 }
