@@ -9,9 +9,7 @@ function LoginPage() {
   const [email, setEmail] = useState(location.state?.registeredEmail || 'demo@2bee.app')
   const [password, setPassword] = useState('123456')
   const [error, setError] = useState('')
-  const [successMessage] = useState(
-    location.state?.registrationSuccess ? 'Account created. You can sign in now.' : ''
-  )
+  const registrationSuccess = Boolean(location.state?.registrationSuccess)
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -23,7 +21,7 @@ function LoginPage() {
       return
     }
 
-    navigate('/app', { replace: true })
+    navigate(result.paired ? '/app' : '/app/pairing', { replace: true })
   }
 
   return (
@@ -59,7 +57,9 @@ function LoginPage() {
           </label>
 
           {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
-          {successMessage ? <p className="text-sm font-medium text-emerald-600">{successMessage}</p> : null}
+          {registrationSuccess ? (
+            <p className="text-sm font-medium text-emerald-600">Account created successfully. You can sign in now.</p>
+          ) : null}
 
           <button
             type="submit"
