@@ -5,6 +5,7 @@ const mongoose = require('mongoose')
 const aiRoutes = require('./src/routes/ai.routes')
 const authRoutes = require('./routes/auth')
 const profileRouter = require('./routes/profile')
+const pairRouter = require('./routes/pair')
 const hiveRoutes = require('./routes/hive')
 const expensesRoutes = require('./routes/expenses')
 const dashboardRoutes = require('./routes/dashboard')
@@ -26,6 +27,7 @@ function createApp() {
   app.use('/expenses', expensesRoutes)
   app.use('/dashboard', dashboardRoutes)
   app.use('/api', profileRouter)
+  app.use('/api', pairRouter)
 
   app.use((err, _req, res, _next) => {
     if (err instanceof AppError) {
