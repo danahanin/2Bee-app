@@ -1,3 +1,5 @@
+import { apiUrl } from '../lib/api.js'
+
 function getAuthHeaders() {
   const stored = localStorage.getItem('twobee_auth')
   if (stored) {
@@ -8,7 +10,7 @@ function getAuthHeaders() {
 }
 
 async function fetchDashboard(path) {
-  const res = await fetch(path, { headers: getAuthHeaders() })
+  const res = await fetch(apiUrl(path), { headers: getAuthHeaders() })
   if (!res.ok) {
     throw new Error(`Failed to fetch dashboard data (${res.status})`)
   }
