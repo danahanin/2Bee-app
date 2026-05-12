@@ -8,6 +8,7 @@ const profileRouter = require('./routes/profile')
 const hiveRoutes = require('./routes/hive')
 const expensesRoutes = require('./routes/expenses')
 const dashboardRoutes = require('./routes/dashboard')
+const { startTransferSyncLoop } = require('./services/transferSyncService')
 
 const app = express()
 const port = process.env.PORT || 4000
@@ -47,6 +48,9 @@ function startServer({ mongoReady }) {
       console.warn('MongoDB not connected — running in offline mode. Some features may be unavailable.')
     }
     console.log(`2Bee backend running on http://localhost:${port}`)
+    if (mongoReady) {
+      startTransferSyncLoop()
+    }
   })
 }
 

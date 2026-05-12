@@ -3,6 +3,8 @@ const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
 const Budget = require('../models/Budget')
 const Goal = require('../models/Goal')
+const Transfer = require('../models/Transfer')
+const HiveNotification = require('../models/HiveNotification')
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/twobee'
 
@@ -35,6 +37,8 @@ async function seed() {
   await Expense.deleteMany({})
   await Budget.deleteMany({})
   await Goal.deleteMany({})
+  await Transfer.deleteMany({})
+  await HiveNotification.deleteMany({})
   console.log('Cleared existing data')
 
   const hive = await Hive.create({ userIds: [DEMO_USER_A, DEMO_USER_B] })

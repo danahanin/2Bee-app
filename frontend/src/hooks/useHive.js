@@ -10,6 +10,11 @@ function authHeaders(token) {
   }
 }
 
+async function parseApiError(res, fallbackMessage) {
+  const body = await res.json().catch(() => null)
+  return body?.error?.message || fallbackMessage
+}
+
 export function useHive(hiveId) {
   const { token } = useAuth()
   const [hive, setHive] = useState(null)
@@ -92,8 +97,7 @@ export function useCreateExpense(hiveId) {
           body: JSON.stringify(data),
         })
         if (!res.ok) {
-          const body = await res.json()
-          throw new Error(body.error?.message || 'Failed to create expense')
+          throw new Error(await parseApiError(res, 'Failed to create expense'))
         }
         return { ok: true, expense: await res.json() }
       } catch (err) {
@@ -123,8 +127,7 @@ export function useUpdateExpense(hiveId) {
           body: JSON.stringify(data),
         })
         if (!res.ok) {
-          const body = await res.json()
-          throw new Error(body.error?.message || 'Failed to update expense')
+          throw new Error(await parseApiError(res, 'Failed to update expense'))
         }
         return { ok: true, expense: await res.json() }
       } catch (err) {
@@ -153,8 +156,7 @@ export function useDeleteExpense(hiveId) {
           headers: authHeaders(token),
         })
         if (!res.ok) {
-          const body = await res.json()
-          throw new Error(body.error?.message || 'Failed to delete expense')
+          throw new Error(await parseApiError(res, 'Failed to delete expense'))
         }
         return { ok: true }
       } catch (err) {
@@ -167,4 +169,120 @@ export function useDeleteExpense(hiveId) {
   )
 
   return { remove, isDeleting }
+}
+
+export function useHiveBalance(hiveId) {
+  const { token } = useAuth()
+  const [balance, setBalance] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const fetchBalance = useCallback(async () => {
+    if (!token || !hiveId) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_PREFIX}/hive/${hiveId}/balance`, { headers: authHeaders(token) })
+      if (!res.ok) throw new Error(await parseApiError(res, 'Failed to load hive balance'))
+      setBalance(await res.json())
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [hiveId, token])
+
+  useEffect(() => {
+    fetchBalance()
+  }, [fetchBalance])
+
+  return { balance, isLoading, error, refetch: fetchBalance }
+}
+
+export function useHiveTransfers(hiveId) {
+  const { token } = useAuth()
+  const [transfers, setTransfers] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const fetchTransfers = useCallback(async () => {
+    if (!token || !hiveId) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_PREFIX}/hive/${hiveId}/transfers`, { headers: authHeaders(token) })
+      if (!res.ok) throw new Error(await parseApiError(res, 'Failed to load transfer history'))
+      const data = await res.json()
+      setTransfers(data.items || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [hiveId, token])
+
+  useEffect(() => {
+    fetchTransfers()
+  }, [fetchTransfers])
+
+  return { transfers, isLoading, error, refetch: fetchTransfers }
+}
+
+export function useHiveNotifications(hiveId) {
+  const { token } = useAuth()
+  const [notifications, setNotifications] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const fetchNotifications = useCallback(async () => {
+    if (!token || !hiveId) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_PREFIX}/hive/${hiveId}/notifications`, { headers: authHeaders(token) })
+      if (!res.ok) throw new Error(await parseApiError(res, 'Failed to load hive notifications'))
+      const data = await res.json()
+      setNotifications(data.items || [])
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [hiveId, token])
+
+  useEffect(() => {
+    fetchNotifications()
+  }, [fetchNotifications])
+
+  return { notifications, isLoading, error, refetch: fetchNotifications }
+}
+
+export function useCreateTransfer(hiveId) {
+  const { token } = useAuth()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const createTransfer = useCallback(
+    async (data) => {
+      if (!token || !hiveId) return { ok: false, message: 'Not ready' }
+      setIsSubmitting(true)
+      try {
+        const res = await fetch(`${API_PREFIX}/hive/${hiveId}/transfers`, {
+          method: 'POST',
+          headers: authHeaders(token),
+          body: JSON.stringify(data),
+        })
+        if (!res.ok) {
+          throw new Error(await parseApiError(res, 'Failed to start transfer'))
+        }
+        return { ok: true, ...(await res.json()) }
+      } catch (err) {
+        return { ok: false, message: err.message }
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [hiveId, token],
+  )
+
+  return { createTransfer, isSubmitting }
 }
