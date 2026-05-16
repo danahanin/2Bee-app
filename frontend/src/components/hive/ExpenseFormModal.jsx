@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 const CATEGORIES = [
   'groceries',
@@ -23,20 +23,11 @@ function toDateInputValue(date) {
 function ExpenseFormModal({ expense, onSubmit, onClose, isSubmitting }) {
   const isEditing = Boolean(expense)
 
-  const [amount, setAmount] = useState('')
-  const [category, setCategory] = useState(CATEGORIES[0])
-  const [description, setDescription] = useState('')
-  const [date, setDate] = useState(toDateInputValue())
+  const [amount, setAmount] = useState(() => (expense ? String(expense.amount) : ''))
+  const [category, setCategory] = useState(() => expense?.category || CATEGORIES[0])
+  const [description, setDescription] = useState(() => expense?.description || '')
+  const [date, setDate] = useState(() => toDateInputValue(expense?.date))
   const [errors, setErrors] = useState([])
-
-  useEffect(() => {
-    if (expense) {
-      setAmount(String(expense.amount))
-      setCategory(expense.category)
-      setDescription(expense.description)
-      setDate(toDateInputValue(expense.date))
-    }
-  }, [expense])
 
   function validate() {
     const errs = []

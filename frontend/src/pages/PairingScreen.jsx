@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -20,12 +20,8 @@ function PairingScreen() {
   const isPaired = Boolean(pairingStatus?.paired)
   const canGoApp = isPaired && Boolean(pairingStatus?.hiveId)
 
-  const expiryText = useMemo(() => {
-    if (!pairingStatus?.codeExpiresAt) return null
-    const date = new Date(pairingStatus.codeExpiresAt)
-    if (Number.isNaN(date.getTime())) return null
-    return date.toLocaleTimeString()
-  }, [pairingStatus?.codeExpiresAt])
+  const expiryDate = pairingStatus?.codeExpiresAt ? new Date(pairingStatus.codeExpiresAt) : null
+  const expiryText = expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate.toLocaleTimeString() : null
 
   if (canGoApp) {
     return <Navigate to="/app" replace />

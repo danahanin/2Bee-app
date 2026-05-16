@@ -2,6 +2,14 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
+function readStoredSessionMessage() {
+  const message = window.localStorage.getItem('twobee_session_message') || ''
+  if (message) {
+    window.localStorage.removeItem('twobee_session_message')
+  }
+  return message
+}
+
 function LoginPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -9,7 +17,11 @@ function LoginPage() {
   const [email, setEmail] = useState(location.state?.registeredEmail || 'demo@2bee.app')
   const [password, setPassword] = useState('123456')
   const [error, setError] = useState('')
-  const registrationSuccess = Boolean(location.state?.registrationSuccess)
+  const [successMessage] = useState(
+    location.state?.registrationSuccess
+      ? 'Account created successfully. You can sign in now.'
+      : location.state?.sessionMessage || readStoredSessionMessage(),
+  )
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -21,7 +33,7 @@ function LoginPage() {
       return
     }
 
-    navigate(result.paired ? '/app' : '/app/pairing', { replace: true })
+    navigate(result.paired ? '/app' : '/onboarding', { replace: true })
   }
 
   return (
@@ -57,9 +69,7 @@ function LoginPage() {
           </label>
 
           {error ? <p className="text-sm font-medium text-rose-600">{error}</p> : null}
-          {registrationSuccess ? (
-            <p className="text-sm font-medium text-emerald-600">Account created successfully. You can sign in now.</p>
-          ) : null}
+          {successMessage ? <p className="text-sm font-medium text-emerald-600">{successMessage}</p> : null}
 
           <button
             type="submit"
