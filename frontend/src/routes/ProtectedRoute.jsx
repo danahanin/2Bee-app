@@ -1,16 +1,17 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import SessionGate from '../components/SessionGate.jsx'
 
 function ProtectedRoute({ children }) {
   const location = useLocation()
   const { isAuthenticated, isBootstrapping } = useAuth()
 
   if (isBootstrapping) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Checking session...</div>
+    return <SessionGate isBootstrapping={isBootstrapping} />
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />
+    return <Navigate to="/login" replace state={{ from: location, sessionMessage: 'Please sign in to continue.' }} />
   }
 
   return children

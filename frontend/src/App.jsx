@@ -3,12 +3,14 @@ import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
 import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
+import OnboardingWizard from './pages/OnboardingWizard.jsx'
 import PersonalDashboard from './pages/PersonalDashboard.jsx'
 import SharedDashboard from './pages/SharedDashboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
+import OnboardingGate from './routes/OnboardingGate.jsx'
 
 function App() {
   return (
@@ -30,10 +32,22 @@ function App() {
         }
       />
       <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <OnboardingGate allowIncomplete>
+              <OnboardingWizard />
+            </OnboardingGate>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/app"
         element={
           <ProtectedRoute>
-            <MainPage />
+            <OnboardingGate>
+              <MainPage />
+            </OnboardingGate>
           </ProtectedRoute>
         }
       />
@@ -41,7 +55,9 @@ function App() {
         path="/app/hive"
         element={
           <ProtectedRoute>
-            <HiveScreen />
+            <OnboardingGate>
+              <HiveScreen />
+            </OnboardingGate>
           </ProtectedRoute>
         }
       />
@@ -49,7 +65,9 @@ function App() {
        path="/app/dashboard/personal"
         element={
           <ProtectedRoute>
-            <PersonalDashboard />
+            <OnboardingGate>
+              <PersonalDashboard />
+            </OnboardingGate>
           </ProtectedRoute>
         }
       />
@@ -58,7 +76,9 @@ function App() {
         path="/app/profile"
         element={
           <ProtectedRoute>
-            <ProfilePage />
+            <OnboardingGate>
+              <ProfilePage />
+            </OnboardingGate>
           </ProtectedRoute>
         }
       />
@@ -66,7 +86,9 @@ function App() {
         path="/app/dashboard/shared"
         element={
           <ProtectedRoute>
-            <SharedDashboard />
+            <OnboardingGate>
+              <SharedDashboard />
+            </OnboardingGate>
           </ProtectedRoute>
         }
       />
@@ -75,7 +97,9 @@ function App() {
         path="/app/settings"
         element={
           <ProtectedRoute>
-            <SettingsPage />
+            <OnboardingGate>
+              <SettingsPage />
+            </OnboardingGate>
           </ProtectedRoute>
         }
       />

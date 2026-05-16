@@ -67,9 +67,15 @@ async function generateUniquePairCode() {
   throw new AppError(503, 'PAIR_CODE_UNAVAILABLE', 'Unable to generate pair code. Try again.')
 }
 
+async function findActiveHiveId(userId) {
+  const hive = await Hive.findOne({ userIds: userId, isActive: true }).lean()
+  return hive?._id?.toString() || null
+}
+
 async function generatePairCode(userId, fallbackUser) {
   const user = await ensureUserRecord(userId, fallbackUser)
-  if (user.pairId) {
+  const activeHiveId = user.hiveId || (await findActiveHiveId(userId))
+  if (user.pairId || activeHiveId) {
     throw new AppError(409, 'ALREADY_PAIRED', 'User is already paired.')
   }
 
@@ -84,6 +90,7 @@ async function generatePairCode(userId, fallbackUser) {
   return {
     code,
     expiresAt: expiresAt.toISOString(),
+    paired: false,
   }
 }
 
@@ -104,7 +111,7 @@ async function joinPairCode(userId, code, fallbackUser) {
   if (!partner) {
     throw new AppError(404, 'PAIR_CODE_NOT_FOUND', 'Pair code is invalid or expired.')
   }
-  if (partner._id === user._id) {
+  if (partner._id.toString() === user._id.toString()) {
     throw new AppError(400, 'INVALID_PARTNER', 'Cannot join your own pair code.')
   }
   if (partner.pairId) {
@@ -131,6 +138,7 @@ async function joinPairCode(userId, code, fallbackUser) {
 
   return {
     success: true,
+    paired: true,
     partnerId: partner._id,
     hiveId,
   }
@@ -140,13 +148,17 @@ async function getPairStatus(userId, fallbackUser) {
   const user = await ensureUserRecord(userId, fallbackUser)
   const now = new Date()
   const codeActive = Boolean(user.pairCode && user.pairCodeExpiresAt && user.pairCodeExpiresAt > now)
+  const hiveId = user.hiveId || (await findActiveHiveId(userId))
+  const paired = Boolean(hiveId)
 
   return {
-    paired: Boolean(user.pairId && user.hiveId),
+    paired,
     pairId: user.pairId || null,
-    hiveId: user.hiveId || null,
+    hiveId,
     code: codeActive ? user.pairCode : null,
     codeExpiresAt: codeActive ? user.pairCodeExpiresAt.toISOString() : null,
+    onboardingComplete: paired,
+    nextStep: paired ? 'app' : 'pair',
   }
 }
 

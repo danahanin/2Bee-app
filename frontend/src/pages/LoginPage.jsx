@@ -1,6 +1,15 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { fetchPairStatus } from '../services/pairService.js'
+
+function readStoredSessionMessage() {
+  const message = window.localStorage.getItem('twobee_session_message') || ''
+  if (message) {
+    window.localStorage.removeItem('twobee_session_message')
+  }
+  return message
+}
 
 function LoginPage() {
   const location = useLocation()
@@ -10,7 +19,9 @@ function LoginPage() {
   const [password, setPassword] = useState('123456')
   const [error, setError] = useState('')
   const [successMessage] = useState(
-    location.state?.registrationSuccess ? 'Account created. You can sign in now.' : ''
+    location.state?.registrationSuccess
+      ? 'Account created. You can sign in now.'
+      : location.state?.sessionMessage || readStoredSessionMessage()
   )
 
   const handleSubmit = async (event) => {
@@ -23,7 +34,16 @@ function LoginPage() {
       return
     }
 
-    navigate('/app', { replace: true })
+    try {
+      const stored = JSON.parse(window.localStorage.getItem('twobee_auth') || '{}')
+      const pairStatus = await fetchPairStatus(stored.accessToken || stored.token)
+      if (pairStatus.hiveId) {
+        window.localStorage.setItem('twobee_hive_id', pairStatus.hiveId)
+      }
+      navigate(pairStatus.paired ? '/app' : '/onboarding', { replace: true })
+    } catch {
+      navigate('/onboarding', { replace: true })
+    }
   }
 
   return (

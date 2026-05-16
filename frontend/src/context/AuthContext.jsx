@@ -4,6 +4,7 @@ import { apiUrl } from '../lib/api.js'
 
 const AuthContext = createContext(null)
 const storageKey = 'twobee_auth'
+const sessionMessageKey = 'twobee_session_message'
 const REFRESH_MARGIN_MS = 60 * 1000
 
 function isBrowser() {
@@ -28,11 +29,13 @@ function parseStoredSession() {
 
     if (refreshToken && refreshExpiresAt && new Date(refreshExpiresAt).getTime() <= Date.now()) {
       window.localStorage.removeItem(storageKey)
+      window.localStorage.setItem(sessionMessageKey, 'Your session expired. Please sign in again.')
       return null
     }
 
     if (!refreshToken && expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
       window.localStorage.removeItem(storageKey)
+      window.localStorage.setItem(sessionMessageKey, 'Your session expired. Please sign in again.')
       return null
     }
 
@@ -125,6 +128,9 @@ export function AuthProvider({ children }) {
           return { ok: true, session: next }
         } catch (error) {
           console.warn('Session refresh failed', error)
+          if (isBrowser()) {
+            window.localStorage.setItem(sessionMessageKey, 'Your session expired. Please sign in again.')
+          }
           setAndPersistSession(null)
           return { ok: false, message: error.message }
         } finally {
