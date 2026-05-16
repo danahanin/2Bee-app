@@ -4,14 +4,15 @@ import SessionGate from '../components/SessionGate.jsx'
 
 function PublicRoute({ children }) {
   const location = useLocation()
-  const { isAuthenticated, isBootstrapping } = useAuth()
+  const { isAuthenticated, isBootstrapping, pairingStatus, isPairingLoading } = useAuth()
 
-  if (isBootstrapping) {
-    return <SessionGate isBootstrapping={isBootstrapping} message="Preparing session..." />
+  if (isBootstrapping || isPairingLoading) {
+    return <SessionGate isBootstrapping message="Preparing session..." />
   }
 
   if (isAuthenticated) {
-    const redirectTarget = location.state?.from ?? '/app'
+    const isPaired = Boolean(pairingStatus?.paired)
+    const redirectTarget = location.state?.from ?? (isPaired ? '/app' : '/onboarding')
     return <Navigate to={redirectTarget} replace />
   }
 

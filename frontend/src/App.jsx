@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
+import PairingScreen from './pages/PairingScreen.jsx'
 import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
 import OnboardingWizard from './pages/OnboardingWizard.jsx'
@@ -10,7 +11,6 @@ import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
-import OnboardingGate from './routes/OnboardingGate.jsx'
 
 function App() {
   return (
@@ -32,74 +32,74 @@ function App() {
         }
       />
       <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <SignupPage />
+          </PublicRoute>
+        }
+      />
+      <Route
         path="/onboarding"
         element={
-          <ProtectedRoute>
-            <OnboardingGate allowIncomplete>
-              <OnboardingWizard />
-            </OnboardingGate>
+          <ProtectedRoute pairingMode="unpaired">
+            <OnboardingWizard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/pairing"
+        element={
+          <ProtectedRoute pairingMode="unpaired">
+            <PairingScreen />
           </ProtectedRoute>
         }
       />
       <Route
         path="/app"
         element={
-          <ProtectedRoute>
-            <OnboardingGate>
-              <MainPage />
-            </OnboardingGate>
+          <ProtectedRoute pairingMode="paired">
+            <MainPage />
           </ProtectedRoute>
         }
       />
       <Route
         path="/app/hive"
         element={
-          <ProtectedRoute>
-            <OnboardingGate>
-              <HiveScreen />
-            </OnboardingGate>
+          <ProtectedRoute pairingMode="paired">
+            <HiveScreen />
           </ProtectedRoute>
         }
       />
       <Route
-       path="/app/dashboard/personal"
+        path="/app/dashboard/personal"
         element={
-          <ProtectedRoute>
-            <OnboardingGate>
-              <PersonalDashboard />
-            </OnboardingGate>
+          <ProtectedRoute pairingMode="paired">
+            <PersonalDashboard />
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/app/profile"
         element={
-          <ProtectedRoute>
-            <OnboardingGate>
-              <ProfilePage />
-            </OnboardingGate>
+          <ProtectedRoute pairingMode="paired">
+            <ProfilePage />
           </ProtectedRoute>
         }
       />
       <Route
         path="/app/dashboard/shared"
         element={
-          <ProtectedRoute>
-            <OnboardingGate>
-              <SharedDashboard />
-            </OnboardingGate>
+          <ProtectedRoute pairingMode="paired">
+            <SharedDashboard />
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/app/settings"
         element={
-          <ProtectedRoute>
-            <OnboardingGate>
-              <SettingsPage />
-            </OnboardingGate>
+          <ProtectedRoute pairingMode="paired">
+            <SettingsPage />
           </ProtectedRoute>
         }
       />
