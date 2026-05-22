@@ -19,6 +19,8 @@ function ExpenseCard({ expense, onEdit, onDelete }) {
     day: 'numeric',
     month: 'short',
   })
+  const isShared = expense.scope === 'shared' || expense.type === 'shared'
+  const paidByLabel = expense.paidBy?.isCurrentUser ? 'you' : expense.paidBy?.name
 
   return (
     <div className="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md">
@@ -27,9 +29,17 @@ function ExpenseCard({ expense, onEdit, onDelete }) {
       </span>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-slate-900">{expense.description}</p>
-        <p className="text-xs text-slate-500">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-semibold text-slate-900">{expense.description}</p>
+          {isShared ? (
+            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+              Shared
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-0.5 text-xs text-slate-500">
           {expense.category} &middot; {formattedDate}
+          {isShared && paidByLabel ? ` · Paid by ${paidByLabel}` : ''}
         </p>
       </div>
 

@@ -3,6 +3,7 @@ const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
 const Budget = require('../models/Budget')
 const Goal = require('../models/Goal')
+const User = require('../models/User')
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/twobee'
 
@@ -39,6 +40,37 @@ async function seed() {
 
   const hive = await Hive.create({ userIds: [DEMO_USER_A, DEMO_USER_B] })
   console.log(`Created Hive: ${hive._id}`)
+
+  await User.updateOne(
+    { _id: DEMO_USER_A },
+    {
+      $set: {
+        email: 'demo@2bee.app',
+        emailLower: 'demo@2bee.app',
+        passwordHash: 'seeded-auth-store-user',
+        firstName: 'Demo',
+        lastName: 'User',
+        pairId: DEMO_USER_B,
+        hiveId: hive._id.toString(),
+      },
+    },
+    { upsert: true },
+  )
+  await User.updateOne(
+    { _id: DEMO_USER_B },
+    {
+      $set: {
+        email: 'partner@2bee.app',
+        emailLower: 'partner@2bee.app',
+        passwordHash: 'seeded-demo-partner',
+        firstName: 'Partner',
+        lastName: 'User',
+        pairId: DEMO_USER_A,
+        hiveId: hive._id.toString(),
+      },
+    },
+    { upsert: true },
+  )
 
   const now = new Date()
   const sharedDocs = sharedExpenses.map((e, i) => ({
