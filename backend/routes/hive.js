@@ -7,6 +7,7 @@ const router = Router()
 router.use(authMiddleware)
 
 router.get('/:id', hiveController.getHive)
+router.get('/:id/balance', hiveController.getHiveBalance)
 router.get('/:id/expenses', hiveController.getHiveExpenses)
 router.post('/:id/expenses', hiveController.createHiveExpense)
 router.put('/:id/expenses/:expId', hiveController.updateHiveExpense)

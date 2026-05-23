@@ -48,6 +48,11 @@ export function useExpenses(hiveId, view) {
   const fetchExpenses = useCallback(
     async (page = 1) => {
       if (!token) return
+      if (view === 'balance') {
+        setExpenses([])
+        setPagination({ total: 0, page: 1, totalPages: 1 })
+        return
+      }
       setIsLoading(true)
       setError(null)
       try {
@@ -75,6 +80,34 @@ export function useExpenses(hiveId, view) {
   }, [fetchExpenses])
 
   return { expenses, pagination, isLoading, error, refetch: fetchExpenses }
+}
+
+export function useHiveBalance(hiveId) {
+  const { token } = useAuth()
+  const [balance, setBalance] = useState(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const fetchBalance = useCallback(async () => {
+    if (!hiveId || !token) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`${API_PREFIX}/hive/${hiveId}/balance`, { headers: authHeaders(token) })
+      if (!res.ok) throw new Error('Failed to load balance')
+      setBalance(await res.json())
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [hiveId, token])
+
+  useEffect(() => {
+    fetchBalance()
+  }, [fetchBalance])
+
+  return { balance, isLoading, error, refetch: fetchBalance }
 }
 
 export function useCreateExpense(hiveId) {

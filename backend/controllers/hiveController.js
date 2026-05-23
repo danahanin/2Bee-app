@@ -27,8 +27,21 @@ async function getHiveExpenses(req, res) {
       to,
       page: parseInt(page, 10) || 1,
       limit: parseInt(limit, 10) || 20,
+      currentUserId: req.user.userId,
     })
     res.json(result)
+  } catch (err) {
+    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } })
+  }
+}
+
+async function getHiveBalance(req, res) {
+  try {
+    const balance = await hiveService.getHiveBalance(req.params.id, req.user.userId)
+    if (!balance) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Hive not found' } })
+    }
+    res.json(balance)
   } catch (err) {
     res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } })
   }
@@ -162,6 +175,7 @@ async function getPersonalExpenses(req, res) {
 module.exports = {
   getHive,
   getHiveExpenses,
+  getHiveBalance,
   createHiveExpense,
   updateHiveExpense,
   deleteHiveExpense,
