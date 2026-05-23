@@ -217,7 +217,7 @@ function OnboardingWizard() {
                 disabled={isLoading}
                 className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isLoading ? 'Saving...' : 'Continue'}
+                Continue
               </button>
             </form>
           ) : null}
