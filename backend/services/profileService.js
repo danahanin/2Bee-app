@@ -31,6 +31,11 @@ async function ensureUserRecord(userId, fallback = {}) {
     hiveId: fallback.hiveId || null,
     avatarUrl: fallback.avatarUrl ?? null,
     bio: fallback.bio ?? '',
+    bankAccount: {
+      connected: false,
+      bankName: '',
+      lastSyncedAt: null,
+    },
     privacySettings: { ...DEFAULT_PRIVACY_SETTINGS },
     notificationSettings: { ...DEFAULT_NOTIFICATION_SETTINGS },
     sharedCategories: [...DEFAULT_SHARED_CATEGORIES],
@@ -40,6 +45,14 @@ async function ensureUserRecord(userId, fallback = {}) {
 }
 
 function toProfile(user) {
+  const bankAccount = user.bankAccount
+    ? {
+        connected: Boolean(user.bankAccount.connected),
+        bankName: user.bankAccount.bankName || '',
+        lastSyncedAt: user.bankAccount.lastSyncedAt || null,
+      }
+    : null
+
   return {
     id: user._id,
     firstName: user.firstName,
@@ -50,6 +63,7 @@ function toProfile(user) {
     pairId: user.pairId,
     hiveId: user.hiveId,
     sharedCategories: user.sharedCategories,
+    bankAccount,
   }
 }
 
