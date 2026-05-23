@@ -162,7 +162,7 @@ function ExpenseFormModal({ expense, onSubmit, onClose, isSubmitting }) {
               disabled={isSubmitting}
               className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {isSubmitting ? 'Saving...' : isEditing ? 'Update' : 'Add'}
+              {isEditing ? 'Update' : 'Add'}
             </button>
           </div>
         </form>

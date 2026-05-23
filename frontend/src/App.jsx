@@ -1,8 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
+import PairingScreen from './pages/PairingScreen.jsx'
 import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
+import OnboardingWizard from './pages/OnboardingWizard.jsx'
 import PersonalDashboard from './pages/PersonalDashboard.jsx'
 import SharedDashboard from './pages/SharedDashboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
@@ -30,9 +32,33 @@ function App() {
         }
       />
       <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <SignupPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute pairingMode="unpaired">
+            <OnboardingWizard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/pairing"
+        element={
+          <ProtectedRoute pairingMode="unpaired">
+            <PairingScreen />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/app"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute pairingMode="paired">
             <MainPage />
           </ProtectedRoute>
         }
@@ -40,24 +66,23 @@ function App() {
       <Route
         path="/app/hive"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute pairingMode="paired">
             <HiveScreen />
           </ProtectedRoute>
         }
       />
       <Route
-       path="/app/dashboard/personal"
+        path="/app/dashboard/personal"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute pairingMode="paired">
             <PersonalDashboard />
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/app/profile"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute pairingMode="paired">
             <ProfilePage />
           </ProtectedRoute>
         }
@@ -65,16 +90,15 @@ function App() {
       <Route
         path="/app/dashboard/shared"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute pairingMode="paired">
             <SharedDashboard />
           </ProtectedRoute>
         }
       />
-
       <Route
         path="/app/settings"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute pairingMode="paired">
             <SettingsPage />
           </ProtectedRoute>
         }

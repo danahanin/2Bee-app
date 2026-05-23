@@ -2,6 +2,14 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
+function readStoredSessionMessage() {
+  const message = window.localStorage.getItem('twobee_session_message') || ''
+  if (message) {
+    window.localStorage.removeItem('twobee_session_message')
+  }
+  return message
+}
+
 function LoginPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -10,7 +18,9 @@ function LoginPage() {
   const [password, setPassword] = useState('123456')
   const [error, setError] = useState('')
   const [successMessage] = useState(
-    location.state?.registrationSuccess ? 'Account created. You can sign in now.' : ''
+    location.state?.registrationSuccess
+      ? 'Account created successfully. You can sign in now.'
+      : location.state?.sessionMessage || readStoredSessionMessage(),
   )
 
   const handleSubmit = async (event) => {
@@ -23,7 +33,7 @@ function LoginPage() {
       return
     }
 
-    navigate('/app', { replace: true })
+    navigate(result.paired ? '/app' : '/onboarding', { replace: true })
   }
 
   return (

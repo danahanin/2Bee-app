@@ -2,12 +2,41 @@ const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
 const Transfer = require('../models/Transfer')
 const HiveNotification = require('../models/HiveNotification')
+const User = require('../models/User')
 const { AppError } = require('../utils/appError')
 const { createPayment } = require('./openFinanceService')
 const { buildTransferNotificationPayloads } = require('./transferNotificationService')
 
 function roundAmount(value) {
   return Number((value || 0).toFixed(2))
+}
+
+function displayNameForUser(user, userId) {
+  if (!user) return userId
+  const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
+  return fullName || user.email || userId
+}
+
+async function getUserMap(userIds) {
+  const uniqueIds = [...new Set(userIds.filter(Boolean))]
+  if (uniqueIds.length === 0) return new Map()
+
+  const users = await User.find({ _id: { $in: uniqueIds } }).lean()
+  return new Map(users.map((user) => [user._id, user]))
+}
+
+function decorateExpense(expense, users, currentUserId) {
+  const user = users.get(expense.userId)
+  return {
+    ...expense,
+    scope: expense.type,
+    paidBy: {
+      id: expense.userId,
+      name: displayNameForUser(user, expense.userId),
+      email: user?.email || null,
+      isCurrentUser: expense.userId === currentUserId,
+    },
+  }
 }
 
 async function getHiveById(hiveId, userId) {
@@ -17,7 +46,7 @@ async function getHiveById(hiveId, userId) {
   return hive
 }
 
-async function getHiveExpenses(hiveId, { category, from, to, page = 1, limit = 20 }) {
+async function getHiveExpenses(hiveId, { category, from, to, page = 1, limit = 20, currentUserId }) {
   const filter = { hiveId, type: 'shared', isDeleted: false }
 
   if (category) filter.category = category
@@ -32,8 +61,15 @@ async function getHiveExpenses(hiveId, { category, from, to, page = 1, limit = 2
     Expense.find(filter).sort({ date: -1 }).skip(skip).limit(limit).lean(),
     Expense.countDocuments(filter),
   ])
+  const users = await getUserMap(expenses.map((expense) => expense.userId))
 
-  return { expenses, total, page, limit, totalPages: Math.ceil(total / limit) }
+  return {
+    expenses: expenses.map((expense) => decorateExpense(expense, users, currentUserId)),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  }
 }
 
 async function createSharedExpense(hiveId, userId, data) {
@@ -237,7 +273,15 @@ async function createHiveTransfer(hiveId, user, data) {
 }
 
 async function getPersonalExpenses(userId, { category, from, to, page = 1, limit = 20 }) {
-  const filter = { userId, type: 'personal', isDeleted: false }
+  const activeHives = await Hive.find({ userIds: userId, isActive: true }).select('_id').lean()
+  const hiveIds = activeHives.map((hive) => hive._id)
+  const filter = {
+    isDeleted: false,
+    $or: [
+      { userId, type: 'personal' },
+      ...(hiveIds.length > 0 ? [{ hiveId: { $in: hiveIds }, type: 'shared' }] : []),
+    ],
+  }
 
   if (category) filter.category = category
   if (from || to) {
@@ -251,13 +295,81 @@ async function getPersonalExpenses(userId, { category, from, to, page = 1, limit
     Expense.find(filter).sort({ date: -1 }).skip(skip).limit(limit).lean(),
     Expense.countDocuments(filter),
   ])
+  const users = await getUserMap([...expenses.map((expense) => expense.userId), userId])
 
-  return { expenses, total, page, limit, totalPages: Math.ceil(total / limit) }
+  return {
+    expenses: expenses.map((expense) => decorateExpense(expense, users, userId)),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+    includesShared: hiveIds.length > 0,
+  }
+}
+
+async function getHiveBalance(hiveId, currentUserId) {
+  const hive = await getHiveById(hiveId, currentUserId)
+  if (!hive) return null
+
+  const expenses = await Expense.find({ hiveId, type: 'shared', isDeleted: false }).lean()
+  const userIds = hive.userIds
+  const users = await getUserMap(userIds)
+  const total = expenses.reduce((sum, expense) => sum + expense.amount, 0)
+  const share = userIds.length > 0 ? total / userIds.length : 0
+  const paidByUser = new Map(userIds.map((userId) => [userId, 0]))
+
+  for (const expense of expenses) {
+    paidByUser.set(expense.userId, (paidByUser.get(expense.userId) || 0) + expense.amount)
+  }
+
+  const participants = userIds.map((userId) => {
+    const paid = paidByUser.get(userId) || 0
+    return {
+      id: userId,
+      name: displayNameForUser(users.get(userId), userId),
+      paid,
+      share,
+      balance: paid - share,
+      isCurrentUser: userId === currentUserId,
+    }
+  })
+
+  const creditors = participants
+    .filter((participant) => participant.balance > 0.005)
+    .map((participant) => ({ ...participant }))
+  const debtors = participants
+    .filter((participant) => participant.balance < -0.005)
+    .map((participant) => ({ ...participant, balance: Math.abs(participant.balance) }))
+  const settlements = []
+
+  for (const debtor of debtors) {
+    for (const creditor of creditors) {
+      if (debtor.balance <= 0.005) break
+      if (creditor.balance <= 0.005) continue
+
+      const amount = Math.min(debtor.balance, creditor.balance)
+      settlements.push({
+        from: { id: debtor.id, name: debtor.name, isCurrentUser: debtor.isCurrentUser },
+        to: { id: creditor.id, name: creditor.name, isCurrentUser: creditor.isCurrentUser },
+        amount,
+      })
+      debtor.balance -= amount
+      creditor.balance -= amount
+    }
+  }
+
+  return {
+    totalSharedSpend: total,
+    splitAmount: share,
+    participants,
+    settlements,
+  }
 }
 
 module.exports = {
   getHiveById,
   getHiveExpenses,
+  getHiveBalance,
   createSharedExpense,
   updateSharedExpense,
   deleteSharedExpense,

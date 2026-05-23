@@ -107,6 +107,7 @@ describe('Pairing API', () => {
     expect(response.status).toBe(201)
     expect(response.body.code).toMatch(/^[A-Z0-9]{6}$/)
     expect(response.body.expiresAt).toBeTruthy()
+    expect(response.body.paired).toBe(false)
   })
 
   it('POST /api/pair/join joins users and makes code one-time', async () => {
@@ -121,6 +122,7 @@ describe('Pairing API', () => {
 
     expect(joinResponse.status).toBe(200)
     expect(joinResponse.body.success).toBe(true)
+    expect(joinResponse.body.paired).toBe(true)
     expect(joinResponse.body.hiveId).toBeTruthy()
 
     const [userA, userB] = await Promise.all([
@@ -190,5 +192,7 @@ describe('Pairing API', () => {
     expect(postJoinStatus.body.pairId).toBe('user_demo_2')
     expect(postJoinStatus.body.hiveId).toBeTruthy()
     expect(postJoinStatus.body.code).toBeNull()
+    expect(postJoinStatus.body.onboardingComplete).toBe(true)
+    expect(postJoinStatus.body.nextStep).toBe('app')
   })
 })

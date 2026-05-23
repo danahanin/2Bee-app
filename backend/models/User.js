@@ -45,6 +45,11 @@ const userSchema = new mongoose.Schema(
     pairCodeUsedAt: { type: Date, default: null },
     avatarUrl: { type: String, default: null },
     bio: { type: String, default: '', maxlength: 200 },
+    bankAccount: {
+      connected: { type: Boolean, default: false },
+      bankName: { type: String, default: '' },
+      lastSyncedAt: { type: Date, default: null },
+    },
     privacySettings: {
       hidePersonalIncome: { type: Boolean, default: DEFAULT_PRIVACY_SETTINGS.hidePersonalIncome },
       hidePersonalExpenses: { type: Boolean, default: DEFAULT_PRIVACY_SETTINGS.hidePersonalExpenses },

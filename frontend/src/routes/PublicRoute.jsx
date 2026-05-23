@@ -1,16 +1,18 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import SessionGate from '../components/SessionGate.jsx'
 
 function PublicRoute({ children }) {
   const location = useLocation()
-  const { isAuthenticated, isBootstrapping } = useAuth()
+  const { isAuthenticated, isBootstrapping, pairingStatus, isPairingLoading } = useAuth()
 
-  if (isBootstrapping) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Preparing session...</div>
+  if (isBootstrapping || isPairingLoading) {
+    return <SessionGate isBootstrapping message="Preparing session..." />
   }
 
   if (isAuthenticated) {
-    const redirectTarget = location.state?.from ?? '/app'
+    const isPaired = Boolean(pairingStatus?.paired)
+    const redirectTarget = location.state?.from ?? (isPaired ? '/app' : '/onboarding')
     return <Navigate to={redirectTarget} replace />
   }
 

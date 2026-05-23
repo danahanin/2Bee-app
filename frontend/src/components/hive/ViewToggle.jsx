@@ -1,6 +1,7 @@
 const TABS = [
   { key: 'shared', label: 'Our Hive' },
   { key: 'personal', label: 'My Expenses' },
+  { key: 'balance', label: 'Balance' },
 ]
 
 function ViewToggle({ active, onChange }) {
