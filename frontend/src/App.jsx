@@ -4,6 +4,7 @@ import SignupPage from './pages/SignupPage.jsx'
 import PairingScreen from './pages/PairingScreen.jsx'
 import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
+import OnboardingWizard from './pages/OnboardingWizard.jsx'
 import PersonalDashboard from './pages/PersonalDashboard.jsx'
 import SharedDashboard from './pages/SharedDashboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
@@ -36,6 +37,14 @@ function App() {
           <PublicRoute>
             <SignupPage />
           </PublicRoute>
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute pairingMode="unpaired">
+            <OnboardingWizard />
+          </ProtectedRoute>
         }
       />
       <Route
