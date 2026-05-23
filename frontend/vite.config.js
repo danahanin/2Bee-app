@@ -12,7 +12,15 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
       '/hive': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+      '/dashboard': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },

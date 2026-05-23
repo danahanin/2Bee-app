@@ -27,6 +27,7 @@ const expenseSchema = new mongoose.Schema(
     date: { type: Date, required: true },
     isDeleted: { type: Boolean, default: false },
     classifiedBy: { type: String, enum: ['user', 'ai'], default: 'user' },
+    externalTransactionId: { type: String, default: null },
   },
   { timestamps: true },
 )
@@ -35,6 +36,7 @@ expenseSchema.index({ userId: 1 })
 expenseSchema.index({ hiveId: 1 })
 expenseSchema.index({ date: -1 })
 expenseSchema.index({ category: 1 })
+expenseSchema.index({ userId: 1, source: 1, externalTransactionId: 1 }, { sparse: true })
 
 module.exports = mongoose.model('Expense', expenseSchema)
 module.exports.CATEGORIES = CATEGORIES

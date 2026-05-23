@@ -1,16 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import ViewToggle from '../components/hive/ViewToggle.jsx'
 import ExpenseList from '../components/hive/ExpenseList.jsx'
 import ExpenseFormModal from '../components/hive/ExpenseFormModal.jsx'
+import ImbalanceBanner from '../components/hive/ImbalanceBanner.jsx'
+import ContributionChart from '../components/hive/ContributionChart.jsx'
+import TransferTimeline from '../components/hive/TransferTimeline.jsx'
+import TransferModal from '../components/hive/TransferModal.jsx'
+import HiveNotificationsList from '../components/hive/HiveNotificationsList.jsx'
 import {
   useHive,
-  useHiveBalance,
   useExpenses,
   useCreateExpense,
   useUpdateExpense,
   useDeleteExpense,
+  useHiveBalance,
+  useHiveTransfers,
+  useHiveNotifications,
+  useCreateTransfer,
 } from '../hooks/useHive.js'
 
 function BalanceHero({ hive, isLoading }) {
@@ -128,18 +136,37 @@ function BalancePanel({ balance, isLoading, error }) {
 }
 
 function HiveScreen() {
-  const { logout, pairingStatus } = useAuth()
+  const { logout, currentUser, pairingStatus } = useAuth()
   const [view, setView] = useState('shared')
   const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
   const { hive, isLoading: hiveLoading } = useHive(hiveId)
   const { expenses, isLoading: expLoading, error, refetch } = useExpenses(hiveId, view)
-  const { balance, isLoading: balanceLoading, error: balanceError, refetch: refetchBalance } = useHiveBalance(hiveId)
   const { create, isSubmitting: isCreating } = useCreateExpense(hiveId)
   const { update, isSubmitting: isUpdating } = useUpdateExpense(hiveId)
   const { remove } = useDeleteExpense(hiveId)
+  const { balance, isLoading: balanceLoading, error: balanceError, refetch: refetchBalance } = useHiveBalance(hiveId)
+  const { transfers, isLoading: transfersLoading, error: transfersError, refetch: refetchTransfers } = useHiveTransfers(hiveId)
+  const {
+    notifications,
+    isLoading: notificationsLoading,
+    error: notificationsError,
+    refetch: refetchNotifications,
+  } = useHiveNotifications(hiveId)
+  const { createTransfer, isSubmitting: isCreatingTransfer } = useCreateTransfer(hiveId)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState(null)
+  const [transferModalOpen, setTransferModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (view !== 'shared') return undefined
+    const handle = window.setInterval(() => {
+      refetchBalance()
+      refetchTransfers()
+      refetchNotifications()
+    }, 15000)
+    return () => window.clearInterval(handle)
+  }, [refetchBalance, refetchNotifications, refetchTransfers, view])
 
   function handleAdd() {
     setEditingExpense(null)
@@ -180,9 +207,33 @@ function HiveScreen() {
     setEditingExpense(null)
   }
 
+  function handleOpenTransferModal() {
+    setTransferModalOpen(true)
+  }
+
+  function handleCloseTransferModal() {
+    setTransferModalOpen(false)
+  }
+
+  async function handleTransferSubmit(data) {
+    const result = await createTransfer(data)
+    if (!result.ok) {
+      window.alert(result.message)
+      return
+    }
+
+    setTransferModalOpen(false)
+    refetchTransfers()
+    refetchNotifications()
+    refetchBalance()
+    if (result.payUrl) {
+      window.location.assign(result.payUrl)
+    }
+  }
+
   return (
     <main className="min-h-screen p-4 md:p-8">
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           <div className="flex items-center gap-3">
             <Link
@@ -207,35 +258,82 @@ function HiveScreen() {
 
         <BalanceHero hive={hive} isLoading={hiveLoading} />
 
+        {view === 'shared' && (
+          <ImbalanceBanner
+            balance={balance}
+            currentUserId={currentUser?.id}
+            isLoading={balanceLoading}
+            error={balanceError}
+            onSettle={handleOpenTransferModal}
+          />
+        )}
+
         <div className="flex items-center justify-between">
           <ViewToggle active={view} onChange={setView} />
-          {view === 'shared' && (
-            <button
-              type="button"
-              onClick={handleAdd}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-            >
-              + Add Expense
-            </button>
-          )}
+          <div className="flex gap-2">
+            {view === 'shared' && balance?.suggestedTransfer?.fromUserId === currentUser?.id && (
+              <button
+                type="button"
+                onClick={handleOpenTransferModal}
+                className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+              >
+                Settle up
+              </button>
+            )}
+            {view === 'shared' && (
+              <button
+                type="button"
+                onClick={handleAdd}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              >
+                + Add Expense
+              </button>
+            )}
+          </div>
         </div>
 
-        {view === 'personal' ? (
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-            This list includes your personal expenses and shared Hive expenses. Shared rows are marked clearly.
-          </div>
-        ) : null}
+        {view === 'shared' ? (
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-6">
+              <ContributionChart balance={balance} currentUserId={currentUser?.id} />
+              <TransferTimeline
+                transfers={transfers}
+                isLoading={transfersLoading}
+                error={transfersError}
+                currentUserId={currentUser?.id}
+              />
+              <ExpenseList
+                expenses={expenses}
+                isLoading={expLoading}
+                error={error}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            </div>
 
-        {view === 'balance' ? (
+            <div>
+              <HiveNotificationsList
+                notifications={notifications}
+                isLoading={notificationsLoading}
+                error={notificationsError}
+              />
+            </div>
+          </div>
+        ) : view === 'balance' ? (
           <BalancePanel balance={balance} isLoading={balanceLoading} error={balanceError} />
         ) : (
-          <ExpenseList
-            expenses={expenses}
-            isLoading={expLoading}
-            error={error}
-            onEdit={view === 'shared' ? handleEdit : undefined}
-            onDelete={view === 'shared' ? handleDelete : undefined}
-          />
+          <>
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+              This list includes your personal expenses and shared Hive expenses. Shared rows are marked clearly.
+            </div>
+            <ExpenseList
+              expenses={expenses}
+              isLoading={expLoading}
+              error={error}
+              onEdit={undefined}
+              onDelete={undefined}
+            />
+          </>
         )}
       </div>
 
@@ -245,6 +343,15 @@ function HiveScreen() {
           onSubmit={handleSubmit}
           onClose={handleCloseModal}
           isSubmitting={isCreating || isUpdating}
+        />
+      )}
+
+      {transferModalOpen && (
+        <TransferModal
+          balance={balance}
+          onClose={handleCloseTransferModal}
+          onSubmit={handleTransferSubmit}
+          isSubmitting={isCreatingTransfer}
         />
       )}
     </main>

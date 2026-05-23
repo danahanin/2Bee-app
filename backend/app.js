@@ -9,6 +9,7 @@ const pairRouter = require('./routes/pair')
 const hiveRoutes = require('./routes/hive')
 const expensesRoutes = require('./routes/expenses')
 const dashboardRoutes = require('./routes/dashboard')
+const privacyFilter = require('./middleware/privacyFilter')
 const { AppError } = require('./utils/appError')
 
 function createApp() {
@@ -23,9 +24,9 @@ function createApp() {
     res.json({ ok: true, mongo: mongoose.connection.readyState === 1 })
   })
 
-  app.use('/hive', hiveRoutes)
-  app.use('/expenses', expensesRoutes)
-  app.use('/dashboard', dashboardRoutes)
+  app.use('/hive', privacyFilter, hiveRoutes)
+  app.use('/expenses', privacyFilter, expensesRoutes)
+  app.use('/dashboard', privacyFilter, dashboardRoutes)
   app.use('/api', profileRouter)
   app.use('/api', pairRouter)
 
