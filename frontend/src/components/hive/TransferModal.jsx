@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 const ACCOUNT_TYPES = [
   { value: 'iban', label: 'IBAN' },
@@ -17,7 +17,7 @@ function formatCurrency(amount) {
 function TransferModal({ balance, onClose, onSubmit, isSubmitting }) {
   const suggested = balance?.suggestedTransfer
 
-  const [amount, setAmount] = useState(suggested?.amount ? String(suggested.amount) : '')
+  const [amount, setAmount] = useState(() => (suggested?.amount ? String(suggested.amount) : ''))
   const [providerId, setProviderId] = useState('leumi')
   const [psuId, setPsuId] = useState('')
   const [debtorAccountType, setDebtorAccountType] = useState('iban')
@@ -25,15 +25,9 @@ function TransferModal({ balance, onClose, onSubmit, isSubmitting }) {
   const [creditorAccountType, setCreditorAccountType] = useState('iban')
   const [creditorAccountNumber, setCreditorAccountNumber] = useState('')
   const [creditorName, setCreditorName] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
   const [includeFakeProviders, setIncludeFakeProviders] = useState(true)
   const [errors, setErrors] = useState([])
-
-  useEffect(() => {
-    if (suggested?.amount) {
-      setAmount(String(suggested.amount))
-    }
-  }, [suggested?.amount])
 
   function validate() {
     const nextErrors = []

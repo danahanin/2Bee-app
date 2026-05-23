@@ -1,10 +1,37 @@
+const mongoose = require('mongoose');
 const {
   INSIGHT_TYPES,
   RECOMMENDATION_TYPES,
   GOAL_TYPES,
-  CLASSIFICATION_LABELS,
   FORECAST_PERIODS,
 } = require('../constants/ai.constants');
+const { classifyExpenseRuleBased } = require('../ai/classifier');
+const { forecastFromCategoryMonthTotals } = require('../ai/forecaster');
+const { detectImbalance } = require('../ai/imbalanceDetector');
+const {
+  getPersonalCategoryMonthTotals,
+  getSharedCategoryMonthTotals,
+  getSharedSpendByUserRollingWindows,
+} = require('../ai/expenseTotals');
+
+function isMongoConnected() {
+  return mongoose.connection.readyState === 1;
+}
+
+function emptyImbalanceResult() {
+  return detectImbalance({ current: {}, previous: {} });
+}
+
+function mapForecastApiRows(rows, createdAtIso) {
+  return rows.map((row, index) => ({
+    id: `frc_${String(index + 1).padStart(3, '0')}`,
+    period: FORECAST_PERIODS.MONTHLY,
+    predictedAmount: row.predicted,
+    confidence: row.confidence,
+    category: row.category,
+    createdAt: createdAtIso,
+  }));
+}
 
 function getInsights() {
   return [
@@ -35,33 +62,32 @@ function getInsights() {
   ];
 }
 
-function getForecast() {
-  return [
-    {
-      id: 'frc_001',
-      period: FORECAST_PERIODS.MONTHLY,
-      predictedAmount: 2450.00,
-      confidence: 0.78,
-      category: 'total',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'frc_002',
-      period: FORECAST_PERIODS.MONTHLY,
-      predictedAmount: 650.00,
-      confidence: 0.85,
-      category: 'groceries',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'frc_003',
-      period: FORECAST_PERIODS.MONTHLY,
-      predictedAmount: 180.00,
-      confidence: 0.72,
-      category: 'utilities',
-      createdAt: new Date().toISOString(),
-    },
-  ];
+async function getForecast(options = {}) {
+  const createdAt = new Date().toISOString();
+  if (!isMongoConnected()) {
+    return [];
+  }
+
+  const scope = options.scope === 'shared' ? 'shared' : 'personal';
+  let categoryMonthTotals;
+
+  try {
+    if (scope === 'personal') {
+      if (!options.userId) {
+        return [];
+      }
+      categoryMonthTotals = await getPersonalCategoryMonthTotals(options.userId);
+    } else if (!options.hiveId) {
+      return [];
+    } else {
+      categoryMonthTotals = await getSharedCategoryMonthTotals(options.hiveId);
+    }
+  } catch {
+    return [];
+  }
+
+  const forecastRows = forecastFromCategoryMonthTotals({ categoryMonthTotals });
+  return mapForecastApiRows(forecastRows, createdAt);
 }
 
 function getRecommendations() {
@@ -96,50 +122,45 @@ function getRecommendations() {
   ];
 }
 
-function classifyExpense({ description, amount }) {
-  const sharedKeywords = ['rent', 'utilities', 'groceries', 'internet', 'electricity'];
-  const lowerDesc = description.toLowerCase();
-  const isShared = sharedKeywords.some((keyword) => lowerDesc.includes(keyword));
-
-  return {
-    label: isShared ? CLASSIFICATION_LABELS.SHARED : CLASSIFICATION_LABELS.INDIVIDUAL,
-    confidence: isShared ? 0.89 : 0.76,
-    category: detectCategory(lowerDesc, amount),
-  };
+function classifyExpense({ description, amount, category, sharedCategories, keywordMap }) {
+  return classifyExpenseRuleBased({
+    description,
+    amount,
+    category,
+    sharedCategories,
+    keywordMap,
+  });
 }
 
-function detectCategory(description, _amount) {
-  if (description.includes('grocery') || description.includes('food')) return 'groceries';
-  if (description.includes('rent')) return 'housing';
-  if (description.includes('electric') || description.includes('water') || description.includes('gas')) return 'utilities';
-  if (description.includes('internet') || description.includes('phone')) return 'telecom';
-  return 'other';
-}
-
-function getImbalance() {
-  return {
+async function getImbalance(options = {}) {
+  const createdAt = new Date().toISOString();
+  const envelope = () => ({
     id: 'imb_001',
-    hiveName: 'Home Expenses',
-    contributions: [
-      {
-        memberId: 'user_001',
-        memberName: 'Alice',
-        contributionPercentage: 65,
-        expectedPercentage: 50,
-        deviation: 15,
-      },
-      {
-        memberId: 'user_002',
-        memberName: 'Bob',
-        contributionPercentage: 35,
-        expectedPercentage: 50,
-        deviation: -15,
-      },
-    ],
-    imbalanceScore: 0.3,
-    suggestion: 'Bob could contribute $150 more this month to balance contributions',
-    createdAt: new Date().toISOString(),
-  };
+    createdAt,
+    ...emptyImbalanceResult(),
+  });
+
+  if (!isMongoConnected()) {
+    return envelope();
+  }
+
+  if (!options.hiveId) {
+    return envelope();
+  }
+
+  try {
+    const rolling = await getSharedSpendByUserRollingWindows(options.hiveId);
+    return {
+      id: 'imb_001',
+      createdAt,
+      ...detectImbalance({
+        current: rolling.current,
+        previous: rolling.previous,
+      }),
+    };
+  } catch {
+    return envelope();
+  }
 }
 
 function getGoalSuggestions() {

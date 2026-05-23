@@ -7,7 +7,7 @@ info:
     Profile & Settings stubs live under /api (Dana Hanin).
     Dashboard & Analytics endpoints are at the server root (Mishelle — PR1).
     Remaining API groups will be added by each domain owner as per plan.md.
-  version: 0.1.0-stubs
+  version: 0.2.0
 
 servers:
   - url: http://localhost:4000/api
@@ -102,15 +102,54 @@ components:
           type: string
           maxLength: 200
           example: ''
-        pairedWith:
+        pairId:
           type: string
           nullable: true
-          description: Display name of the paired partner, or null if unpaired.
-          example: Jane
+          description: Partner user ID, or null if unpaired.
+          example: user_demo_2
         hiveId:
           type: string
           nullable: true
-          example: hive_demo_1
+          example: 64a1b2c3d4e5f6a7b8c9d0e1
+        sharedCategories:
+          type: array
+          items:
+            type: string
+          example:
+            - groceries
+            - rent
+            - utilities
+
+    UpdatePrivacySettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        hidePersonalIncome:
+          type: boolean
+          example: false
+        hidePersonalExpenses:
+          type: boolean
+          example: false
+        hidePersonalBalance:
+          type: boolean
+          example: false
+
+    UpdateNotificationSettingsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        budgetAlerts:
+          type: boolean
+          example: true
+        imbalanceAlerts:
+          type: boolean
+          example: true
+        newExpenseAlerts:
+          type: boolean
+          example: true
+        weeklyDigest:
+          type: boolean
+          example: false
 
     UpdateProfileRequest:
       type: object
@@ -172,8 +211,8 @@ components:
           example: AB12CD
         partnerId:
           type: string
-          description: MongoDB ObjectId of the partner (alternative to partnerCode).
-          example: 64a1b2c3d4e5f6a7b8c9d0e1
+          description: Partner user ID (e.g. user_demo_2) or MongoDB ObjectId.
+          example: user_demo_2
       description: Provide either partnerCode or partnerId — not both.
 
     AuthUser:
@@ -297,6 +336,109 @@ components:
               nullable: true
               additionalProperties:
                 type: string
+
+    Expense:
+      type: object
+      properties:
+        _id:
+          type: string
+        hiveId:
+          type: string
+          nullable: true
+        userId:
+          type: string
+        amount:
+          type: number
+          example: 150.00
+        category:
+          type: string
+          enum:
+            - groceries
+            - dining
+            - transport
+            - utilities
+            - rent
+            - entertainment
+            - health
+            - shopping
+            - subscriptions
+            - travel
+            - education
+            - other
+        description:
+          type: string
+          maxLength: 200
+          example: Weekly groceries
+        type:
+          type: string
+          enum: [personal, shared]
+        source:
+          type: string
+          enum: [manual, bank_sync]
+        date:
+          type: string
+          format: date-time
+        isDeleted:
+          type: boolean
+        classifiedBy:
+          type: string
+          enum: [user, ai]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateExpenseRequest:
+      type: object
+      required:
+        - amount
+        - category
+        - description
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+          example: 150.00
+        category:
+          type: string
+          enum:
+            - groceries
+            - dining
+            - transport
+            - utilities
+            - rent
+            - entertainment
+            - health
+            - shopping
+            - subscriptions
+            - travel
+            - education
+            - other
+        description:
+          type: string
+          maxLength: 200
+          example: Weekly groceries
+        date:
+          type: string
+          format: date
+          example: '2026-03-20'
+
+    UpdateExpenseRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0.01
+        category:
+          type: string
+        description:
+          type: string
+          maxLength: 200
+        date:
+          type: string
+          format: date
 
     DashboardTopCategory:
       type: object
@@ -594,8 +736,12 @@ paths:
                 email: dana@2bee.app
                 avatarUrl: null
                 bio: ''
-                pairedWith: Jane
-                hiveId: hive_demo_1
+                pairId: user_demo_2
+                hiveId: 64a1b2c3d4e5f6a7b8c9d0e1
+                sharedCategories:
+                  - groceries
+                  - rent
+                  - utilities
         '401':
           description: Missing or invalid authorization token.
           content:
@@ -638,7 +784,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: "firstName must be at most 50 characters"
+                error:
+                  code: VALIDATION_ERROR
+                  message: String must contain at most 50 character(s)
+                  details: null
         '401':
           description: Missing or invalid authorization token.
           content:
@@ -685,7 +834,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PrivacySettings'
+              $ref: '#/components/schemas/UpdatePrivacySettingsRequest'
             example:
               hidePersonalIncome: true
       responses:
@@ -753,7 +902,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/NotificationSettings'
+              $ref: '#/components/schemas/UpdateNotificationSettingsRequest'
             example:
               weeklyDigest: true
       responses:
@@ -878,13 +1027,471 @@ paths:
               example:
                 error: Not paired — nothing to disconnect
 
+  # --------------------------------------------------------------------------
+  # Hive — Ziv Ben Ephraim
+  # --------------------------------------------------------------------------
+  /hive/{hiveId}:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Get Hive metadata
+      description: Returns the Hive document including partner IDs, creation date, and active status.
+      operationId: getHive
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hive metadata returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  _id:
+                    type: string
+                  userIds:
+                    type: array
+                    items:
+                      type: string
+                  isActive:
+                    type: boolean
+                  createdAt:
+                    type: string
+                    format: date-time
+        '401':
+          description: Missing or invalid token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Hive not found or user is not a member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /hive/{hiveId}/expenses:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: List shared expenses
+      description: Paginated list of shared expenses, filterable by category and date range.
+      operationId: getHiveExpenses
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated expense list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expenses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Expense'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401':
+          description: Missing or invalid token.
+        '404':
+          description: Hive not found.
+    post:
+      summary: Create a shared expense
+      description: Manually adds a shared expense to the Hive.
+      operationId: createHiveExpense
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExpenseRequest'
+      responses:
+        '201':
+          description: Expense created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '400':
+          description: Validation error.
+        '401':
+          description: Missing or invalid token.
+        '404':
+          description: Hive not found.
+
+  /hive/{hiveId}/expenses/{expId}:
+    servers:
+      - url: http://localhost:4000
+    put:
+      summary: Update a shared expense
+      description: Edit amount, category, description, or date of an existing shared expense.
+      operationId: updateHiveExpense
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: expId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExpenseRequest'
+      responses:
+        '200':
+          description: Expense updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+        '400':
+          description: Validation error.
+        '404':
+          description: Expense not found.
+    delete:
+      summary: Delete a shared expense
+      description: Soft-deletes a shared expense (marks isDeleted=true, preserves in history).
+      operationId: deleteHiveExpense
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: expId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Expense deleted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          description: Expense not found.
+
+  /hive/{hiveId}/balance:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Get Hive balance and imbalance status
+      description: |
+        Calculates each partner's total contributions, the delta, settled amounts via transfers,
+        and suggests a transfer if there is an imbalance.
+      operationId: getHiveBalance
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Balance calculation result.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hiveId:
+                    type: string
+                  totalSharedSpend:
+                    type: number
+                  equalShare:
+                    type: number
+                  contributions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        userId:
+                          type: string
+                        paid:
+                          type: number
+                        expectedShare:
+                          type: number
+                        net:
+                          type: number
+                        settled:
+                          type: number
+                        remainingNet:
+                          type: number
+                  completedTransfersTotal:
+                    type: number
+                  remainingImbalance:
+                    type: number
+                  balanceStatus:
+                    type: string
+                    enum: [balanced, imbalanced]
+                  suggestedTransfer:
+                    type: object
+                    nullable: true
+                    properties:
+                      fromUserId:
+                        type: string
+                      toUserId:
+                        type: string
+                      amount:
+                        type: number
+        '404':
+          description: Hive not found.
+
+  /hive/{hiveId}/transfers:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: List Hive transfers
+      description: Paginated list of balance transfers (pending, completed, failed, cancelled).
+      operationId: getHiveTransfers
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated transfer list.
+        '404':
+          description: Hive not found.
+    post:
+      summary: Create a balance transfer
+      description: |
+        Initiates an Open Finance payment to settle the Hive imbalance.
+        Only the partner who has paid less can start a transfer.
+      operationId: createHiveTransfer
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+                - providerId
+                - psuId
+                - debtorAccountType
+                - debtorAccountNumber
+                - creditorAccountType
+                - creditorAccountNumber
+                - creditorName
+              properties:
+                amount:
+                  type: number
+                providerId:
+                  type: string
+                psuId:
+                  type: string
+                debtorAccountType:
+                  type: string
+                  enum: [iban, bban]
+                debtorAccountNumber:
+                  type: string
+                creditorAccountType:
+                  type: string
+                  enum: [iban, bban]
+                creditorAccountNumber:
+                  type: string
+                creditorName:
+                  type: string
+                date:
+                  type: string
+                  format: date
+                redirectUrl:
+                  type: string
+                includeFakeProviders:
+                  type: boolean
+      responses:
+        '201':
+          description: Transfer created and payment initiated.
+        '400':
+          description: Validation error.
+        '403':
+          description: Only the partner who paid less can start a transfer.
+        '409':
+          description: Hive is already balanced.
+
+  /hive/{hiveId}/notifications:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Get Hive notifications
+      description: Returns recent transfer-related notifications for the current user within this Hive.
+      operationId: getHiveNotifications
+      tags:
+        - Hive
+      parameters:
+        - name: hiveId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Notification list.
+        '404':
+          description: Hive not found.
+
+  /expenses/personal:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: List personal expenses
+      description: Returns the authenticated user's personal (non-shared) expenses, paginated.
+      operationId: getPersonalExpenses
+      tags:
+        - Hive
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated personal expense list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expenses:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Expense'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401':
+          description: Missing or invalid token.
+
+  # --------------------------------------------------------------------------
+  # Pairing management (continued)
+  # --------------------------------------------------------------------------
   /pair/reconnect:
     post:
       summary: Reconnect with a partner
       description: |
         Re-pairs the current user with the same or a new partner.
         Provide either partnerCode (6-char alphanumeric) or partnerId (MongoDB ObjectId).
-        Creates a new Pair document and a new Hive document.
+        Creates a new Hive and links both users via pairId/hiveId fields.
         Returns the new hiveId on success.
       operationId: reconnectPair
       tags:
@@ -912,7 +1519,7 @@ paths:
                         example: Reconnected
                       hiveId:
                         type: string
-                        example: hive_new_1
+                        example: 64a1b2c3d4e5f6a7b8c9d0e1
         '400':
           description: Validation error — invalid partnerCode format.
           content:
@@ -932,4 +1539,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Partner not found for the provided code
+                error:
+                  code: PARTNER_NOT_FOUND
+                  message: Partner was not found.
+                  details: null

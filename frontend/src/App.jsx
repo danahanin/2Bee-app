@@ -1,7 +1,10 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
+import SignupPage from './pages/SignupPage.jsx'
 import MainPage from './pages/MainPage.jsx'
 import HiveScreen from './pages/HiveScreen.jsx'
+import PersonalDashboard from './pages/PersonalDashboard.jsx'
+import SharedDashboard from './pages/SharedDashboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
@@ -15,6 +18,14 @@ function App() {
         element={
           <PublicRoute>
             <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          <PublicRoute>
+            <SignupPage />
           </PublicRoute>
         }
       />
@@ -35,6 +46,15 @@ function App() {
         }
       />
       <Route
+       path="/app/dashboard/personal"
+        element={
+          <ProtectedRoute>
+            <PersonalDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/app/profile"
         element={
           <ProtectedRoute>
@@ -42,6 +62,15 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/app/dashboard/shared"
+        element={
+          <ProtectedRoute>
+            <SharedDashboard />
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/app/settings"
         element={

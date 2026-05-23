@@ -27,11 +27,11 @@ export function useForecast() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (options) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await aiService.fetchForecast();
+      const result = await aiService.fetchForecast(options);
       setData(result.data);
     } catch (err) {
       setError(err.message);
@@ -92,11 +92,11 @@ export function useImbalance() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetch = useCallback(async () => {
+  const fetch = useCallback(async (options) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await aiService.fetchImbalance();
+      const result = await aiService.fetchImbalance(options);
       setData(result.data);
     } catch (err) {
       setError(err.message);

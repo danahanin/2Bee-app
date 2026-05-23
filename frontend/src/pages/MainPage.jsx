@@ -34,8 +34,8 @@ function MainPage() {
           <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
             <h2 className="text-lg font-semibold text-slate-900">Welcome, {displayName || 'User'}!</h2>
             <p className="mt-2 text-sm text-slate-600">
-              This is the initial post-login dashboard shell. Next modules (Hive, Analytics, AI insights) can plug
-              into these cards without changing the auth flow.
+              Your navigation hub for Hive and dashboard modules. Open personal or shared summaries using the cards
+              below.
             </p>
           </article>
 
@@ -57,15 +57,31 @@ function MainPage() {
             </span>
           </Link>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Personal</h3>
-            <p className="mt-2 text-sm text-slate-600">Placeholder for individual budget snapshot.</p>
-          </article>
+          <Link
+            to="/app/dashboard/personal"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+          >
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 group-hover:text-indigo-600">
+              Personal Dashboard
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">Open your monthly spend summary and budget status.</p>
+            <span className="mt-3 inline-block text-xs font-semibold text-indigo-600 opacity-0 transition group-hover:opacity-100">
+              Open &rarr;
+            </span>
+          </Link>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">AI Insights</h3>
-            <p className="mt-2 text-sm text-slate-600">Placeholder for recommendations and forecast cards.</p>
-          </article>
+          <Link
+            to="/app/dashboard/shared"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+          >
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 group-hover:text-indigo-600">
+              Shared Dashboard
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">View joint spending, top shared category, and contributions.</p>
+            <span className="mt-3 inline-block text-xs font-semibold text-indigo-600 opacity-0 transition group-hover:opacity-100">
+              Open &rarr;
+            </span>
+          </Link>
         </section>
       </div>
     </main>

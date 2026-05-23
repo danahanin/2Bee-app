@@ -156,10 +156,25 @@ async function getPaymentStatus(paymentId) {
   }
 }
 
+async function fetchAccountTransactions(accountId, { from, to } = {}) {
+  const params = new URLSearchParams()
+  if (from) params.set('dateFrom', from)
+  if (to) params.set('dateTo', to)
+  const qs = params.toString() ? `?${params.toString()}` : ''
+
+  const payload = await openFinanceFetch(`/v2/accounts/${accountId}/transactions${qs}`, {
+    method: 'GET',
+  })
+
+  const raw = payload?.transactions || payload?.booked || payload || []
+  return Array.isArray(raw) ? raw : []
+}
+
 module.exports = {
   OPEN_FINANCE_SYNC_INTERVAL_MS,
   createPayment,
   getPaymentStatus,
+  fetchAccountTransactions,
   isConfigured,
   normalizeTransferStatus,
 }
