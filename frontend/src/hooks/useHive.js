@@ -291,3 +291,32 @@ export function useCreateTransfer(hiveId) {
 
   return { createTransfer, isSubmitting }
 }
+
+export function useConnectToHive(hiveId) {
+  const { token } = useAuth()
+  const [isConnecting, setIsConnecting] = useState(false)
+
+  const connectToHive = useCallback(
+    async (expenseId) => {
+      if (!token || !hiveId) return { ok: false, message: 'Not ready' }
+      setIsConnecting(true)
+      try {
+        const res = await fetch(`${API_PREFIX}/hive/${hiveId}/expenses/${expenseId}/connect`, {
+          method: 'POST',
+          headers: authHeaders(token),
+        })
+        if (!res.ok) {
+          throw new Error(await parseApiError(res, 'Failed to connect expense to hive'))
+        }
+        return { ok: true, expense: await res.json() }
+      } catch (err) {
+        return { ok: false, message: err.message }
+      } finally {
+        setIsConnecting(false)
+      }
+    },
+    [hiveId, token],
+  )
+
+  return { connectToHive, isConnecting }
+}

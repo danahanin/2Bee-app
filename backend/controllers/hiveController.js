@@ -285,6 +285,23 @@ async function getPersonalExpenses(req, res) {
   }
 }
 
+async function connectExpenseToHive(req, res) {
+  try {
+    const { id: hiveId, expenseId } = req.params
+    console.log('[connectExpenseToHive]', { hiveId, expenseId, userId: req.user.userId })
+    const expense = await hiveService.connectExpenseToHive(hiveId, expenseId, req.user.userId)
+    if (!expense) {
+      console.log('[connectExpenseToHive] Not found - expense is null')
+      return res.status(404).json({ error: { message: 'Expense not found or not owned by user' } })
+    }
+    console.log('[connectExpenseToHive] Success:', expense._id)
+    res.json(expense)
+  } catch (err) {
+    console.error('[connectExpenseToHive] Error:', err)
+    sendError(res, err, err.message)
+  }
+}
+
 module.exports = {
   getHive,
   getHiveExpenses,
@@ -292,6 +309,7 @@ module.exports = {
   createHiveExpense,
   updateHiveExpense,
   deleteHiveExpense,
+  connectExpenseToHive,
   getHiveBalance,
   getHiveTransfers,
   createHiveTransfer,
