@@ -9,6 +9,7 @@ import PersonalDashboard from './pages/PersonalDashboard.jsx'
 import SharedDashboard from './pages/SharedDashboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
+import InsightsPage from './pages/InsightsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
 
@@ -100,6 +101,14 @@ function App() {
         element={
           <ProtectedRoute pairingMode="paired">
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/insights"
+        element={
+          <ProtectedRoute pairingMode="paired">
+            <InsightsPage />
           </ProtectedRoute>
         }
       />
