@@ -25,7 +25,7 @@ function ForecastCard({ forecast }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h4 className="text-sm font-semibold capitalize text-slate-900">{forecast.category}</h4>
-      <p className="mt-1 text-2xl font-bold text-indigo-600">{formatCurrency(forecast.predicted)}</p>
+      <p className="mt-1 text-2xl font-bold text-indigo-600">{formatCurrency(forecast.predictedAmount)}</p>
       <p className="text-xs text-slate-500">Predicted spend</p>
       <ConfidenceBar confidence={forecast.confidence} />
     </div>

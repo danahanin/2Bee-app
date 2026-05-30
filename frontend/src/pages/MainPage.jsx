@@ -82,6 +82,19 @@ function MainPage() {
               Open &rarr;
             </span>
           </Link>
+
+          <Link
+            to="/app/insights"
+            className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+          >
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500 group-hover:text-indigo-600">
+              AI Insights
+            </h3>
+            <p className="mt-2 text-sm text-slate-600">Get personalized forecasts, insights, and savings recommendations.</p>
+            <span className="mt-3 inline-block text-xs font-semibold text-indigo-600 opacity-0 transition group-hover:opacity-100">
+              Open &rarr;
+            </span>
+          </Link>
         </section>
       </div>
     </main>

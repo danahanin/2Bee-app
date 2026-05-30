@@ -4,6 +4,15 @@ function generateId() {
   return crypto.randomUUID();
 }
 
+function formatCurrency(amount) {
+  const value = Number(amount) || 0;
+  return new Intl.NumberFormat('en-IL', {
+    style: 'currency',
+    currency: 'ILS',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 const INSIGHT_TEMPLATES = {
   overspend: {
     title: (data, category) => `Spending up in ${category}`,
@@ -13,22 +22,22 @@ const INSIGHT_TEMPLATES = {
   spike: {
     title: (data, category) => `Unusual purchase in ${category}`,
     description: (data) =>
-      `You made a $${data.data.amount} purchase${data.data.description ? ` (${data.data.description})` : ''}, which is significantly higher than your usual spending in this category.`,
+      `You made a ${formatCurrency(data.data.amount)} purchase${data.data.description ? ` (${data.data.description})` : ''}, which is significantly higher than your usual spending in this category.`,
   },
   recurring: {
     title: (data, category) => `Recurring charge detected`,
     description: (data) =>
-      `"${data.data.description}" appears to be a monthly subscription at $${data.data.amount}.`,
+      `"${data.data.description}" appears to be a monthly subscription at ${formatCurrency(data.data.amount)}.`,
   },
   budget_warning: {
     title: (data, category) => `Budget alert for ${category}`,
     description: (data) =>
-      `You've used ${data.data.percentUsed}% of your ${data.category} budget ($${data.data.spent} of $${data.data.limit}).`,
+      `You've used ${data.data.percentUsed}% of your ${data.category} budget (${formatCurrency(data.data.spent)} of ${formatCurrency(data.data.limit)}).`,
   },
   forecast_exceeded: {
     title: (data, category) => `${category} spending above forecast`,
     description: (data) =>
-      `You've spent $${data.data.currentSpend} in ${data.category}, ${data.data.exceedancePercent}% above the predicted $${data.data.predicted}.`,
+      `You've spent ${formatCurrency(data.data.currentSpend)} in ${data.category}, ${data.data.exceedancePercent}% above the predicted ${formatCurrency(data.data.predicted)}.`,
   },
 };
 

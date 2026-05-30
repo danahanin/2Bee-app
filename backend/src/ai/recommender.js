@@ -8,12 +8,21 @@ function roundMoney(amount) {
   return Math.round(amount * 100) / 100;
 }
 
+function formatCurrency(amount) {
+  const value = Number(amount) || 0;
+  return new Intl.NumberFormat('en-IL', {
+    style: 'currency',
+    currency: 'ILS',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 const RECOMMENDATION_TEMPLATES = {
   overspend: {
     dining: {
       title: 'Reduce dining out expenses',
       description: (data, userData) =>
-        `Try cooking at home a few more times per week to bring your dining spending back to your average of $${data.data.averagePrior}.`,
+        `Try cooking at home a few more times per week to bring your dining spending back to your average of ${formatCurrency(data.data.averagePrior)}.`,
       cta: 'Set a meal plan',
     },
     groceries: {
@@ -44,21 +53,21 @@ const RECOMMENDATION_TEMPLATES = {
   recurring: {
     title: 'Review subscription',
     description: (data) =>
-      `"${data.data.description}" charges you $${data.data.amount}/month. Consider if you're still using this service.`,
+      `"${data.data.description}" charges you ${formatCurrency(data.data.amount)}/month. Consider if you're still using this service.`,
     cta: 'Review subscriptions',
   },
   forecast_exceeded: {
     title: (data) => `Reduce ${data.category} spending`,
     description: (data) => {
       const reduction = roundMoney(data.data.currentSpend - data.data.predicted);
-      return `Cut back by $${reduction} to stay on track with your forecast.`;
+      return `Cut back by ${formatCurrency(reduction)} to stay on track with your forecast.`;
     },
     cta: 'View spending breakdown',
   },
   spike: {
     title: 'Watch for unusual purchases',
     description: (data) =>
-      `Your $${data.data.amount} purchase${data.data.description ? ` at ${data.data.description}` : ''} was significantly higher than your usual spending.`,
+      `Your ${formatCurrency(data.data.amount)} purchase${data.data.description ? ` at ${data.data.description}` : ''} was significantly higher than your usual spending.`,
     cta: 'Review transaction',
   },
 };

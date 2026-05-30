@@ -8,6 +8,15 @@ function roundMoney(amount) {
   return Math.round(amount * 100) / 100;
 }
 
+function formatCurrency(amount) {
+  const value = Number(amount) || 0;
+  return new Intl.NumberFormat('en-IL', {
+    style: 'currency',
+    currency: 'ILS',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
 function calculateSuggestedContribution(targetAmount, months) {
   if (months <= 0) {
     return targetAmount;
@@ -55,12 +64,12 @@ function suggestGoals(categorySpendByMonth, forecast, options = {}) {
         id: generateId(),
         type: 'savings_goal',
         title: `Save on ${f.category}`,
-        description: `Reduce ${f.category} spending to save $${targetAmount} over the next ${remainingMonths} months.`,
+        description: `Reduce ${f.category} spending to save ${formatCurrency(targetAmount)} over the next ${remainingMonths} months.`,
         targetAmount,
         suggestedMonthlyContribution,
         confidence: f.confidence,
         category: f.category,
-        reasoning: `Your ${f.category} spending ($${currentSpend}) exceeds the forecast ($${f.predicted}) by $${roundMoney(excess)}.`,
+        reasoning: `Your ${f.category} spending (${formatCurrency(currentSpend)}) exceeds the forecast (${formatCurrency(f.predicted)}) by ${formatCurrency(roundMoney(excess))}.`,
         createdAt: now,
       });
     }
