@@ -63,7 +63,7 @@ function InsightsPage() {
             </Link>
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
-              <h1 className="text-xl font-semibold text-slate-900">AI Insights</h1>
+              <h1 className="text-xl font-semibold text-slate-900">Insights</h1>
             </div>
           </div>
           <button
