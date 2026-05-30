@@ -30,6 +30,98 @@ const personalExpenses = [
   { amount: 80, category: 'entertainment', description: 'Book store', userId: DEMO_USER_A },
 ]
 
+function generateHistoricalExpenses(userId, hiveId) {
+  const now = new Date()
+  const expenses = []
+  
+  const categories = ['groceries', 'dining', 'transport', 'utilities', 'entertainment', 'shopping', 'subscriptions']
+  const baseAmounts = {
+    groceries: [200, 250, 280, 300, 320],
+    dining: [80, 100, 150, 120, 180],
+    transport: [50, 75, 60, 80, 100],
+    utilities: [350, 380, 400, 420, 450],
+    entertainment: [60, 80, 100, 120, 150],
+    shopping: [100, 150, 200, 180, 250],
+    subscriptions: [50, 55, 55, 55, 55],
+  }
+  
+  for (let monthsAgo = 1; monthsAgo <= 4; monthsAgo++) {
+    const monthDate = new Date(now.getFullYear(), now.getMonth() - monthsAgo, 1)
+    
+    for (const category of categories) {
+      const amounts = baseAmounts[category]
+      const baseAmount = amounts[Math.min(monthsAgo - 1, amounts.length - 1)]
+      const variance = Math.floor(Math.random() * 40) - 20
+      const amount = baseAmount + variance
+      
+      expenses.push({
+        userId,
+        hiveId: null,
+        amount,
+        category,
+        description: `${category} expense`,
+        type: 'personal',
+        source: 'manual',
+        date: new Date(monthDate.getFullYear(), monthDate.getMonth(), 5 + Math.floor(Math.random() * 20)),
+        classifiedBy: 'user',
+      })
+    }
+  }
+  
+  expenses.push({
+    userId,
+    hiveId: null,
+    amount: 800,
+    category: 'dining',
+    description: 'Fancy restaurant dinner',
+    type: 'personal',
+    source: 'manual',
+    date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3),
+    classifiedBy: 'user',
+  })
+  
+  for (let monthsAgo = 0; monthsAgo <= 3; monthsAgo++) {
+    expenses.push({
+      userId,
+      hiveId: null,
+      amount: 49.99,
+      category: 'subscriptions',
+      description: 'Spotify Premium',
+      type: 'personal',
+      source: 'manual',
+      date: new Date(now.getFullYear(), now.getMonth() - monthsAgo, 15),
+      classifiedBy: 'user',
+    })
+  }
+  
+  expenses.push(
+    {
+      userId,
+      hiveId: null,
+      amount: 450,
+      category: 'dining',
+      description: 'Dinner party',
+      type: 'personal',
+      source: 'manual',
+      date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7),
+      classifiedBy: 'user',
+    },
+    {
+      userId,
+      hiveId: null,
+      amount: 380,
+      category: 'dining',
+      description: 'Birthday dinner',
+      type: 'personal',
+      source: 'manual',
+      date: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14),
+      classifiedBy: 'user',
+    }
+  )
+  
+  return expenses
+}
+
 async function seed() {
   await mongoose.connect(mongoUri)
   console.log('Connected to MongoDB')
@@ -95,8 +187,10 @@ async function seed() {
     classifiedBy: 'user',
   }))
 
-  await Expense.insertMany([...sharedDocs, ...personalDocs])
-  console.log(`Seeded ${sharedDocs.length} shared + ${personalDocs.length} personal expenses`)
+  const historicalExpenses = generateHistoricalExpenses(DEMO_USER_A, hive._id)
+  
+  await Expense.insertMany([...sharedDocs, ...personalDocs, ...historicalExpenses])
+  console.log(`Seeded ${sharedDocs.length} shared + ${personalDocs.length} personal + ${historicalExpenses.length} historical expenses`)
 
   const nextYear = new Date(now.getFullYear() + 1, 11, 31)
   await Budget.insertMany([
