@@ -40,18 +40,6 @@ async function getHiveExpenses(req, res) {
   }
 }
 
-async function getHiveBalance(req, res) {
-  try {
-    const balance = await hiveService.getHiveBalance(req.params.id, req.user.userId)
-    if (!balance) {
-      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Hive not found' } })
-    }
-    res.json(balance)
-  } catch (err) {
-    res.status(500).json({ error: { code: 'SERVER_ERROR', message: err.message } })
-  }
-}
-
 function validateExpenseBody(body) {
   const errors = []
   if (typeof body.amount !== 'number' || body.amount <= 0) {
@@ -271,8 +259,15 @@ async function getHiveNotifications(req, res) {
 
 async function getPersonalExpenses(req, res) {
   try {
+    const requestedUserId = typeof req.query.userId === 'string' ? req.query.userId.trim() : req.user.userId
+    const isOwnData = requestedUserId === req.user.userId
+
+    if (!isOwnData && req.user.pairId !== requestedUserId) {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'You can only view your own or partner data' } })
+    }
+
     const { category, from, to, page, limit } = req.query
-    const result = await hiveService.getPersonalExpenses(req.user.userId, {
+    const result = await hiveService.getPersonalExpenses(requestedUserId, {
       category,
       from,
       to,
@@ -292,7 +287,6 @@ module.exports = {
   createHiveExpense,
   updateHiveExpense,
   deleteHiveExpense,
-  getHiveBalance,
   getHiveTransfers,
   createHiveTransfer,
   getHiveNotifications,
