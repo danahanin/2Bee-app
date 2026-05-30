@@ -92,6 +92,10 @@ async function getPersonalDashboard(userId, hiveId) {
   return {
     period: { from: start.toISOString(), to: end.toISOString() },
     hiveId: hiveId || null,
+    income: 0,
+    monthlyIncome: 0,
+    annualIncome: 0,
+    currentBalance: -totalSpendThisMonth,
     totalSpendThisMonth,
     topCategory,
     budgetStatus,
