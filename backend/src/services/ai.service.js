@@ -12,7 +12,14 @@ const {
   getPersonalCategoryMonthTotals,
   getSharedCategoryMonthTotals,
   getSharedSpendByUserRollingWindows,
+  getRecentTransactions,
 } = require('../ai/expenseTotals');
+const { analyzeSpendingBehavior } = require('../ai/behaviorAnalyzer');
+const { generateInsights, prioritizeInsights } = require('../ai/insightsGenerator');
+const { generateRecommendations } = require('../ai/recommender');
+const { suggestGoals } = require('../ai/goalSuggester');
+const Budget = require('../../models/Budget');
+const { utcMonthRange } = require('../../services/dashboardService');
 
 function isMongoConnected() {
   return mongoose.connection.readyState === 1;
@@ -20,6 +27,57 @@ function isMongoConnected() {
 
 function emptyImbalanceResult() {
   return detectImbalance({ current: {}, previous: {} });
+}
+
+async function getBudgetStatusForUser(userId, hiveId, scope = 'personal') {
+  const { start, end } = utcMonthRange();
+  const Expense = require('../../models/Expense');
+  
+  const query = scope === 'shared' && hiveId 
+    ? { hiveId, type: 'shared' } 
+    : { userId, type: 'personal' };
+  
+  const budgets = await Budget.find(query).lean();
+  
+  const statusList = [];
+  for (const budget of budgets) {
+    let matchFilter;
+    if (budget.type === 'shared' && hiveId) {
+      matchFilter = {
+        hiveId: new mongoose.Types.ObjectId(hiveId),
+        type: 'shared',
+        category: budget.category,
+        isDeleted: false,
+        date: { $gte: start, $lte: end },
+      };
+    } else {
+      matchFilter = {
+        userId,
+        type: 'personal',
+        category: budget.category,
+        isDeleted: false,
+        date: { $gte: start, $lte: end },
+      };
+    }
+    
+    const [row] = await Expense.aggregate([
+      { $match: matchFilter },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    
+    const spent = row?.total || 0;
+    const limit = budget.limitAmount;
+    const percentUsed = limit > 0 ? Math.min(100, Math.round((spent / limit) * 100)) : 0;
+    
+    statusList.push({
+      category: budget.category,
+      limit,
+      spent,
+      percentUsed,
+    });
+  }
+  
+  return statusList;
 }
 
 function mapForecastApiRows(rows, createdAtIso) {
@@ -33,33 +91,38 @@ function mapForecastApiRows(rows, createdAtIso) {
   }));
 }
 
-function getInsights() {
-  return [
-    {
-      id: 'ins_001',
-      type: INSIGHT_TYPES.SPENDING_PATTERN,
-      title: 'Grocery spending increased',
-      description: 'Your grocery spending is 15% higher than last month',
-      confidence: 0.87,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'ins_002',
-      type: INSIGHT_TYPES.SAVING_OPPORTUNITY,
-      title: 'Subscription overlap detected',
-      description: 'You have 2 streaming services with similar content',
-      confidence: 0.92,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'ins_003',
-      type: INSIGHT_TYPES.BUDGET_ALERT,
-      title: 'Dining budget at 80%',
-      description: 'You have used 80% of your dining budget with 10 days left',
-      confidence: 0.95,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+async function getInsights(options = {}) {
+  if (!isMongoConnected()) {
+    return [];
+  }
+  
+  const { userId, hiveId, scope = 'personal' } = options;
+  
+  if (!userId) {
+    return [];
+  }
+  
+  try {
+    const categoryMonthTotals = scope === 'shared' && hiveId
+      ? await getSharedCategoryMonthTotals(hiveId)
+      : await getPersonalCategoryMonthTotals(userId);
+    
+    const forecast = forecastFromCategoryMonthTotals({ categoryMonthTotals });
+    const budgetStatus = await getBudgetStatusForUser(userId, hiveId, scope);
+    const recentTx = await getRecentTransactions(userId);
+    
+    const patterns = analyzeSpendingBehavior({
+      categorySpendByMonth: categoryMonthTotals,
+      budgetStatus,
+      forecast,
+      recentTransactions: recentTx,
+    });
+    
+    const insights = generateInsights(patterns);
+    return prioritizeInsights(insights);
+  } catch {
+    return [];
+  }
 }
 
 async function getForecast(options = {}) {
@@ -90,36 +153,38 @@ async function getForecast(options = {}) {
   return mapForecastApiRows(forecastRows, createdAt);
 }
 
-function getRecommendations() {
-  return [
-    {
-      id: 'rec_001',
-      type: RECOMMENDATION_TYPES.REDUCE_SPENDING,
-      title: 'Reduce takeout orders',
-      description: 'Cooking at home 2 more times per week could save you money',
-      potentialSavings: 120.00,
-      priority: 1,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'rec_002',
-      type: RECOMMENDATION_TYPES.INCREASE_SAVINGS,
-      title: 'Automate savings',
-      description: 'Set up automatic transfers to reach your goals faster',
-      potentialSavings: 200.00,
-      priority: 2,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'rec_003',
-      type: RECOMMENDATION_TYPES.SET_BUDGET,
-      title: 'Create entertainment budget',
-      description: 'Setting a budget for entertainment could help control spending',
-      potentialSavings: 75.00,
-      priority: 3,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+async function getRecommendations(options = {}) {
+  if (!isMongoConnected()) {
+    return [];
+  }
+  
+  const { userId, hiveId, scope = 'personal', userData = {} } = options;
+  
+  if (!userId) {
+    return [];
+  }
+  
+  try {
+    const categoryMonthTotals = scope === 'shared' && hiveId
+      ? await getSharedCategoryMonthTotals(hiveId)
+      : await getPersonalCategoryMonthTotals(userId);
+    
+    const forecast = forecastFromCategoryMonthTotals({ categoryMonthTotals });
+    const budgetStatus = await getBudgetStatusForUser(userId, hiveId, scope);
+    const recentTx = await getRecentTransactions(userId);
+    
+    const patterns = analyzeSpendingBehavior({
+      categorySpendByMonth: categoryMonthTotals,
+      budgetStatus,
+      forecast,
+      recentTransactions: recentTx,
+    });
+    
+    const recommendations = generateRecommendations(patterns, userData);
+    return recommendations.sort((a, b) => a.priority - b.priority);
+  } catch {
+    return [];
+  }
 }
 
 function classifyExpense({ description, amount, category, sharedCategories, keywordMap }) {
@@ -163,39 +228,28 @@ async function getImbalance(options = {}) {
   }
 }
 
-function getGoalSuggestions() {
-  return [
-    {
-      id: 'goal_001',
-      type: GOAL_TYPES.EMERGENCY_FUND,
-      title: 'Build emergency fund',
-      description: 'Based on your expenses, aim for 3-6 months of savings',
-      targetAmount: 7500.00,
-      suggestedMonthlyContribution: 250.00,
-      confidence: 0.88,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'goal_002',
-      type: GOAL_TYPES.VACATION,
-      title: 'Summer vacation fund',
-      description: 'Start saving for a vacation based on your travel history',
-      targetAmount: 2000.00,
-      suggestedMonthlyContribution: 167.00,
-      confidence: 0.75,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'goal_003',
-      type: GOAL_TYPES.DEBT_PAYOFF,
-      title: 'Credit card payoff',
-      description: 'Accelerate debt repayment to save on interest',
-      targetAmount: 3000.00,
-      suggestedMonthlyContribution: 300.00,
-      confidence: 0.82,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+async function getGoalSuggestions(options = {}) {
+  if (!isMongoConnected()) {
+    return [];
+  }
+  
+  const { userId, hiveId, scope = 'personal' } = options;
+  
+  if (!userId) {
+    return [];
+  }
+  
+  try {
+    const categoryMonthTotals = scope === 'shared' && hiveId
+      ? await getSharedCategoryMonthTotals(hiveId)
+      : await getPersonalCategoryMonthTotals(userId);
+    
+    const forecast = forecastFromCategoryMonthTotals({ categoryMonthTotals });
+    
+    return suggestGoals(categoryMonthTotals, forecast);
+  } catch {
+    return [];
+  }
 }
 
 module.exports = {

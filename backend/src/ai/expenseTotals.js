@@ -188,8 +188,58 @@ async function getSharedSpendByUserRollingWindows(hiveId, options = {}) {
   return { current, previous, windowsUtc: windows };
 }
 
+async function getRecentTransactions(userId, options = {}) {
+  const days = options.days ?? 90;
+  const limit = options.limit ?? 100;
+  const referenceDate = options.referenceDate ?? new Date();
+
+  const cutoff = new Date(referenceDate.getTime() - days * MS_PER_DAY);
+
+  const rows = await Expense.find({
+    userId,
+    type: 'personal',
+    isDeleted: false,
+    date: { $gte: cutoff, $lte: referenceDate },
+  })
+    .sort({ date: -1 })
+    .limit(limit)
+    .lean();
+
+  return rows.map((tx) => ({
+    amount: tx.amount,
+    category: tx.category,
+    date: tx.date,
+    description: tx.description,
+  }));
+}
+
+async function getCategorySpendCurrentMonth(id, scope = 'personal', options = {}) {
+  const referenceDate = options.referenceDate ?? new Date();
+  const { start, end } = utcMonthRange(referenceDate);
+
+  let matchFilter;
+  if (scope === 'shared') {
+    const hiveObjectId = toHiveObjectId(id);
+    matchFilter = sharedExpenseMatch(hiveObjectId, start, end);
+  } else {
+    matchFilter = personalExpenseMatch(id, start, end);
+  }
+
+  const rows = await Expense.aggregate([
+    { $match: matchFilter },
+    { $group: { _id: '$category', total: { $sum: '$amount' } } },
+  ]);
+
+  return rows.reduce((acc, row) => {
+    acc[row._id] = row.total;
+    return acc;
+  }, {});
+}
+
 module.exports = {
   getPersonalCategoryMonthTotals,
   getSharedCategoryMonthTotals,
   getSharedSpendByUserRollingWindows,
+  getRecentTransactions,
+  getCategorySpendCurrentMonth,
 };
