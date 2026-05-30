@@ -49,6 +49,7 @@ const userSchema = new mongoose.Schema(
       connected: { type: Boolean, default: false },
       bankName: { type: String, default: '' },
       lastSyncedAt: { type: Date, default: null },
+      accountId: { type: String, default: null },
     },
     privacySettings: {
       hidePersonalIncome: { type: Boolean, default: DEFAULT_PRIVACY_SETTINGS.hidePersonalIncome },

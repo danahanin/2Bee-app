@@ -130,7 +130,7 @@ async function syncAllHives() {
     for (const hive of activeHives) {
       for (const userId of hive.userIds) {
         const user = await User.findById(userId).lean()
-        const accountId = user?.bankAccountId
+        const accountId = user?.bankAccount?.accountId
         if (!accountId) continue
 
         try {
