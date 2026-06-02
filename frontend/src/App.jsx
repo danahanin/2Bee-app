@@ -10,6 +10,7 @@ import SharedDashboard from './pages/SharedDashboard.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import InsightsPage from './pages/InsightsPage.jsx'
+import AnalyticsPage from './pages/AnalyticsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
 
@@ -109,6 +110,14 @@ function App() {
         element={
           <ProtectedRoute pairingMode="paired">
             <InsightsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/app/analytics"
+        element={
+          <ProtectedRoute pairingMode="paired">
+            <AnalyticsPage />
           </ProtectedRoute>
         }
       />

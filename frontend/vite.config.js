@@ -20,19 +20,15 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
-      '/dashboard': {
-        target: 'http://localhost:4000',
-        changeOrigin: true,
-      },
       '/expenses': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
-      '/api': {
+      '/dashboard': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
-      '/dashboard': {
+      '/analytics': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },

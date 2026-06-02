@@ -73,6 +73,13 @@ function PersonalDashboard() {
               <h1 className="text-xl font-semibold text-slate-900">Personal Dashboard</h1>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+          <Link
+            to="/app/analytics?type=personal"
+            className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+          >
+            View charts
+          </Link>
           <button
             type="button"
             onClick={logout}
@@ -80,6 +87,7 @@ function PersonalDashboard() {
           >
             Log out
           </button>
+          </div>
         </header>
 
         {isLoading ? (
