@@ -19,6 +19,7 @@ import {
   useHiveTransfers,
   useHiveNotifications,
   useCreateTransfer,
+  useConnectToHive,
 } from '../hooks/useHive.js'
 
 function BalanceHero({ hive, isLoading }) {
@@ -153,6 +154,7 @@ function HiveScreen() {
     refetch: refetchNotifications,
   } = useHiveNotifications(hiveId)
   const { createTransfer, isSubmitting: isCreatingTransfer } = useCreateTransfer(hiveId)
+  const { connectToHive } = useConnectToHive(hiveId)
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState(null)
@@ -228,6 +230,16 @@ function HiveScreen() {
     refetchBalance()
     if (result.payUrl) {
       window.location.assign(result.payUrl)
+    }
+  }
+
+  async function handleConnectToHive(expense) {
+    const result = await connectToHive(expense._id)
+    if (result.ok) {
+      refetch()
+      refetchBalance()
+    } else {
+      window.alert(result.message)
     }
   }
 
@@ -308,6 +320,7 @@ function HiveScreen() {
                 error={error}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                showHiveBadge={false}
               />
             </div>
 
@@ -324,7 +337,7 @@ function HiveScreen() {
         ) : (
           <>
             <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
-              This list includes your personal expenses and shared Hive expenses. Shared rows are marked clearly.
+              This list includes your personal expenses and shared Hive expenses. Hover over personal expenses to add them to the Hive.
             </div>
             <ExpenseList
               expenses={expenses}
@@ -332,6 +345,7 @@ function HiveScreen() {
               error={error}
               onEdit={undefined}
               onDelete={undefined}
+              onConnectToHive={handleConnectToHive}
             />
           </>
         )}

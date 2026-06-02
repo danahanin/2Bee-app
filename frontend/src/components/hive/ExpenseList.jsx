@@ -1,6 +1,6 @@
 import ExpenseCard from './ExpenseCard.jsx'
 
-function ExpenseList({ expenses, isLoading, error, onEdit, onDelete }) {
+function ExpenseList({ expenses, isLoading, error, onEdit, onDelete, onConnectToHive, showHiveBadge = true }) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -33,6 +33,8 @@ function ExpenseList({ expenses, isLoading, error, onEdit, onDelete }) {
           expense={expense}
           onEdit={onEdit}
           onDelete={onDelete}
+          onConnectToHive={onConnectToHive}
+          showHiveBadge={showHiveBadge}
         />
       ))}
     </div>

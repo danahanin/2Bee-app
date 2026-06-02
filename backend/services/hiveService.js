@@ -119,6 +119,39 @@ async function deleteSharedExpense(hiveId, expenseId) {
   return expense.save()
 }
 
+async function connectExpenseToHive(hiveId, expenseId, userId) {
+  console.log('[connectExpenseToHive service]', { hiveId, expenseId, userId })
+  
+  const hive = await Hive.findById(hiveId).lean()
+  if (!hive) {
+    console.log('[connectExpenseToHive] Hive not found')
+    return null
+  }
+  
+  console.log('[connectExpenseToHive] Hive userIds:', hive.userIds)
+  const userInHive = hive.userIds.some(id => id === userId || id.toString() === userId)
+  if (!userInHive) {
+    console.log('[connectExpenseToHive] User not in hive')
+    return null
+  }
+
+  const expense = await Expense.findOne({
+    _id: expenseId,
+    userId,
+    type: 'personal',
+    isDeleted: false,
+  })
+  if (!expense) {
+    console.log('[connectExpenseToHive] Expense not found with criteria:', { expenseId, userId, type: 'personal' })
+    return null
+  }
+
+  console.log('[connectExpenseToHive] Found expense, updating...')
+  expense.hiveId = hive._id
+  expense.type = 'shared'
+  return expense.save()
+}
+
 async function calculateHiveBalance(hiveId) {
   const hive = await Hive.findById(hiveId).lean()
   if (!hive) return null
@@ -369,6 +402,7 @@ module.exports = {
   createSharedExpense,
   updateSharedExpense,
   deleteSharedExpense,
+  connectExpenseToHive,
   calculateHiveBalance,
   getHiveTransfers,
   getHiveNotifications,

@@ -16,5 +16,6 @@ router.post('/:id/expenses', hiveController.createHiveExpense)
 router.post('/:id/transfers', hiveController.createHiveTransfer)
 router.put('/:id/expenses/:expId', hiveController.updateHiveExpense)
 router.delete('/:id/expenses/:expId', hiveController.deleteHiveExpense)
+router.post('/:id/expenses/:expenseId/connect', hiveController.connectExpenseToHive)
 
 module.exports = router
