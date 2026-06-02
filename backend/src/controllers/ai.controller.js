@@ -21,9 +21,58 @@ async function assertUserInHive(userId, hiveId) {
   return hive !== null;
 }
 
-function getInsights(_req, res) {
-  const insights = aiService.getInsights();
-  res.json({ data: insights });
+async function getInsights(req, res) {
+  try {
+    const scope = normalizedScope(req.query.scope);
+    if (!scope) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'scope must be personal or shared',
+        },
+      });
+    }
+
+    const userId = req.user.userId;
+
+    if (scope === 'personal') {
+      const data = await aiService.getInsights({ scope: 'personal', userId });
+      return res.json({ data });
+    }
+
+    const hiveIdRaw = req.query.hiveId;
+    if (hiveIdRaw === undefined || hiveIdRaw === '') {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'hiveId is required when scope is shared',
+        },
+      });
+    }
+    if (!isValidHiveObjectId(hiveIdRaw)) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'hiveId must be a valid Mongo id',
+        },
+      });
+    }
+
+    const allowed = await assertUserInHive(userId, hiveIdRaw);
+    if (!allowed) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Hive not found' },
+      });
+    }
+
+    const data = await aiService.getInsights({ scope: 'shared', userId, hiveId: hiveIdRaw });
+    return res.json({ data });
+  } catch (err) {
+    console.error('getInsights:', err);
+    return res.status(500).json({
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' },
+    });
+  }
 }
 
 async function getForecast(req, res) {
@@ -80,9 +129,59 @@ async function getForecast(req, res) {
   }
 }
 
-function getRecommendations(_req, res) {
-  const recommendations = aiService.getRecommendations();
-  res.json({ data: recommendations });
+async function getRecommendations(req, res) {
+  try {
+    const scope = normalizedScope(req.query.scope);
+    if (!scope) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'scope must be personal or shared',
+        },
+      });
+    }
+
+    const userId = req.user.userId;
+    const userData = { firstName: req.user.firstName };
+
+    if (scope === 'personal') {
+      const data = await aiService.getRecommendations({ scope: 'personal', userId, userData });
+      return res.json({ data });
+    }
+
+    const hiveIdRaw = req.query.hiveId;
+    if (hiveIdRaw === undefined || hiveIdRaw === '') {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'hiveId is required when scope is shared',
+        },
+      });
+    }
+    if (!isValidHiveObjectId(hiveIdRaw)) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'hiveId must be a valid Mongo id',
+        },
+      });
+    }
+
+    const allowed = await assertUserInHive(userId, hiveIdRaw);
+    if (!allowed) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Hive not found' },
+      });
+    }
+
+    const data = await aiService.getRecommendations({ scope: 'shared', userId, hiveId: hiveIdRaw, userData });
+    return res.json({ data });
+  } catch (err) {
+    console.error('getRecommendations:', err);
+    return res.status(500).json({
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' },
+    });
+  }
 }
 
 function classifyExpense(req, res) {
@@ -158,9 +257,58 @@ async function getImbalance(req, res) {
   }
 }
 
-function getGoalSuggestions(_req, res) {
-  const suggestions = aiService.getGoalSuggestions();
-  res.json({ data: suggestions });
+async function getGoalSuggestions(req, res) {
+  try {
+    const scope = normalizedScope(req.query.scope);
+    if (!scope) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'scope must be personal or shared',
+        },
+      });
+    }
+
+    const userId = req.user.userId;
+
+    if (scope === 'personal') {
+      const data = await aiService.getGoalSuggestions({ scope: 'personal', userId });
+      return res.json({ data });
+    }
+
+    const hiveIdRaw = req.query.hiveId;
+    if (hiveIdRaw === undefined || hiveIdRaw === '') {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'hiveId is required when scope is shared',
+        },
+      });
+    }
+    if (!isValidHiveObjectId(hiveIdRaw)) {
+      return res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'hiveId must be a valid Mongo id',
+        },
+      });
+    }
+
+    const allowed = await assertUserInHive(userId, hiveIdRaw);
+    if (!allowed) {
+      return res.status(404).json({
+        error: { code: 'NOT_FOUND', message: 'Hive not found' },
+      });
+    }
+
+    const data = await aiService.getGoalSuggestions({ scope: 'shared', userId, hiveId: hiveIdRaw });
+    return res.json({ data });
+  } catch (err) {
+    console.error('getGoalSuggestions:', err);
+    return res.status(500).json({
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' },
+    });
+  }
 }
 
 module.exports = {

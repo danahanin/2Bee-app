@@ -306,14 +306,10 @@ async function createHiveTransfer(hiveId, user, data) {
 }
 
 async function getPersonalExpenses(userId, { category, from, to, page = 1, limit = 20 }) {
-  const activeHives = await Hive.find({ userIds: userId, isActive: true }).select('_id').lean()
-  const hiveIds = activeHives.map((hive) => hive._id)
   const filter = {
     isDeleted: false,
-    $or: [
-      { userId, type: 'personal' },
-      ...(hiveIds.length > 0 ? [{ hiveId: { $in: hiveIds }, type: 'shared' }] : []),
-    ],
+    userId,
+    type: 'personal',
   }
 
   if (category) filter.category = category
@@ -336,7 +332,7 @@ async function getPersonalExpenses(userId, { category, from, to, page = 1, limit
     page,
     limit,
     totalPages: Math.ceil(total / limit),
-    includesShared: hiveIds.length > 0,
+    includesShared: false,
   }
 }
 
