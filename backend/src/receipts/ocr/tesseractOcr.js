@@ -2,6 +2,10 @@ const Tesseract = require('tesseract.js')
 const { makeOcrResult } = require('../contracts')
 
 const DEFAULT_LANG = process.env.OCR_LANG || 'heb+eng'
+// PSM 4 = single column of variable-size text, which matches the narrow receipt
+// layout and stops Tesseract from reading the photo background as extra columns.
+const DEFAULT_PSM = process.env.OCR_PSM || '4'
+const LSTM_ONLY = 1
 
 /**
  * Normalize Tesseract's 0..100 confidence to a clamped 0..1 value.
@@ -30,13 +34,20 @@ function confidenceOf(tesseractData) {
  * @returns {Promise<import('../contracts').OcrResult>}
  */
 async function runOcr(buffer, { lang = DEFAULT_LANG, imageRef = null } = {}) {
-  const { data } = await Tesseract.recognize(buffer, lang)
+  const worker = await Tesseract.createWorker(lang, LSTM_ONLY)
 
-  return makeOcrResult({
-    rawText: data.text || '',
-    confidence: confidenceOf(data),
-    imageRef,
-  })
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: DEFAULT_PSM })
+    const { data } = await worker.recognize(buffer)
+
+    return makeOcrResult({
+      rawText: data.text || '',
+      confidence: confidenceOf(data),
+      imageRef,
+    })
+  } finally {
+    await worker.terminate()
+  }
 }
 
 module.exports = { confidenceOf, runOcr }

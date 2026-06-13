@@ -50,7 +50,6 @@ async function preprocess(buffer) {
       .resize({ width: 2000, withoutEnlargement: true })
       .grayscale()
       .normalize()
-      .sharpen()
       .png()
       .toBuffer()
   } catch (err) {
