@@ -6,7 +6,7 @@ const DEFAULT_LANG = process.env.OCR_LANG || 'heb+eng'
 // finds isolated large-font numbers like the total that PSM 4 drops. We run both
 // and merge the price lines so the extractor still sees the totals.
 const PRIMARY_PSM = process.env.OCR_PSM || '4'
-const FALLBACK_PSM = process.env.OCR_FALLBACK_PSM || '11'
+const FALLBACK_PSM = process.env.OCR_FALLBACK_PSM || '6'
 // Receipts are mostly non-words (prices, codes), so the word dictionaries can
 // hurt. Toggle with OCR_DISABLE_DICTIONARY=true. These must be set at init.
 const DISABLE_DICTIONARY = process.env.OCR_DISABLE_DICTIONARY === 'true'
