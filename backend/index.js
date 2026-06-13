@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const { createApp } = require('./app')
+const { createApp, initializeAppData } = require('./app')
 const { startTransferSyncLoop } = require('./services/transferSyncService')
 const { startTransactionSyncLoop } = require('./jobs/transactionSync')
 const port = process.env.PORT || 4000
@@ -24,7 +24,8 @@ function startServer({ mongoReady }) {
 function bootstrap() {
   mongoose
     .connect(mongoUri)
-    .then(() => {
+    .then(async () => {
+      await initializeAppData()
       startServer({ mongoReady: true })
     })
     .catch((err) => {

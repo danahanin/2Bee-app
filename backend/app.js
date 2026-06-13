@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const path = require('path')
 const mongoose = require('mongoose')
 
 const aiRoutes = require('./src/routes/ai.routes')
@@ -9,6 +10,7 @@ const pairRouter = require('./routes/pair')
 const hiveRoutes = require('./routes/hive')
 const expensesRoutes = require('./routes/expenses')
 const dashboardRoutes = require('./routes/dashboard')
+const { ensureDefaultAvatarsSeeded } = require('./services/avatarService')
 const { AppError } = require('./utils/appError')
 
 function createApp() {
@@ -16,6 +18,8 @@ function createApp() {
 
   app.use(cors())
   app.use(express.json())
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')))
+  app.use('/default-avatars', express.static(path.join(__dirname, 'public', 'default-avatars')))
   app.use('/ai', aiRoutes)
   app.use('/auth', authRoutes)
 
@@ -43,4 +47,8 @@ function createApp() {
   return app
 }
 
-module.exports = { createApp }
+async function initializeAppData() {
+  await ensureDefaultAvatarsSeeded()
+}
+
+module.exports = { createApp, initializeAppData }

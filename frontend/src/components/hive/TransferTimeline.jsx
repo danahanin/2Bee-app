@@ -1,8 +1,11 @@
+import HivePanel from './primitives/HivePanel.jsx'
+import HiveEmptyState from './primitives/HiveEmptyState.jsx'
+
 const STATUS_STYLES = {
-  pending: 'bg-amber-50 text-amber-700 ring-amber-100',
-  completed: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
-  failed: 'bg-rose-50 text-rose-700 ring-rose-100',
-  cancelled: 'bg-slate-100 text-slate-700 ring-slate-200',
+  pending: 'hive-badge-amber',
+  completed: 'hive-badge-green',
+  failed: 'hive-badge-rose',
+  cancelled: 'hive-badge-muted',
 }
 
 function formatCurrency(amount) {
@@ -23,72 +26,59 @@ function directionLabel(transfer, currentUserId) {
 
 function TransferTimeline({ transfers, isLoading, error, currentUserId }) {
   if (isLoading) {
-    return <div className="h-44 animate-pulse rounded-2xl bg-white shadow-sm" />
+    return <div className="hive-skeleton h-44" />
   }
 
   if (error) {
-    return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
-        {error}
-      </div>
-    )
+    return <div className="hive-alert hive-alert-error">{error}</div>
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <HivePanel className="p-5">
       <div className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Transfer history</p>
-        <h3 className="mt-1 text-lg font-semibold text-slate-900">Recent hive transfers</h3>
+        <p className="hive-panel-eyebrow">Transfer history</p>
+        <h3 className="hive-panel-title">Recent hive transfers</h3>
       </div>
 
       {transfers.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-          No transfers yet. Once one starts, it will show up here with a live status.
-        </div>
+        <HiveEmptyState message="No transfers yet — when one starts, it shows up here." icon="💸" />
       ) : (
         <div className="space-y-3">
           {transfers.map((transfer) => (
-            <article key={transfer._id} className="rounded-xl border border-slate-100 p-4">
+            <article key={transfer._id} className="hive-list-item">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{directionLabel(transfer, currentUserId)}</p>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="font-semibold text-[var(--chamber-accent-dark)]">{directionLabel(transfer, currentUserId)}</p>
+                  <p className="mt-1 text-sm opacity-75">
                     {new Date(transfer.date).toLocaleDateString('en-IL', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
                     })}
-                    {' • '}
-                    Provider: {transfer.providerId}
+                    {' · '}
+                    {transfer.providerId}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-900">{formatCurrency(transfer.amount)}</p>
-                  <span
-                    className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
-                      STATUS_STYLES[transfer.status] || STATUS_STYLES.pending
-                    }`}
-                  >
+                  <p className="font-bold text-[var(--chamber-accent-dark)]">{formatCurrency(transfer.amount)}</p>
+                  <span className={`hive-badge mt-1 ${STATUS_STYLES[transfer.status] || STATUS_STYLES.pending}`}>
                     {transfer.status.charAt(0).toUpperCase() + transfer.status.slice(1)}
                   </span>
                 </div>
               </div>
 
-              {transfer.providerMessage ? (
-                <p className="mt-3 text-sm text-slate-500">{transfer.providerMessage}</p>
-              ) : (
-                <p className="mt-3 text-sm text-slate-500">
-                  {transfer.status === 'pending'
-                    ? 'We are still waiting for the bank to confirm this transfer.'
-                    : 'This transfer status was synced from Open Finance.'}
-                </p>
-              )}
+              <p className="mt-3 text-sm opacity-70">
+                {transfer.providerMessage ||
+                  (transfer.status === 'pending'
+                    ? 'Waiting for the bank to confirm this transfer.'
+                    : 'Status synced from Open Finance.')}
+              </p>
             </article>
           ))}
         </div>
       )}
-    </section>
+    </HivePanel>
   )
 }
 

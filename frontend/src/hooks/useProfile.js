@@ -10,11 +10,24 @@ function authHeaders(token) {
 }
 
 async function parseResponse(response, fallbackMessage) {
-  const data = await response.json()
-  if (!response.ok) {
-    throw new Error(data.error?.message || fallbackMessage)
+  // Tolerate empty bodies (e.g. 204) and HTML error pages from proxies/CDNs —
+  // surfacing them as a readable error instead of an opaque JSON parse failure.
+  const text = await response.text()
+  let data = null
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      if (!response.ok) {
+        throw new Error(`${fallbackMessage} (HTTP ${response.status})`)
+      }
+      throw new Error('Server returned an unexpected response.')
+    }
   }
-  return data
+  if (!response.ok) {
+    throw new Error(data?.error?.message || `${fallbackMessage} (HTTP ${response.status})`)
+  }
+  return data || {}
 }
 
 export function useProfile() {
@@ -83,6 +96,7 @@ export function useProfile() {
   )
 
   const fallbackProfile = profile || {
+    id: currentUser?.id,
     firstName: currentUser?.firstName || '',
     lastName: currentUser?.lastName || '',
     email: currentUser?.email || '',

@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import HiveButton from '../hive/primitives/HiveButton.jsx'
 import DisconnectConfirmModal from './DisconnectConfirmModal.jsx'
 
 function PairingManagement({ pairing, isDisconnecting, onDisconnect, onStatusMessage }) {
   const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
-
   const isPaired = Boolean(pairing?.paired || pairing?.pairId)
 
   async function handleConfirmDisconnect() {
@@ -14,7 +14,6 @@ function PairingManagement({ pairing, isDisconnecting, onDisconnect, onStatusMes
       onStatusMessage({ type: 'error', text: result.message || 'Failed to disconnect. Please try again.' })
       return
     }
-
     setShowModal(false)
     onStatusMessage({ type: 'success', text: 'Disconnected from partner' })
     navigate('/app/profile')
@@ -22,45 +21,30 @@ function PairingManagement({ pairing, isDisconnecting, onDisconnect, onStatusMes
 
   return (
     <section className="space-y-3">
-      <h3 className="text-base font-semibold text-slate-900">Pairing</h3>
-
       {isPaired ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="hive-list-item">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
-              PP
-            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-lg">🐝</span>
             <div>
-              <p className="text-sm font-semibold text-slate-900">Partner connected</p>
-              <p className="text-xs text-slate-500">Connected to your Hive</p>
+              <p className="font-semibold text-[var(--chamber-accent-dark)]">Hive mate connected</p>
+              <p className="text-xs opacity-70">Flying together in the hive</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowModal(true)}
-            className="mt-4 rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
-          >
-            Disconnect
-          </button>
+          <HiveButton type="button" variant="ghost" className="mt-4 text-rose-700" onClick={() => setShowModal(true)}>
+            Leave hive mate
+          </HiveButton>
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-700">You are not paired with anyone.</p>
-          <Link
-            to="/app/pairing"
-            className="mt-3 inline-flex rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
-          >
-            Find a partner
+        <div className="hive-list-item">
+          <p className="text-sm opacity-80">No hive mate yet — pair to unlock the full hive.</p>
+          <Link to="/app/pairing" className="hive-btn hive-btn-primary mt-3 inline-block text-center no-underline">
+            Find a hive mate
           </Link>
         </div>
       )}
 
       {showModal ? (
-        <DisconnectConfirmModal
-          isDisconnecting={isDisconnecting}
-          onCancel={() => setShowModal(false)}
-          onConfirm={handleConfirmDisconnect}
-        />
+        <DisconnectConfirmModal isDisconnecting={isDisconnecting} onCancel={() => setShowModal(false)} onConfirm={handleConfirmDisconnect} />
       ) : null}
     </section>
   )

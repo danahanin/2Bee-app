@@ -1,17 +1,21 @@
-import { Link } from 'react-router-dom'
 import { useEffect } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
+import HiveLayout from '../components/hive/HiveLayout.jsx'
+import HivePanel from '../components/hive/primitives/HivePanel.jsx'
+import HiveEmptyState from '../components/hive/primitives/HiveEmptyState.jsx'
+import { useProfile } from '../hooks/useProfile.js'
+import { usePartnerProfile } from '../hooks/usePartnerProfile.js'
 import { useInsights, useForecast, useRecommendations, useGoalSuggestions } from '../hooks/useAI.js'
 import ForecastSection from '../components/ai/ForecastSection.jsx'
 import InsightsList from '../components/ai/InsightsList.jsx'
 import RecommendationCard from '../components/ai/RecommendationCard.jsx'
 import GoalSuggestionsPanel from '../components/ai/GoalSuggestionsPanel.jsx'
 
-function SectionHeader({ title, subtitle }) {
+function SectionHeader({ title, subtitle, icon }) {
   return (
     <div className="mb-4">
-      <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-      {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+      {icon ? <p className="text-2xl">{icon}</p> : null}
+      <h2 className="hive-panel-title">{title}</h2>
+      {subtitle && <p className="hive-panel-sub">{subtitle}</p>}
     </div>
   )
 }
@@ -20,14 +24,15 @@ function RecommendationsSkeleton() {
   return (
     <div className="space-y-3">
       {Array.from({ length: 3 }).map((_, idx) => (
-        <div key={idx} className="h-28 animate-pulse rounded-xl bg-slate-100" />
+        <div key={idx} className="hive-skeleton h-28" />
       ))}
     </div>
   )
 }
 
 function InsightsPage() {
-  const { logout } = useAuth()
+  const { profile } = useProfile()
+  const { partner } = usePartnerProfile()
   const insights = useInsights()
   const forecast = useForecast()
   const recommendations = useRecommendations()
@@ -51,89 +56,43 @@ function InsightsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <Link
-              to="/app"
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
-            >
-              &larr; Back
-            </Link>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
-              <h1 className="text-xl font-semibold text-slate-900">Insights</h1>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
-            Log out
-          </button>
-        </header>
+    <HiveLayout title="Grow Chamber" subtitle="Forecasts, tips & goals" chamberName="Grow Chamber" theme="grow" profile={profile} partner={partner}>
+      {hasError && (
+        <div className="hive-alert hive-alert-error">
+          {insights.error || forecast.error || recommendations.error || goalSuggestions.error}
+        </div>
+      )}
 
-        {hasError && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-            {insights.error || forecast.error || recommendations.error || goalSuggestions.error}
+      <HivePanel className="p-5">
+        <SectionHeader title="Spending Forecast" subtitle="Predicted honey flow per category" icon="✨" />
+        <ForecastSection forecasts={forecast.data} isLoading={forecast.loading} />
+      </HivePanel>
+
+      <HivePanel className="p-5">
+        <SectionHeader title="Hive Insights" subtitle="Patterns from your buzzing activity" icon="💡" />
+        <InsightsList insights={insights.data} isLoading={insights.loading} />
+      </HivePanel>
+
+      <HivePanel className="p-5">
+        <SectionHeader title="Recommendations" subtitle="Tips to sweeten your finances" icon="🍯" />
+        {recommendations.loading ? (
+          <RecommendationsSkeleton />
+        ) : !recommendations.data?.length ? (
+          <HiveEmptyState message="No tips right now — keep tracking!" icon="🐝" />
+        ) : (
+          <div className="space-y-3">
+            {recommendations.data.map((rec) => (
+              <RecommendationCard key={rec.id} recommendation={rec} onAction={handleRecommendationAction} />
+            ))}
           </div>
         )}
+      </HivePanel>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <SectionHeader
-            title="Spending Forecast"
-            subtitle="AI-predicted spending for each category this month"
-          />
-          <ForecastSection forecasts={forecast.data} isLoading={forecast.loading} />
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <SectionHeader
-            title="Insights"
-            subtitle="Patterns and observations from your spending behavior"
-          />
-          <InsightsList insights={insights.data} isLoading={insights.loading} />
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <SectionHeader
-            title="Recommendations"
-            subtitle="Actionable tips to improve your finances"
-          />
-          {recommendations.loading ? (
-            <RecommendationsSkeleton />
-          ) : !recommendations.data?.length ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="text-sm text-slate-600">No recommendations at this time.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {recommendations.data.map((rec) => (
-                <RecommendationCard
-                  key={rec.id}
-                  recommendation={rec}
-                  onAction={handleRecommendationAction}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <SectionHeader
-            title="Goal Suggestions"
-            subtitle="Personalized savings goals based on your spending"
-          />
-          <GoalSuggestionsPanel
-            goals={goalSuggestions.data}
-            isLoading={goalSuggestions.loading}
-            onAccept={handleGoalAccept}
-          />
-        </section>
-      </div>
-    </main>
+      <HivePanel className="p-5">
+        <SectionHeader title="Goal Seeds" subtitle="Personalized savings goals for your hive" icon="🌱" />
+        <GoalSuggestionsPanel goals={goalSuggestions.data} isLoading={goalSuggestions.loading} onAccept={handleGoalAccept} />
+      </HivePanel>
+    </HiveLayout>
   )
 }
 

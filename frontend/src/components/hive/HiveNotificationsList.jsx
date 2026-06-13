@@ -1,59 +1,55 @@
+import HivePanel from './primitives/HivePanel.jsx'
+import HiveEmptyState from './primitives/HiveEmptyState.jsx'
+import { useHiveChamber } from '../../context/HiveChamberContext.jsx'
+
 const TYPE_STYLES = {
-  transfer_pending: 'bg-amber-50 text-amber-700',
-  transfer_completed: 'bg-emerald-50 text-emerald-700',
-  transfer_failed: 'bg-rose-50 text-rose-700',
-  transfer_cancelled: 'bg-slate-100 text-slate-700',
+  transfer_pending: 'hive-badge-amber',
+  transfer_completed: 'hive-badge-green',
+  transfer_failed: 'hive-badge-rose',
+  transfer_cancelled: 'hive-badge-muted',
 }
 
 function HiveNotificationsList({ notifications, isLoading, error }) {
+  const { meta } = useHiveChamber()
+
   if (isLoading) {
-    return <div className="h-40 animate-pulse rounded-2xl bg-white shadow-sm" />
+    return <div className="hive-skeleton h-40" />
   }
 
   if (error) {
-    return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
-        {error}
-      </div>
-    )
+    return <div className="hive-alert hive-alert-error">{error}</div>
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <HivePanel className="p-5">
       <div className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Notifications</p>
-        <h3 className="mt-1 text-lg font-semibold text-slate-900">Hive activity updates</h3>
+        <p className="hive-panel-eyebrow">{meta.copy.notifications}</p>
+        <h3 className="hive-panel-title">Hive activity updates</h3>
       </div>
 
       {notifications.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-          Hive notifications will appear here when transfers change state.
-        </div>
+        <HiveEmptyState message="Hive notifications will appear here when transfers change state." icon="📬" />
       ) : (
         <div className="space-y-3">
           {notifications.map((notification) => (
-            <article key={notification._id} className="rounded-xl border border-slate-100 p-4">
+            <article key={notification._id} className="hive-list-item">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{notification.title}</p>
-                  <p className="mt-1 text-sm text-slate-500">{notification.message}</p>
+                  <p className="font-semibold text-[var(--chamber-accent-dark)]">{notification.title}</p>
+                  <p className="mt-1 text-sm opacity-75">{notification.message}</p>
                 </div>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    TYPE_STYLES[notification.type] || 'bg-slate-100 text-slate-700'
-                  }`}
-                >
+                <span className={`hive-badge ${TYPE_STYLES[notification.type] || 'hive-badge-muted'}`}>
                   {notification.type.replace('transfer_', '').replace('_', ' ')}
                 </span>
               </div>
-              <p className="mt-3 text-xs text-slate-400">
+              <p className="mt-3 text-xs opacity-55">
                 {new Date(notification.createdAt).toLocaleString('en-IL')}
               </p>
             </article>
           ))}
         </div>
       )}
-    </section>
+    </HivePanel>
   )
 }
 

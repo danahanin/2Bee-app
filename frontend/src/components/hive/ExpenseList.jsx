@@ -1,43 +1,52 @@
 import ExpenseCard from './ExpenseCard.jsx'
+import HivePanel from './primitives/HivePanel.jsx'
+import HiveEmptyState from './primitives/HiveEmptyState.jsx'
 
-function ExpenseList({ expenses, isLoading, error, onEdit, onDelete, onConnectToHive, showHiveBadge = true }) {
+function ExpenseList({ expenses, isLoading, error, onEdit, onDelete, onConnectToHive, showHiveBadge = true, title = 'Wax ledger' }) {
   if (isLoading) {
     return (
-      <div className="flex justify-center py-12">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" />
-      </div>
+      <HivePanel className="p-6">
+        <div className="flex justify-center py-8">
+          <div className="hive-spinner" aria-label="Loading" />
+        </div>
+      </HivePanel>
     )
   }
 
   if (error) {
-    return (
-      <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center text-sm text-rose-700">
-        {error}
-      </div>
-    )
+    return <div className="hive-alert hive-alert-error">{error}</div>
   }
 
   if (!expenses || expenses.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-        <p className="text-sm text-slate-500">No expenses found.</p>
-      </div>
+      <HivePanel className="p-5">
+        <p className="hive-panel-eyebrow">Wax ledger</p>
+        <h3 className="hive-panel-title">{title}</h3>
+        <HiveEmptyState message="No nectar logged yet — your jar is empty!" icon="🍯" className="mt-4" />
+      </HivePanel>
     )
   }
 
   return (
-    <div className="space-y-2">
-      {expenses.map((expense) => (
-        <ExpenseCard
-          key={expense._id}
-          expense={expense}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onConnectToHive={onConnectToHive}
-          showHiveBadge={showHiveBadge}
-        />
-      ))}
-    </div>
+    <HivePanel className="overflow-hidden p-0">
+      <div className="hive-wax-ledger-header">
+        <p className="hive-panel-eyebrow">Wax ledger</p>
+        <h3 className="hive-panel-title">{title}</h3>
+        <p className="hive-panel-sub">{expenses.length} {expenses.length === 1 ? 'entry' : 'entries'} in the hive</p>
+      </div>
+      <div className="hive-wax-ledger">
+        {expenses.map((expense) => (
+          <ExpenseCard
+            key={expense._id}
+            expense={expense}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onConnectToHive={onConnectToHive}
+            showHiveBadge={showHiveBadge}
+          />
+        ))}
+      </div>
+    </HivePanel>
   )
 }
 

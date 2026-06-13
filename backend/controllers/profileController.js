@@ -7,7 +7,13 @@ const profileUpdateSchema = z
   .object({
     firstName: z.string().trim().min(1).max(50).optional(),
     lastName: z.string().trim().min(1).max(50).optional(),
-    avatarUrl: z.union([z.url(), z.null()]).optional(),
+    avatarUrl: z
+      .union([
+        z.url(),
+        z.string().regex(/^\/(uploads|default-avatars)\/.+/),
+        z.null(),
+      ])
+      .optional(),
     bio: z.string().max(200).optional(),
   })
   .strict()

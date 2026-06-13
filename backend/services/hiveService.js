@@ -34,6 +34,9 @@ function decorateExpense(expense, users, currentUserId) {
       id: expense.userId,
       name: displayNameForUser(user, expense.userId),
       email: user?.email || null,
+      avatarUrl: user?.avatarUrl || null,
+      firstName: user?.firstName || null,
+      lastName: user?.lastName || null,
       isCurrentUser: expense.userId === currentUserId,
     },
   }
@@ -159,6 +162,7 @@ async function calculateHiveBalance(hiveId) {
   const memberIds = hive.userIds || []
   const sharedExpenses = await Expense.find({ hiveId, type: 'shared', isDeleted: false }).lean()
   const completedTransfers = await Transfer.find({ hiveId, status: 'completed' }).lean()
+  const users = await getUserMap(memberIds)
 
   const paidByUser = Object.fromEntries(memberIds.map((userId) => [userId, 0]))
   for (const expense of sharedExpenses) {
@@ -186,6 +190,7 @@ async function calculateHiveBalance(hiveId) {
     const net = roundAmount(paid - equalShare)
     const settled = roundAmount(settledByUser[userId] || 0)
     const remainingNet = roundAmount(net + settled)
+    const user = users.get(userId)
     return {
       userId,
       paid,
@@ -193,6 +198,10 @@ async function calculateHiveBalance(hiveId) {
       net,
       settled,
       remainingNet,
+      name: displayNameForUser(user, userId),
+      avatarUrl: user?.avatarUrl || null,
+      firstName: user?.firstName || null,
+      lastName: user?.lastName || null,
     }
   })
 
@@ -353,9 +362,13 @@ async function getHiveBalance(hiveId, currentUserId) {
 
   const participants = userIds.map((userId) => {
     const paid = paidByUser.get(userId) || 0
+    const user = users.get(userId)
     return {
       id: userId,
-      name: displayNameForUser(users.get(userId), userId),
+      name: displayNameForUser(user, userId),
+      avatarUrl: user?.avatarUrl || null,
+      firstName: user?.firstName || null,
+      lastName: user?.lastName || null,
       paid,
       share,
       balance: paid - share,
@@ -378,8 +391,18 @@ async function getHiveBalance(hiveId, currentUserId) {
 
       const amount = Math.min(debtor.balance, creditor.balance)
       settlements.push({
-        from: { id: debtor.id, name: debtor.name, isCurrentUser: debtor.isCurrentUser },
-        to: { id: creditor.id, name: creditor.name, isCurrentUser: creditor.isCurrentUser },
+        from: {
+          id: debtor.id,
+          name: debtor.name,
+          avatarUrl: debtor.avatarUrl,
+          isCurrentUser: debtor.isCurrentUser,
+        },
+        to: {
+          id: creditor.id,
+          name: creditor.name,
+          avatarUrl: creditor.avatarUrl,
+          isCurrentUser: creditor.isCurrentUser,
+        },
         amount,
       })
       debtor.balance -= amount

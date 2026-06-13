@@ -8,20 +8,14 @@ const steps = ['Profile', 'Bank', 'Pair']
 
 function Stepper({ currentStep }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div className="hive-onboarding-stepper">
       {steps.map((step, index) => {
         const isActive = currentStep === index
         const isDone = currentStep > index
         return (
           <div
             key={step}
-            className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
-              isActive
-                ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                : isDone
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                  : 'border-slate-200 bg-white text-slate-500'
-            }`}
+            className={`hive-onboarding-step ${isActive ? 'hive-onboarding-step-active' : ''} ${isDone ? 'hive-onboarding-step-done' : ''}`}
           >
             <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs shadow-sm">
               {index + 1}
@@ -153,70 +147,62 @@ function OnboardingWizard() {
   }
 
   return (
-    <main className="min-h-screen px-4 py-8 md:py-12">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+    <main className="hive-onboarding-page">
+      <div className="hive-onboarding-shell space-y-6">
+        <header className="hive-onboarding-header">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
-            <h1 className="text-2xl font-semibold text-slate-900">Set up your Hive</h1>
-            <p className="mt-1 text-sm text-slate-600">Welcome, {displayName}. Finish setup to enter the app.</p>
+            <p className="hive-onboarding-brand">2BEE · The Hive</p>
+            <h1 className="hive-onboarding-title">Set up your hive</h1>
+            <p className="hive-onboarding-sub">Welcome, {displayName}. Finish setup to enter the app.</p>
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-          >
+          <button type="button" onClick={logout} className="hive-onboarding-logout">
             Log out
           </button>
         </header>
 
         <Stepper currentStep={step} />
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="hive-onboarding-panel">
           {step === 0 ? (
             <form className="space-y-4" onSubmit={handleProfileSubmit}>
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Profile basics</h2>
-                <p className="mt-1 text-sm text-slate-600">These details personalize your account and shared views.</p>
+                <h2>Profile basics</h2>
+                <p>These details personalize your account and shared views.</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">First name</span>
+                  <span className="hive-auth-label">First name</span>
                   <input
                     type="text"
                     value={firstName}
                     onChange={(event) => setFirstName(event.target.value)}
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    className="hive-onboarding-input"
                     required
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">Last name</span>
+                  <span className="hive-auth-label">Last name</span>
                   <input
                     type="text"
                     value={lastName}
                     onChange={(event) => setLastName(event.target.value)}
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                    className="hive-onboarding-input"
                     required
                   />
                 </label>
               </div>
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">Short bio</span>
+                <span className="hive-auth-label">Short bio</span>
                 <textarea
                   value={bio}
                   onChange={(event) => setBio(event.target.value)}
                   maxLength={200}
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  className="hive-onboarding-input resize-none"
                   placeholder="Optional"
                 />
               </label>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
-              >
+              <button type="submit" disabled={isLoading} className="hive-onboarding-btn disabled:cursor-not-allowed disabled:opacity-70">
                 Continue
               </button>
             </form>
@@ -225,28 +211,18 @@ function OnboardingWizard() {
           {step === 1 ? (
             <div className="space-y-5">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Bank connection</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Bank sync is not active yet. This step reserves the connection point for the next finance integration.
-                </p>
+                <h2>Bank connection</h2>
+                <p>Bank sync is not active yet. This step reserves the connection point for the next finance integration.</p>
               </div>
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
-                <p className="text-sm font-semibold text-slate-700">Manual mode enabled</p>
-                <p className="mt-2 text-sm text-slate-600">You can add expenses manually after pairing.</p>
+              <div className="hive-onboarding-subpanel border-dashed">
+                <p className="text-sm font-semibold text-amber-950">Manual mode enabled</p>
+                <p className="mt-2 text-sm text-amber-900/75">You can add expenses manually after pairing.</p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setStep(0)}
-                  className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
+                <button type="button" onClick={() => setStep(0)} className="hive-onboarding-btn hive-onboarding-btn-secondary">
                   Back
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setStep(2)}
-                  className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
-                >
+                <button type="button" onClick={() => setStep(2)} className="hive-onboarding-btn">
                   Continue
                 </button>
               </div>
@@ -256,20 +232,20 @@ function OnboardingWizard() {
           {step === 2 ? (
             <div className="space-y-5">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Connect your partner</h2>
-                <p className="mt-1 text-sm text-slate-600">Generate a code for your partner or join with their code.</p>
+                <h2>Connect your partner</h2>
+                <p>Generate a code for your partner or join with their code.</p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <h3 className="font-semibold text-slate-900">Invite partner</h3>
-                  <p className="mt-1 text-sm text-slate-600">Create a one-time code they can enter during onboarding.</p>
+                <div className="hive-onboarding-subpanel">
+                  <h3 className="font-bold text-amber-950">Invite partner</h3>
+                  <p className="mt-1 text-sm text-amber-900/75">Create a one-time code they can enter during onboarding.</p>
                   {generatedCode ? (
-                    <div className="mt-4 rounded-xl bg-indigo-50 p-4 text-center">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Pair code</p>
-                      <p className="mt-2 text-3xl font-bold tracking-[0.25em] text-indigo-900">{generatedCode}</p>
+                    <div className="hive-onboarding-code">
+                      <p className="text-xs font-bold uppercase tracking-[0.15em] text-amber-800">Pair code</p>
+                      <p className="hive-onboarding-code-value">{generatedCode}</p>
                       {generatedExpiresAt ? (
-                        <p className="mt-2 text-xs text-indigo-700">
+                        <p className="mt-2 text-xs text-amber-800/75">
                           Expires {new Date(generatedExpiresAt).toLocaleTimeString('en-IL', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       ) : null}
@@ -279,7 +255,7 @@ function OnboardingWizard() {
                     type="button"
                     onClick={handleGenerateCode}
                     disabled={isLoading}
-                    className="mt-4 w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="mt-4 w-full hive-onboarding-btn disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {generatedCode ? 'Regenerate code' : 'Generate code'}
                   </button>
@@ -287,23 +263,23 @@ function OnboardingWizard() {
                     type="button"
                     onClick={handleCheckStatus}
                     disabled={isLoading}
-                    className="mt-3 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="mt-3 w-full hive-onboarding-btn hive-onboarding-btn-secondary disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     Check status
                   </button>
                 </div>
 
-                <form className="rounded-2xl border border-slate-200 p-4" onSubmit={handleJoinCode}>
-                  <h3 className="font-semibold text-slate-900">Join partner</h3>
-                  <p className="mt-1 text-sm text-slate-600">Enter the six-character code from your partner.</p>
+                <form className="hive-onboarding-subpanel" onSubmit={handleJoinCode}>
+                  <h3 className="font-bold text-amber-950">Join partner</h3>
+                  <p className="mt-1 text-sm text-amber-900/75">Enter the six-character code from your partner.</p>
                   <label className="mt-4 block">
-                    <span className="mb-1 block text-sm font-medium text-slate-700">Pair code</span>
+                    <span className="hive-auth-label">Pair code</span>
                     <input
                       type="text"
                       value={pairCode}
                       onChange={(event) => setPairCode(event.target.value.toUpperCase())}
                       maxLength={6}
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-xl font-bold tracking-[0.25em] text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                      className="hive-onboarding-input text-center text-xl font-bold tracking-[0.25em]"
                       placeholder="ABC123"
                       required
                     />
@@ -311,18 +287,14 @@ function OnboardingWizard() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="mt-4 w-full hive-onboarding-btn disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {isLoading ? 'Connecting...' : 'Join Hive'}
+                    {isLoading ? 'Connecting…' : 'Join Hive'}
                   </button>
                 </form>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
+              <button type="button" onClick={() => setStep(1)} className="hive-onboarding-btn hive-onboarding-btn-secondary">
                 Back
               </button>
             </div>

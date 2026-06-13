@@ -1,23 +1,22 @@
 const TABS = [
-  { key: 'shared', label: 'Our Hive' },
-  { key: 'personal', label: 'My Expenses' },
-  { key: 'balance', label: 'Balance' },
+  { key: 'shared', label: 'Our Hive', icon: '🍯' },
+  { key: 'personal', label: 'My Expenses', icon: '🐝' },
+  { key: 'balance', label: 'Balance', icon: '⚖️' },
 ]
 
 function ViewToggle({ active, onChange }) {
   return (
-    <div className="inline-flex rounded-xl bg-slate-100 p-1">
+    <div className="hive-view-toggle" role="tablist" aria-label="Hive views">
       {TABS.map((tab) => (
         <button
           key={tab.key}
           type="button"
+          role="tab"
+          aria-selected={active === tab.key}
           onClick={() => onChange(tab.key)}
-          className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
-            active === tab.key
-              ? 'bg-white text-indigo-600 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
-          }`}
+          className={`hive-view-tab ${active === tab.key ? 'hive-view-tab-active' : ''}`}
         >
+          <span className="hive-view-tab-icon">{tab.icon}</span>
           {tab.label}
         </button>
       ))}

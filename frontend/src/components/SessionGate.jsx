@@ -4,9 +4,11 @@ function SessionGate({ isBootstrapping, message = 'Checking session...' }) {
   if (!isBootstrapping) return null
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-600 shadow-sm">
-        {message}
+    <main className="hive-auth-page">
+      <div className="hive-auth-bg" aria-hidden="true" />
+      <div className="hive-auth-card text-center">
+        <span className="hive-spinner mx-auto" aria-label="Loading" />
+        <p className="mt-4 text-sm font-semibold text-amber-900">{message}</p>
       </div>
     </main>
   )

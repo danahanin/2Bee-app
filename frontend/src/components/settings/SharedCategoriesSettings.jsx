@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react'
 
-const CATEGORY_ICONS = {
-  groceries: 'GR',
-  rent: 'RE',
-  utilities: 'UT',
-  dining: 'DI',
-  transport: 'TR',
-  entertainment: 'EN',
-  travel: 'TV',
-  health: 'HE',
-  subscriptions: 'SU',
-  shopping: 'SH',
+const CATEGORY_EMOJI = {
+  groceries: '🛒', rent: '🏠', utilities: '💡', dining: '🍽️', transport: '🚗',
+  entertainment: '🎬', travel: '✈️', health: '💊', subscriptions: '📺', shopping: '🛍️',
 }
 
 function titleCase(value) {
@@ -26,41 +18,27 @@ function SharedCategoriesSettings({ availableCategories, selectedCategories, loa
 
   if (loading) {
     return (
-      <div className="space-y-3">
-        <div className="h-6 w-40 animate-pulse rounded bg-slate-100" />
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="h-12 animate-pulse rounded-xl bg-slate-100" />
-          ))}
-        </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="hive-skeleton h-12" />
+        ))}
       </div>
     )
   }
 
   async function toggleCategory(category) {
     if (isSaving) return
-
     const previous = selected
-    const next = previous.includes(category)
-      ? previous.filter((item) => item !== category)
-      : [...previous, category]
-
+    const next = previous.includes(category) ? previous.filter((item) => item !== category) : [...previous, category]
     setSelected(next)
     const result = await onSave(next)
-    if (!result.ok) {
-      setSelected(previous)
-      return
-    }
+    if (!result.ok) setSelected(previous)
   }
 
   return (
     <section className="space-y-3">
-      <h3 className="text-base font-semibold text-slate-900">Shared Expense Categories</h3>
-      <p className="text-sm text-slate-600">
-        Expenses in these categories will be automatically suggested as shared.
-      </p>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <p className="hive-panel-sub">Tap categories that should default to shared in the hive.</p>
+      <div className="hive-chip-grid">
         {availableCategories.map((category) => {
           const isSelected = selected.includes(category)
           return (
@@ -69,24 +47,15 @@ function SharedCategoriesSettings({ availableCategories, selectedCategories, loa
               type="button"
               onClick={() => toggleCategory(category)}
               disabled={isSaving}
-              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
-                isSelected
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-800'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200'
-              }`}
+              className={`hive-chip ${isSelected ? 'hive-chip-active' : ''}`}
             >
-              <span className="mr-1.5 inline-flex min-w-6 justify-center rounded bg-slate-100 px-1 py-0.5 text-[10px] font-bold">
-                {CATEGORY_ICONS[category] || '--'}
-              </span>
+              <span>{CATEGORY_EMOJI[category] || '📌'}</span>
               {titleCase(category)}
             </button>
           )
         })}
       </div>
-
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-slate-500">Changes are saved automatically.</span>
-      </div>
+      <p className="text-xs opacity-60">Changes save automatically.</p>
     </section>
   )
 }

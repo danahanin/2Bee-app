@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useHiveChamber } from '../../context/HiveChamberContext.jsx'
+import HiveButton from './primitives/HiveButton.jsx'
+import HiveInput from './primitives/HiveInput.jsx'
 
 const CATEGORIES = [
   'groceries',
@@ -21,6 +24,7 @@ function toDateInputValue(date) {
 }
 
 function ExpenseFormModal({ expense, onSubmit, onClose, isSubmitting }) {
+  const { meta } = useHiveChamber()
   const isEditing = Boolean(expense)
 
   const [amount, setAmount] = useState(() => (expense ? String(expense.amount) : ''))
@@ -66,104 +70,80 @@ function ExpenseFormModal({ expense, onSubmit, onClose, isSubmitting }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="hive-modal-overlay" onClick={onClose}>
+      <div className="hive-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="hive-modal-hex-cap" aria-hidden="true" />
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {isEditing ? 'Edit Expense' : 'Add Expense'}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
+          <div>
+            <p className="hive-modal-zone">{meta.zone}</p>
+            <h2 className="hive-modal-title">
+              {isEditing ? meta.copy.editExpense : meta.copy.addExpense}
+            </h2>
+          </div>
+          <button type="button" onClick={onClose} className="hive-modal-close" aria-label="Close">
+            ✕
           </button>
         </div>
 
         {errors.length > 0 && (
-          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3">
+          <div className="hive-alert hive-alert-error mb-4">
             {errors.map((err) => (
-              <p key={err} className="text-sm text-rose-700">{err}</p>
+              <p key={err}>{err}</p>
             ))}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Amount</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              placeholder="0.00"
-              required
-            />
-          </label>
+          <HiveInput
+            label="Amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.00"
+            required
+          />
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Category</span>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-            >
-              {CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <HiveInput
+            label="Category"
+            as="select"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </option>
+            ))}
+          </HiveInput>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Description</span>
-            <input
-              type="text"
-              maxLength={200}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              placeholder="What was this expense for?"
-              required
-            />
-            <span className="mt-1 block text-xs text-slate-400">{description.length}/200</span>
-          </label>
+          <HiveInput
+            label="Description"
+            type="text"
+            maxLength={200}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What was this expense for?"
+            hint={`${description.length}/200`}
+            required
+          />
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Date</span>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              required
-            />
-          </label>
+          <HiveInput
+            label="Date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
 
           <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isEditing ? 'Update' : 'Add'}
-            </button>
+            <HiveButton type="button" variant="secondary" className="flex-1" onClick={onClose}>
+              {meta.copy.cancel}
+            </HiveButton>
+            <HiveButton type="submit" className="flex-1" disabled={isSubmitting}>
+              {isEditing ? 'Update' : meta.copy.save}
+            </HiveButton>
           </div>
         </form>
       </div>

@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext.jsx'
 
 function LoadingState() {
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-600 shadow-sm">
-        Checking onboarding status...
+    <main className="hive-auth-page">
+      <div className="hive-auth-bg" aria-hidden="true" />
+      <div className="hive-auth-card text-center">
+        <span className="hive-spinner mx-auto" aria-label="Loading" />
+        <p className="mt-4 text-sm font-semibold text-amber-900">Checking onboarding status…</p>
       </div>
     </main>
   )
@@ -26,17 +28,8 @@ function OnboardingGate({ children, allowIncomplete = false }) {
       try {
         const result = await fetchPairStatus(token)
         if (!mounted) return
-
-        if (result.hiveId) {
-          window.localStorage.setItem('twobee_hive_id', result.hiveId)
-        }
-
-        setStatus({
-          isLoading: false,
-          paired: Boolean(result.paired),
-          hiveId: result.hiveId ?? null,
-          error: '',
-        })
+        if (result.hiveId) window.localStorage.setItem('twobee_hive_id', result.hiveId)
+        setStatus({ isLoading: false, paired: Boolean(result.paired), hiveId: result.hiveId ?? null, error: '' })
       } catch (error) {
         if (!mounted) return
         if (/token|session|unauthorized/i.test(error.message)) {
@@ -47,30 +40,14 @@ function OnboardingGate({ children, allowIncomplete = false }) {
       }
     }
 
-    if (token) {
-      loadStatus()
-    }
-
-    return () => {
-      mounted = false
-    }
+    if (token) loadStatus()
+    return () => { mounted = false }
   }, [location.key, logout, token])
 
-  if (status.isLoading) {
-    return <LoadingState />
-  }
-
-  if (status.error && !allowIncomplete) {
-    return <Navigate to="/onboarding" replace state={{ statusError: status.error }} />
-  }
-
-  if (!status.paired && !allowIncomplete) {
-    return <Navigate to="/onboarding" replace state={{ from: location }} />
-  }
-
-  if (status.paired && allowIncomplete) {
-    return <Navigate to="/app" replace />
-  }
+  if (status.isLoading) return <LoadingState />
+  if (status.error && !allowIncomplete) return <Navigate to="/onboarding" replace state={{ statusError: status.error }} />
+  if (!status.paired && !allowIncomplete) return <Navigate to="/onboarding" replace state={{ from: location }} />
+  if (status.paired && allowIncomplete) return <Navigate to="/app" replace />
 
   return children
 }

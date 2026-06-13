@@ -1,3 +1,5 @@
+import HiveButton from '../hive/primitives/HiveButton.jsx'
+
 function formatSyncTime(timestamp) {
   if (!timestamp) return 'Unknown'
   const parsed = new Date(timestamp)
@@ -10,32 +12,23 @@ function BankAccountCard({ bankAccount, isDisconnecting, onDisconnect }) {
 
   return (
     <section className="space-y-3">
-      <h3 className="text-base font-semibold text-slate-900">Bank account</h3>
-
       {isConnected ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="hive-list-item">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-              BK
-            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-lg">🏦</span>
             <div>
-              <p className="text-sm font-semibold text-slate-900">{bankAccount.bankName || 'Connected bank'}</p>
-              <p className="text-xs text-slate-500">Last synced: {formatSyncTime(bankAccount.lastSyncedAt)}</p>
+              <p className="font-semibold text-[var(--chamber-accent-dark)]">{bankAccount.bankName || 'Connected bank'}</p>
+              <p className="text-xs opacity-70">Last synced: {formatSyncTime(bankAccount.lastSyncedAt)}</p>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={onDisconnect}
-            disabled={isDisconnecting}
-            className="mt-4 text-sm font-semibold text-indigo-700 underline-offset-4 transition hover:underline disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
-          </button>
+          <HiveButton type="button" variant="ghost" className="mt-4" onClick={onDisconnect} disabled={isDisconnecting}>
+            {isDisconnecting ? 'Disconnecting…' : 'Disconnect bank'}
+          </HiveButton>
         </div>
       ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-700">No bank account connected.</p>
+        <div className="hive-empty-state">
+          <span className="hive-empty-state-icon">🏦</span>
+          <p>No bank connected yet — manual mode works fine!</p>
         </div>
       )}
     </section>

@@ -1,3 +1,8 @@
+import Avatar from '../profile/Avatar.jsx'
+import HivePanel from './primitives/HivePanel.jsx'
+import HoneyJar, { HoneyJarRow } from './primitives/HoneyJar.jsx'
+import { formatBalanceLabel } from '../../lib/dashboardUtils.js'
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-IL', {
     style: 'currency',
@@ -7,9 +12,9 @@ function formatCurrency(amount) {
   }).format(amount || 0)
 }
 
-function widthPercent(value, max) {
-  if (!max) return '0%'
-  return `${Math.max(8, Math.round((value / max) * 100))}%`
+function fillPercent(value, max) {
+  if (!max) return 12
+  return Math.max(12, Math.round((value / max) * 100))
 }
 
 function ContributionChart({ balance, currentUserId }) {
@@ -18,51 +23,67 @@ function ContributionChart({ balance, currentUserId }) {
   const maxPaid = Math.max(...balance.contributions.map((item) => item.paid), balance.equalShare)
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <HivePanel className="p-5">
       <div className="mb-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Contribution view</p>
-        <h3 className="mt-1 text-lg font-semibold text-slate-900">Who has covered more so far</h3>
+        <p className="hive-panel-eyebrow">Contribution view</p>
+        <h3 className="hive-panel-title">Honey jars — who filled more</h3>
+        <p className="hive-panel-sub">All-time shared expenses (matches Hive balance)</p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {balance.contributions.map((item) => {
           const isCurrentUser = item.userId === currentUserId
+          const balanceLabel = formatBalanceLabel(item.remainingNet)
+
           return (
-            <div key={item.userId} className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium text-slate-700">{isCurrentUser ? 'You' : 'Your partner'}</span>
-                <span className="text-slate-500">
-                  Paid {formatCurrency(item.paid)} • Remaining {formatCurrency(Math.abs(item.remainingNet))}
-                </span>
+            <div key={item.userId} className="hive-contribution-row">
+              <div className="flex items-center gap-2">
+                <Avatar
+                  avatarUrl={item.avatarUrl}
+                  firstName={item.firstName}
+                  lastName={item.lastName}
+                  name={item.name}
+                  size="sm"
+                />
+                <div>
+                  <p className="font-bold text-[var(--chamber-accent-dark)]">
+                    {isCurrentUser ? 'You' : item.name || 'Your hive mate'}
+                  </p>
+                  <p
+                    className={`text-xs font-semibold ${
+                      balanceLabel.tone === 'credit'
+                        ? 'text-emerald-700'
+                        : balanceLabel.tone === 'debit'
+                          ? 'text-rose-700'
+                          : 'text-[var(--chamber-accent-dark)]'
+                    }`}
+                  >
+                    {balanceLabel.text}
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full ${isCurrentUser ? 'bg-indigo-600' : 'bg-violet-400'}`}
-                    style={{ width: widthPercent(item.paid, maxPaid) }}
-                  />
-                </div>
-                <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                  <div className="h-full rounded-full bg-emerald-400" style={{ width: widthPercent(balance.equalShare, maxPaid) }} />
-                </div>
-              </div>
+              <HoneyJarRow>
+                <HoneyJar
+                  size="sm"
+                  label="Paid"
+                  value={formatCurrency(item.paid)}
+                  fillPercent={fillPercent(item.paid, maxPaid)}
+                  icon="🍯"
+                />
+                <HoneyJar
+                  size="sm"
+                  label="Fair share"
+                  value={formatCurrency(balance.equalShare)}
+                  fillPercent={fillPercent(balance.equalShare, maxPaid)}
+                  icon="⚖️"
+                />
+              </HoneyJarRow>
             </div>
           )
         })}
       </div>
-
-      <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
-        <span className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-indigo-600" />
-          Paid so far
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-          Even split target
-        </span>
-      </div>
-    </section>
+    </HivePanel>
   )
 }
 

@@ -29,6 +29,13 @@ const {
   disconnectPair,
   reconnectPair,
 } = require('../controllers/profileController')
+const {
+  getDefaultAvatars,
+  uploadAvatar,
+  getHiveMembers,
+  getPartnerProfile,
+} = require('../controllers/avatarController')
+const uploadAvatarMiddleware = require('../middleware/uploadAvatar')
 
 const router = Router()
 
@@ -38,6 +45,10 @@ router.use(authMiddleware)
 // Profile
 router.get('/profile', getProfile)
 router.put('/profile', updateProfile)
+router.post('/profile/avatar', uploadAvatarMiddleware, uploadAvatar)
+router.get('/profile/partner', getPartnerProfile)
+router.get('/avatars/default', getDefaultAvatars)
+router.get('/hive/:hiveId/members', getHiveMembers)
 
 // Privacy settings
 router.get('/settings/privacy', getPrivacySettings)

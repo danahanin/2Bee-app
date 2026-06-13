@@ -1,3 +1,7 @@
+import HivePanel from './primitives/HivePanel.jsx'
+import HiveButton from './primitives/HiveButton.jsx'
+import HoneyJar from './primitives/HoneyJar.jsx'
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-IL', {
     style: 'currency',
@@ -9,15 +13,11 @@ function formatCurrency(amount) {
 
 function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle }) {
   if (isLoading) {
-    return <div className="h-28 animate-pulse rounded-2xl bg-white shadow-sm" />
+    return <div className="hive-skeleton h-28" />
   }
 
   if (error) {
-    return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
-        {error}
-      </div>
-    )
+    return <div className="hive-alert hive-alert-error">{error}</div>
   }
 
   if (!balance) return null
@@ -25,55 +25,50 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
   const currentContribution = balance.contributions?.find((item) => item.userId === currentUserId) || null
   const canSettle = balance.suggestedTransfer?.fromUserId === currentUserId
   const remaining = formatCurrency(balance.remainingImbalance)
+  const isBalanced = balance.balanceStatus === 'balanced'
+  const fillPercent = isBalanced ? 95 : 55
 
-  let title = 'Your hive is balanced'
-  let description = 'You and your partner are even for now.'
+  let title = 'Your hive is balanced!'
+  let description = 'You and your hive mate are even — all jars level.'
 
   if (balance.balanceStatus === 'imbalanced' && currentContribution) {
     if (currentContribution.remainingNet > 0) {
-      title = `You've covered ${formatCurrency(currentContribution.remainingNet)} more so far`
-      description = `A transfer of ${remaining} would bring things back into balance.`
+      title = `You filled ${formatCurrency(currentContribution.remainingNet)} more`
+      description = `A transfer of ${remaining} would even the jars.`
     } else {
-      title = `Your partner has covered ${formatCurrency(Math.abs(currentContribution.remainingNet))} more so far`
+      title = `Your partner filled ${formatCurrency(Math.abs(currentContribution.remainingNet))} more`
       description = canSettle
-        ? `A transfer of ${remaining} would gently even things out.`
-        : 'We are waiting for the next transfer step to even things out.'
+        ? `Transfer ${remaining} to balance the hive.`
+        : 'Waiting for the next transfer to even things out.'
     }
   }
 
   return (
-    <section className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
+    <HivePanel className="p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Hive balance</p>
-          <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-          <p className="max-w-2xl text-sm text-slate-600">{description}</p>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-            <span className="rounded-full bg-slate-100 px-3 py-1">
-              Shared spend: {formatCurrency(balance.totalSharedSpend)}
-            </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">
-              Each share: {formatCurrency(balance.equalShare)}
-            </span>
-            {balance.completedTransfersTotal > 0 && (
-              <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
-                Transferred already: {formatCurrency(balance.completedTransfersTotal)}
-              </span>
-            )}
+        <div className="flex flex-1 flex-wrap items-center gap-4">
+          <HoneyJar size="sm" label="Balance" value={isBalanced ? 'Even' : remaining} fillPercent={fillPercent} icon="⚖️" />
+          <div className="min-w-[12rem] flex-1 space-y-2">
+            <p className="hive-panel-eyebrow">Hive balance</p>
+            <h2 className="hive-panel-title">{title}</h2>
+            <p className="hive-panel-sub">{description}</p>
+            <div className="flex flex-wrap gap-2">
+              <span className="hive-badge hive-badge-amber">Shared: {formatCurrency(balance.totalSharedSpend)}</span>
+              <span className="hive-badge hive-badge-muted">Each share: {formatCurrency(balance.equalShare)}</span>
+              {balance.completedTransfersTotal > 0 && (
+                <span className="hive-badge hive-badge-green">Transferred: {formatCurrency(balance.completedTransfersTotal)}</span>
+              )}
+            </div>
           </div>
         </div>
 
         {canSettle && balance.balanceStatus === 'imbalanced' && (
-          <button
-            type="button"
-            onClick={onSettle}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-          >
+          <HiveButton type="button" onClick={onSettle}>
             Start transfer
-          </button>
+          </HiveButton>
         )}
       </div>
-    </section>
+    </HivePanel>
   )
 }
 
