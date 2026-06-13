@@ -1,4 +1,4 @@
-const { confidenceOf } = require('../tesseractOcr')
+const { confidenceOf, recoverPriceLines, mergeOcrText } = require('../tesseractOcr')
 
 describe('confidenceOf', () => {
   const cases = [
@@ -13,5 +13,33 @@ describe('confidenceOf', () => {
 
   it.each(cases)('$name', ({ input, expected }) => {
     expect(confidenceOf(input)).toBe(expected)
+  })
+})
+
+describe('recoverPriceLines', () => {
+  it('returns price lines present only in the fallback pass', () => {
+    const primary = 'MILK\nBREAD'
+    const fallback = 'MILK\nTOTAL 69.70\nגׁ'
+    expect(recoverPriceLines(primary, fallback)).toEqual(['TOTAL 69.70'])
+  })
+
+  it('ignores fallback price lines already in the primary (ignoring spacing)', () => {
+    const primary = 'TOTAL  69.70'
+    const fallback = 'TOTAL 69.70'
+    expect(recoverPriceLines(primary, fallback)).toEqual([])
+  })
+
+  it('ignores non-price lines', () => {
+    expect(recoverPriceLines('', 'just text\nno numbers')).toEqual([])
+  })
+})
+
+describe('mergeOcrText', () => {
+  it('appends recovered price lines to the primary text', () => {
+    expect(mergeOcrText('MILK', 'לתשלום 69.70')).toBe('MILK\nלתשלום 69.70')
+  })
+
+  it('returns the primary text unchanged when nothing is recovered', () => {
+    expect(mergeOcrText('MILK\nBREAD', 'MILK')).toBe('MILK\nBREAD')
   })
 })

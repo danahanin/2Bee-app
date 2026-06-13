@@ -2,10 +2,13 @@ const Tesseract = require('tesseract.js')
 const { makeOcrResult } = require('../contracts')
 
 const DEFAULT_LANG = process.env.OCR_LANG || 'heb+eng'
-// PSM 4 = single column of variable-size text, which matches the narrow receipt
-// layout and stops Tesseract from reading the photo background as extra columns.
-const DEFAULT_PSM = process.env.OCR_PSM || '4'
+// PSM 4 (single column) reads the receipt body cleanly; PSM 11 (sparse text)
+// finds isolated large-font numbers like the total that PSM 4 drops. We run both
+// and merge the price lines so the extractor still sees the totals.
+const PRIMARY_PSM = process.env.OCR_PSM || '4'
+const FALLBACK_PSM = process.env.OCR_FALLBACK_PSM || '11'
 const LSTM_ONLY = 1
+const PRICE_PATTERN = /\d{1,4}[.,]\d{2}/
 
 /**
  * Normalize Tesseract's 0..100 confidence to a clamped 0..1 value.
@@ -27,6 +30,47 @@ function confidenceOf(tesseractData) {
   return normalized
 }
 
+function normalizeLine(line) {
+  return line.replace(/\s+/g, '')
+}
+
+/**
+ * Return price-bearing lines from the fallback pass that the primary pass missed.
+ * @param {string} primaryText
+ * @param {string} fallbackText
+ * @returns {string[]}
+ */
+function recoverPriceLines(primaryText, fallbackText) {
+  const seen = new Set(primaryText.split('\n').map(normalizeLine))
+
+  return fallbackText
+    .split('\n')
+    .filter((line) => PRICE_PATTERN.test(line) && !seen.has(normalizeLine(line)))
+}
+
+/**
+ * Merge the clean primary text with any price lines recovered from the fallback.
+ * @param {string} primaryText
+ * @param {string} fallbackText
+ * @returns {string}
+ */
+function mergeOcrText(primaryText, fallbackText) {
+  const recovered = recoverPriceLines(primaryText, fallbackText)
+  return recovered.length ? `${primaryText}\n${recovered.join('\n')}` : primaryText
+}
+
+async function recognizeWith(buffer, lang, psm) {
+  const worker = await Tesseract.createWorker(lang, LSTM_ONLY)
+
+  try {
+    await worker.setParameters({ tessedit_pageseg_mode: psm })
+    const { data } = await worker.recognize(buffer)
+    return data
+  } finally {
+    await worker.terminate()
+  }
+}
+
 /**
  * Run OCR over an image buffer and return a normalized OcrResult.
  * @param {Buffer} buffer Image bytes (already preprocessed).
@@ -34,20 +78,14 @@ function confidenceOf(tesseractData) {
  * @returns {Promise<import('../contracts').OcrResult>}
  */
 async function runOcr(buffer, { lang = DEFAULT_LANG, imageRef = null } = {}) {
-  const worker = await Tesseract.createWorker(lang, LSTM_ONLY)
+  const primary = await recognizeWith(buffer, lang, PRIMARY_PSM)
+  const fallback = await recognizeWith(buffer, lang, FALLBACK_PSM)
 
-  try {
-    await worker.setParameters({ tessedit_pageseg_mode: DEFAULT_PSM })
-    const { data } = await worker.recognize(buffer)
-
-    return makeOcrResult({
-      rawText: data.text || '',
-      confidence: confidenceOf(data),
-      imageRef,
-    })
-  } finally {
-    await worker.terminate()
-  }
+  return makeOcrResult({
+    rawText: mergeOcrText(primary.text || '', fallback.text || ''),
+    confidence: confidenceOf(primary),
+    imageRef,
+  })
 }
 
-module.exports = { confidenceOf, runOcr }
+module.exports = { confidenceOf, recoverPriceLines, mergeOcrText, runOcr }
