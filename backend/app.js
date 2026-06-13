@@ -3,6 +3,7 @@ const cors = require('cors')
 const mongoose = require('mongoose')
 
 const aiRoutes = require('./src/routes/ai.routes')
+const receiptRoutes = require('./src/routes/receipts.routes')
 const authRoutes = require('./routes/auth')
 const profileRouter = require('./routes/profile')
 const pairRouter = require('./routes/pair')
@@ -24,6 +25,7 @@ function createApp() {
   })
 
   app.use('/hive', hiveRoutes)
+  app.use('/receipts', receiptRoutes)
   app.use('/expenses', expensesRoutes)
   app.use('/dashboard', dashboardRoutes)
   app.use('/api', profileRouter)

@@ -1,5 +1,6 @@
 const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
+const Receipt = require('../models/Receipt')
 const Transfer = require('../models/Transfer')
 const HiveNotification = require('../models/HiveNotification')
 const User = require('../models/User')
@@ -85,6 +86,33 @@ async function createSharedExpense(hiveId, userId, data) {
     classifiedBy: 'user',
   })
   return expense.save()
+}
+
+async function createPersonalExpense(userId, data) {
+  const receiptId = data.receiptId || null
+
+  const expense = new Expense({
+    hiveId: null,
+    userId,
+    amount: data.amount,
+    category: data.category,
+    description: data.description,
+    type: 'personal',
+    source: receiptId ? 'receipt' : 'manual',
+    date: data.date || new Date(),
+    classifiedBy: 'user',
+    receiptId,
+  })
+  await expense.save()
+
+  if (receiptId) {
+    await Receipt.findOneAndUpdate(
+      { _id: receiptId, userId },
+      { status: 'confirmed', expenseId: expense._id },
+    )
+  }
+
+  return expense
 }
 
 async function updateSharedExpense(hiveId, expenseId, userId, data) {
@@ -400,6 +428,7 @@ module.exports = {
   getHiveExpenses,
   getHiveBalance,
   createSharedExpense,
+  createPersonalExpense,
   updateSharedExpense,
   deleteSharedExpense,
   connectExpenseToHive,

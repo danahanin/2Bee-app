@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import ViewToggle from '../components/hive/ViewToggle.jsx'
 import ExpenseList from '../components/hive/ExpenseList.jsx'
 import ExpenseFormModal from '../components/hive/ExpenseFormModal.jsx'
+import ScanReceiptModal from '../components/receipt/ScanReceiptModal.jsx'
 import ImbalanceBanner from '../components/hive/ImbalanceBanner.jsx'
 import ContributionChart from '../components/hive/ContributionChart.jsx'
 import TransferTimeline from '../components/hive/TransferTimeline.jsx'
@@ -159,6 +160,7 @@ function HiveScreen() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingExpense, setEditingExpense] = useState(null)
   const [transferModalOpen, setTransferModalOpen] = useState(false)
+  const [scanModalOpen, setScanModalOpen] = useState(false)
 
   useEffect(() => {
     if (view !== 'shared') return undefined
@@ -233,6 +235,10 @@ function HiveScreen() {
     }
   }
 
+  function handleReceiptSaved() {
+    refetch()
+  }
+
   async function handleConnectToHive(expense) {
     const result = await connectToHive(expense._id)
     if (result.ok) {
@@ -301,6 +307,15 @@ function HiveScreen() {
                 + Add Expense
               </button>
             )}
+            {view === 'personal' && (
+              <button
+                type="button"
+                onClick={() => setScanModalOpen(true)}
+                className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              >
+                Scan receipt
+              </button>
+            )}
           </div>
         </div>
 
@@ -358,6 +373,10 @@ function HiveScreen() {
           onClose={handleCloseModal}
           isSubmitting={isCreating || isUpdating}
         />
+      )}
+
+      {scanModalOpen && (
+        <ScanReceiptModal onClose={() => setScanModalOpen(false)} onSaved={handleReceiptSaved} />
       )}
 
       {transferModalOpen && (
