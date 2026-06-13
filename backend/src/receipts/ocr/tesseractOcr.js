@@ -7,6 +7,9 @@ const DEFAULT_LANG = process.env.OCR_LANG || 'heb+eng'
 // and merge the price lines so the extractor still sees the totals.
 const PRIMARY_PSM = process.env.OCR_PSM || '4'
 const FALLBACK_PSM = process.env.OCR_FALLBACK_PSM || '11'
+// Receipts are mostly non-words (prices, codes), so the word dictionaries can
+// hurt. Toggle with OCR_DISABLE_DICTIONARY=true. These must be set at init.
+const DISABLE_DICTIONARY = process.env.OCR_DISABLE_DICTIONARY === 'true'
 const LSTM_ONLY = 1
 const PRICE_PATTERN = /\d{1,4}[.,]\d{2}/
 
@@ -59,8 +62,16 @@ function mergeOcrText(primaryText, fallbackText) {
   return recovered.length ? `${primaryText}\n${recovered.join('\n')}` : primaryText
 }
 
+function initConfig() {
+  if (!DISABLE_DICTIONARY) {
+    return {}
+  }
+
+  return { load_system_dawg: '0', load_freq_dawg: '0' }
+}
+
 async function recognizeWith(buffer, lang, psm) {
-  const worker = await Tesseract.createWorker(lang, LSTM_ONLY)
+  const worker = await Tesseract.createWorker(lang, LSTM_ONLY, {}, initConfig())
 
   try {
     await worker.setParameters({ tessedit_pageseg_mode: psm })
