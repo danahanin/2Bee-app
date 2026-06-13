@@ -1,6 +1,8 @@
 const Tesseract = require('tesseract.js')
 const { makeOcrResult } = require('../contracts')
 
+const DEFAULT_LANG = process.env.OCR_LANG || 'heb+eng'
+
 /**
  * Normalize Tesseract's 0..100 confidence to a clamped 0..1 value.
  * @param {{ confidence?: number }} [tesseractData]
@@ -27,7 +29,7 @@ function confidenceOf(tesseractData) {
  * @param {{ lang?: string, imageRef?: string|null }} [options]
  * @returns {Promise<import('../contracts').OcrResult>}
  */
-async function runOcr(buffer, { lang = 'eng', imageRef = null } = {}) {
+async function runOcr(buffer, { lang = DEFAULT_LANG, imageRef = null } = {}) {
   const { data } = await Tesseract.recognize(buffer, lang)
 
   return makeOcrResult({
