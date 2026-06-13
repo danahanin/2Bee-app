@@ -23,11 +23,12 @@ const expenseSchema = new mongoose.Schema(
     category: { type: String, required: true, enum: CATEGORIES },
     description: { type: String, required: true, maxlength: 200 },
     type: { type: String, required: true, enum: ['personal', 'shared'] },
-    source: { type: String, default: 'manual', enum: ['manual', 'bank_sync'] },
+    source: { type: String, default: 'manual', enum: ['manual', 'bank_sync', 'receipt'] },
     date: { type: Date, required: true },
     isDeleted: { type: Boolean, default: false },
     classifiedBy: { type: String, enum: ['user', 'ai'], default: 'user' },
     externalTransactionId: { type: String, default: null },
+    receiptId: { type: mongoose.Schema.Types.ObjectId, ref: 'Receipt', default: null },
   },
   { timestamps: true },
 )
