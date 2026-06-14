@@ -54,3 +54,10 @@ backend/node_modules/
 
 backend/coverage/
 coverage/
+
+# Uploaded receipt images (POC local storage)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Tesseract OCR language data (downloaded at runtime / redistributable asset)
+*.traineddata

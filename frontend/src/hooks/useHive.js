@@ -117,6 +117,36 @@ export function useCreateExpense(hiveId) {
   return { create, isSubmitting }
 }
 
+export function useCreatePersonalExpense() {
+  const { token } = useAuth()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const create = useCallback(
+    async (data) => {
+      if (!token) return { ok: false, message: 'Not ready' }
+      setIsSubmitting(true)
+      try {
+        const res = await fetch(`${API_PREFIX}/expenses`, {
+          method: 'POST',
+          headers: authHeaders(token),
+          body: JSON.stringify(data),
+        })
+        if (!res.ok) {
+          throw new Error(await parseApiError(res, 'Failed to create expense'))
+        }
+        return { ok: true, expense: await res.json() }
+      } catch (err) {
+        return { ok: false, message: err.message }
+      } finally {
+        setIsSubmitting(false)
+      }
+    },
+    [token],
+  )
+
+  return { create, isSubmitting }
+}
+
 export function useUpdateExpense(hiveId) {
   const { token } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
