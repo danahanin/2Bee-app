@@ -8,5 +8,6 @@ const router = Router()
 router.use(authMiddleware)
 
 router.get('/personal', privacyFilterMiddleware, hiveController.getPersonalExpenses)
+router.post('/', hiveController.createPersonalExpense)
 
 module.exports = router

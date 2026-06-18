@@ -34,6 +34,17 @@ npm run dev
 
 Backend runs on `http://localhost:4000`.
 
+#### Receipt scanning (OCR)
+
+Receipt scanning uses `multer` for image upload and `tesseract.js` for OCR. These are part of the backend dependencies and are installed by `npm install` above. To install them on their own:
+
+```bash
+cd backend
+npm install multer tesseract.js
+```
+
+On the first scan, `tesseract.js` downloads the English (`eng`) trained data automatically. Uploaded images are stored locally under `backend/uploads/`.
+
 ### 2) Frontend
 
 ```bash

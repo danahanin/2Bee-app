@@ -79,6 +79,20 @@ async function createHiveExpense(req, res) {
   }
 }
 
+async function createPersonalExpense(req, res) {
+  try {
+    const errors = validateExpenseBody(req.body)
+    if (errors.length > 0) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: errors.join('; ') } })
+    }
+
+    const expense = await hiveService.createPersonalExpense(req.user.userId, req.body)
+    res.status(201).json(expense)
+  } catch (err) {
+    sendError(res, err, err.message)
+  }
+}
+
 function validateExpenseBodyPartial(body) {
   const errors = []
   if (body.amount !== undefined && (typeof body.amount !== 'number' || body.amount <= 0)) {
@@ -302,6 +316,7 @@ module.exports = {
   getHiveExpenses,
   getHiveBalance,
   createHiveExpense,
+  createPersonalExpense,
   updateHiveExpense,
   deleteHiveExpense,
   connectExpenseToHive,
