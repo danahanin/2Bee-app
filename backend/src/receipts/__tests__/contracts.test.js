@@ -2,6 +2,7 @@ const {
   CATEGORIES,
   makeOcrResult,
   makeExtractedReceipt,
+  makeClassification,
   makeReceiptDraft,
 } = require('../contracts')
 
@@ -39,21 +40,55 @@ describe('makeExtractedReceipt', () => {
   })
 })
 
-describe('makeReceiptDraft', () => {
-  it('combines receiptId, ocr and extracted', () => {
-    const ocr = makeOcrResult({ rawText: 'x' })
-    const extracted = makeExtractedReceipt({ rawText: 'x' })
-    expect(makeReceiptDraft({ receiptId: 'abc', ocr, extracted })).toEqual({
-      receiptId: 'abc',
-      ocr,
-      extracted,
+describe('makeClassification', () => {
+  it('builds a classification with retrieved examples', () => {
+    expect(
+      makeClassification({
+        type: 'shared',
+        confidence: 0.85,
+        reasoning: 'Grocery receipt',
+        retrieved: [{ text: 'supermarket run', type: 'shared', score: 0.9 }],
+      }),
+    ).toEqual({
+      type: 'shared',
+      confidence: 0.85,
+      reasoning: 'Grocery receipt',
+      retrieved: [{ text: 'supermarket run', type: 'shared', score: 0.9 }],
     })
   })
 
-  it('defaults receiptId to null', () => {
+  it('defaults reasoning and retrieved', () => {
+    expect(makeClassification({ type: 'personal', confidence: 0.5 })).toEqual({
+      type: 'personal',
+      confidence: 0.5,
+      reasoning: '',
+      retrieved: [],
+    })
+  })
+})
+
+describe('makeReceiptDraft', () => {
+  it('combines receiptId, ocr, extracted, and classification', () => {
+    const ocr = makeOcrResult({ rawText: 'x' })
+    const extracted = makeExtractedReceipt({ rawText: 'x' })
+    const classification = makeClassification({ type: 'personal', confidence: 0.8 })
+    expect(makeReceiptDraft({ receiptId: 'abc', ocr, extracted, classification })).toEqual({
+      receiptId: 'abc',
+      ocr,
+      extracted,
+      classification,
+    })
+  })
+
+  it('defaults receiptId and classification to null', () => {
     const ocr = makeOcrResult()
     const extracted = makeExtractedReceipt()
-    expect(makeReceiptDraft({ ocr, extracted }).receiptId).toBeNull()
+    expect(makeReceiptDraft({ ocr, extracted })).toEqual({
+      receiptId: null,
+      ocr,
+      extracted,
+      classification: null,
+    })
   })
 })
 

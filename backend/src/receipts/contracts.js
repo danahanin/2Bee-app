@@ -23,12 +23,30 @@ const { CATEGORIES } = require('../../models/Expense')
  */
 
 /**
+ * One retrieved few-shot example used to justify a classification.
+ * @typedef {Object} RetrievedExample
+ * @property {string} text
+ * @property {'personal'|'shared'} type
+ * @property {number} score Cosine similarity 0..1.
+ */
+
+/**
+ * Phase 1 output: personal vs shared expense classification.
+ * @typedef {Object} Classification
+ * @property {'personal'|'shared'} type
+ * @property {number} confidence 0..1
+ * @property {string} reasoning
+ * @property {RetrievedExample[]} retrieved
+ */
+
+/**
  * A scanned receipt ready for user review: links the persisted receipt to its
- * OCR result and the (possibly empty) extracted fields.
+ * OCR result, extracted fields, and optional classification.
  * @typedef {Object} ReceiptDraft
  * @property {string|null} receiptId Persisted Receipt document id, or null.
  * @property {OcrResult} ocr
  * @property {ExtractedReceipt} extracted
+ * @property {Classification|null} [classification]
  */
 
 /**
@@ -59,17 +77,27 @@ function makeExtractedReceipt({
 }
 
 /**
+ * Build a Classification result.
+ * @param {{ type: 'personal'|'shared', confidence: number, reasoning?: string, retrieved?: RetrievedExample[] }} input
+ * @returns {Classification}
+ */
+function makeClassification({ type, confidence, reasoning = '', retrieved = [] }) {
+  return { type, confidence, reasoning, retrieved }
+}
+
+/**
  * Build a ReceiptDraft from its parts.
- * @param {{ receiptId?: string|null, ocr: OcrResult, extracted: ExtractedReceipt }} input
+ * @param {{ receiptId?: string|null, ocr: OcrResult, extracted: ExtractedReceipt, classification?: Classification|null }} input
  * @returns {ReceiptDraft}
  */
-function makeReceiptDraft({ receiptId = null, ocr, extracted }) {
-  return { receiptId, ocr, extracted }
+function makeReceiptDraft({ receiptId = null, ocr, extracted, classification = null }) {
+  return { receiptId, ocr, extracted, classification }
 }
 
 module.exports = {
   CATEGORIES,
   makeOcrResult,
   makeExtractedReceipt,
+  makeClassification,
   makeReceiptDraft,
 }

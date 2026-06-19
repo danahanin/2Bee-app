@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const aiService = require('../services/ai.service');
 const hiveService = require('../../services/hiveService');
+const { makeExtractedReceipt } = require('../receipts/contracts');
+const { classifyPersonalShared } = require('../ai/phase1/classifyPersonalShared');
 
 function isValidHiveObjectId(raw) {
   return typeof raw === 'string' && mongoose.Types.ObjectId.isValid(raw);
@@ -218,6 +220,37 @@ function classifyExpense(req, res) {
   res.json({ data: result });
 }
 
+async function classifyFromReceipt(req, res) {
+  try {
+    const body = req.body || {};
+    const rawText = typeof body.rawText === 'string' ? body.rawText : '';
+
+    const extracted = makeExtractedReceipt({
+      vendor: body.vendor ?? null,
+      amount: typeof body.amount === 'number' ? body.amount : null,
+      currency: body.currency ?? null,
+      date: body.date ?? null,
+      category: body.category ?? null,
+      lineItems: Array.isArray(body.lineItems) ? body.lineItems : [],
+      rawText,
+    });
+
+    if (!extracted.vendor && !extracted.rawText) {
+      return res.status(400).json({
+        error: { code: 'VALIDATION_ERROR', message: 'vendor or rawText is required' },
+      });
+    }
+
+    const data = await classifyPersonalShared(extracted);
+    return res.json({ data });
+  } catch (err) {
+    console.error('classifyFromReceipt:', err);
+    return res.status(500).json({
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' },
+    });
+  }
+}
+
 async function getImbalance(req, res) {
   try {
     const userId = req.user.userId;
@@ -316,6 +349,7 @@ module.exports = {
   getForecast,
   getRecommendations,
   classifyExpense,
+  classifyFromReceipt,
   getImbalance,
   getGoalSuggestions,
 };

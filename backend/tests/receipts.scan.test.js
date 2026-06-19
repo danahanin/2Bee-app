@@ -42,6 +42,15 @@ jest.mock('../src/receipts/ocr/tesseractOcr', () => ({
   }),
 }))
 
+jest.mock('../src/ai/phase1/classifyPersonalShared', () => ({
+  classifyPersonalShared: jest.fn(async () => ({
+    type: 'shared',
+    confidence: 0.88,
+    reasoning: 'Grocery store receipt',
+    retrieved: [{ text: 'supermarket run', type: 'shared', score: 0.9 }],
+  })),
+}))
+
 const { createApp } = require('../app')
 const Receipt = require('../models/Receipt')
 const Expense = require('../models/Expense')
@@ -114,6 +123,14 @@ describe('Receipt scan + personal expense API', () => {
         expect.objectContaining({
           vendor: expect.any(Number),
           amount: expect.any(Number),
+        }),
+      )
+      expect(draft.classification).toEqual(
+        expect.objectContaining({
+          type: 'shared',
+          confidence: 0.88,
+          reasoning: expect.any(String),
+          retrieved: expect.any(Array),
         }),
       )
 

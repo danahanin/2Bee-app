@@ -11,6 +11,7 @@
     "seed:sandbox-connect": "node scripts/createSandboxConnection.js",
     "seed:pair-mock": "node scripts/seedPairMock.js",
     "seed:bank-mock": "node scripts/seedBankMockForHive.js",
+    "seed:examples": "node scripts/seedClassificationExamples.js",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "lint": "eslint .",

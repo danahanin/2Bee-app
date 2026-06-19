@@ -23,3 +23,21 @@ export async function scanReceipt(token, file) {
   const body = await res.json()
   return body.data
 }
+
+export async function classifyFromReceipt(token, extracted) {
+  const res = await fetch('/ai/classify-from-receipt', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(extracted),
+  })
+
+  if (!res.ok) {
+    throw new Error(await parseApiError(res, 'Failed to classify receipt'))
+  }
+
+  const body = await res.json()
+  return body.data
+}
