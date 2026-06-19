@@ -509,6 +509,129 @@ components:
         total:
           type: number
 
+    SpendingBreakdownItem:
+      type: object
+      properties:
+        category:
+          type: string
+        amount:
+          type: number
+        percent:
+          type: number
+
+    SpendingBreakdownResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [personal, shared]
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        total:
+          type: number
+        breakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpendingBreakdownItem'
+        message:
+          type: string
+          nullable: true
+
+    TrendSeriesItem:
+      type: object
+      properties:
+        category:
+          type: string
+        data:
+          type: array
+          items:
+            type: number
+        trend:
+          type: string
+          enum: [up, down, stable]
+
+    TrendsResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [personal, shared]
+        months:
+          type: array
+          items:
+            type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/TrendSeriesItem'
+        message:
+          type: string
+          nullable: true
+
+    ComparisonCategoryItem:
+      type: object
+      properties:
+        category:
+          type: string
+        current:
+          type: number
+        previous:
+          type: number
+        changePercent:
+          type: number
+          nullable: true
+
+    ComparisonMonthBlock:
+      type: object
+      properties:
+        key:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        total:
+          type: number
+        byCategory:
+          type: object
+          additionalProperties:
+            type: number
+
+    ComparisonResponse:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [personal, shared]
+        currentMonth:
+          $ref: '#/components/schemas/ComparisonMonthBlock'
+        previousMonth:
+          $ref: '#/components/schemas/ComparisonMonthBlock'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComparisonCategoryItem'
+        forecast:
+          type: object
+          nullable: true
+        forecastNote:
+          type: string
+        message:
+          type: string
+          nullable: true
+
     SharedDashboardResponse:
       type: object
       properties:
@@ -707,6 +830,172 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '403':
           description: Hive not found or user is not a member.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/spending-breakdown:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Spending breakdown by category
+      description: Groups expenses by category for the given date range and expense type.
+      operationId: getAnalyticsSpendingBreakdown
+      tags:
+        - Dashboard & Analytics
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [personal, shared]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: userId
+          in: query
+          description: Partner may pass paired user id for personal analytics.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category breakdown for the range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpendingBreakdownResponse'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid authorization token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed to view requested user data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/trends:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Month-over-month spending trends
+      description: Returns per-category spend series across recent months with trend direction.
+      operationId: getAnalyticsTrends
+      tags:
+        - Dashboard & Analytics
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [personal, shared]
+        - name: months
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 24
+            default: 6
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trend series by category.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendsResponse'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid authorization token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed to view requested user data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/comparison:
+    servers:
+      - url: http://localhost:4000
+    get:
+      summary: Current vs previous month comparison
+      description: Compares current UTC month spend to the previous month. Forecast field is reserved for AI integration.
+      operationId: getAnalyticsComparison
+      tags:
+        - Dashboard & Analytics
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [personal, shared]
+        - name: userId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Month comparison payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonResponse'
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Missing or invalid authorization token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed to view requested user data.
           content:
             application/json:
               schema:

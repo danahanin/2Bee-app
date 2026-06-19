@@ -20,11 +20,11 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
-      '/dashboard': {
+      '/expenses': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
-      '/expenses': {
+      '/dashboard': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
@@ -32,11 +32,7 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
-      '/api': {
-        target: 'http://localhost:4000',
-        changeOrigin: true,
-      },
-      '/dashboard': {
+      '/analytics': {
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
