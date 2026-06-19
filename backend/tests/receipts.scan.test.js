@@ -35,7 +35,7 @@ jest.mock('../middleware/auth', () => {
 jest.mock('../src/receipts/ocr/tesseractOcr', () => ({
   confidenceOf: () => 0.9,
   runOcr: async () => ({
-    rawText: 'CORNER STORE\nMILK 5.00\nTOTAL 42.50',
+    rawText: 'CORNER STORE\n123 Main St\n13/06/2026\nMILK 5.00\nBREAD 3.50\nTOTAL 42.50',
     confidence: 0.9,
     imageRef: null,
     source: 'tesseract',
@@ -98,7 +98,24 @@ describe('Receipt scan + personal expense API', () => {
       expect(draft.ocr).toEqual(
         expect.objectContaining({ source: 'tesseract', rawText: expect.stringContaining('CORNER STORE') }),
       )
-      expect(draft.extracted).toEqual(expect.objectContaining({ amount: null, category: null }))
+      expect(draft.extracted).toEqual(
+        expect.objectContaining({
+          vendor: 'CORNER STORE',
+          amount: 42.5,
+          currency: 'ILS',
+          date: '2026-06-13',
+          category: expect.any(String),
+          lineItems: expect.arrayContaining([
+            expect.objectContaining({ description: 'MILK', amount: 5 }),
+          ]),
+        }),
+      )
+      expect(draft.fieldConfidence).toEqual(
+        expect.objectContaining({
+          vendor: expect.any(Number),
+          amount: expect.any(Number),
+        }),
+      )
 
       const stored = await Receipt.findById(draft.receiptId).lean()
       expect(stored).not.toBeNull()

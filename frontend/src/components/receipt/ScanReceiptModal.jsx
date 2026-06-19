@@ -18,8 +18,22 @@ const CATEGORIES = [
   'other',
 ]
 
+const LOW_CONFIDENCE = 0.7
+
 function todayInputValue() {
   return new Date().toISOString().split('T')[0]
+}
+
+function toDateInputValue(isoDate) {
+  if (!isoDate) return todayInputValue()
+  return isoDate.split('T')[0]
+}
+
+function fieldBorderClass(confidence) {
+  if (confidence == null || confidence >= LOW_CONFIDENCE) {
+    return 'border-slate-300 focus:border-indigo-500 focus:ring-indigo-200'
+  }
+  return 'border-amber-400 ring-1 ring-amber-200 focus:border-amber-500 focus:ring-amber-200'
 }
 
 function validateForm({ amount, category, description, date }) {
@@ -32,7 +46,7 @@ function validateForm({ amount, category, description, date }) {
     errs.push('Please select a valid category')
   }
   if (!description.trim()) {
-    errs.push('Description is required')
+    errs.push('Vendor / description is required')
   } else if (description.length > 200) {
     errs.push('Description must be 200 characters or less')
   }
@@ -40,6 +54,16 @@ function validateForm({ amount, category, description, date }) {
     errs.push('Please enter a valid date')
   }
   return errs
+}
+
+function applyDraftToForm(result, setters) {
+  const ext = result?.extracted || {}
+  setters.setAmount(ext.amount != null ? String(ext.amount) : '')
+  setters.setCategory(ext.category || '')
+  setters.setDescription(ext.vendor || '')
+  setters.setDate(toDateInputValue(ext.date))
+  setters.setLineItems(Array.isArray(ext.lineItems) ? ext.lineItems : [])
+  setters.setFieldConfidence(result?.fieldConfidence || {})
 }
 
 function ScanReceiptModal({ onClose, onSaved }) {
@@ -54,6 +78,8 @@ function ScanReceiptModal({ onClose, onSaved }) {
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(todayInputValue)
+  const [lineItems, setLineItems] = useState([])
+  const [fieldConfidence, setFieldConfidence] = useState({})
   const [errors, setErrors] = useState([])
   const [showRawText, setShowRawText] = useState(false)
 
@@ -65,11 +91,33 @@ function ScanReceiptModal({ onClose, onSaved }) {
     try {
       const result = await scanReceipt(token, file)
       setDraft(result)
+      applyDraftToForm(result, {
+        setAmount,
+        setCategory,
+        setDescription,
+        setDate,
+        setLineItems,
+        setFieldConfidence,
+      })
       setStep('review')
     } catch (err) {
       setError(err.message)
       setStep('picker')
     }
+  }
+
+  function updateLineItem(index, field, value) {
+    setLineItems((items) =>
+      items.map((item, i) => (i === index ? { ...item, [field]: value } : item)),
+    )
+  }
+
+  function removeLineItem(index) {
+    setLineItems((items) => items.filter((_, i) => i !== index))
+  }
+
+  function addLineItem() {
+    setLineItems((items) => [...items, { description: '', amount: '' }])
   }
 
   async function handleSave(event) {
@@ -97,9 +145,15 @@ function ScanReceiptModal({ onClose, onSaved }) {
     }
   }
 
+  const inputClass = (field) =>
+    `w-full rounded-xl border px-4 py-2.5 text-slate-900 outline-none transition focus:ring-2 ${fieldBorderClass(fieldConfidence[field])}`
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Scan receipt</h2>
           <button
@@ -138,6 +192,12 @@ function ScanReceiptModal({ onClose, onSaved }) {
 
         {step === 'review' && (
           <form onSubmit={handleSave} className="space-y-4">
+            {Object.values(fieldConfidence).some((c) => c != null && c < LOW_CONFIDENCE) && (
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Amber fields were guessed with low confidence — please double-check them.
+              </p>
+            )}
+
             {errors.length > 0 && (
               <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
                 {errors.map((err) => (
@@ -147,24 +207,55 @@ function ScanReceiptModal({ onClose, onSaved }) {
             )}
 
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Amount</span>
+              <span className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+                Vendor
+                {fieldConfidence.vendor != null && fieldConfidence.vendor < LOW_CONFIDENCE && (
+                  <span className="text-xs font-normal text-amber-600">low confidence</span>
+                )}
+              </span>
+              <input
+                type="text"
+                maxLength={200}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className={inputClass('vendor')}
+                placeholder="Store or business name"
+              />
+              <span className="mt-1 block text-xs text-slate-400">{description.length}/200</span>
+            </label>
+
+            <label className="block">
+              <span className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+                Amount
+                {draft?.extracted?.currency && (
+                  <span className="text-xs font-normal text-slate-400">{draft.extracted.currency}</span>
+                )}
+                {fieldConfidence.amount != null && fieldConfidence.amount < LOW_CONFIDENCE && (
+                  <span className="text-xs font-normal text-amber-600">low confidence</span>
+                )}
+              </span>
               <input
                 type="number"
                 step="0.01"
                 min="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className={inputClass('amount')}
                 placeholder="0.00"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Category</span>
+              <span className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+                Category
+                {fieldConfidence.category != null && fieldConfidence.category < LOW_CONFIDENCE && (
+                  <span className="text-xs font-normal text-amber-600">low confidence</span>
+                )}
+              </span>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className={inputClass('category')}
               >
                 <option value="" disabled>
                   Select a category
@@ -178,27 +269,67 @@ function ScanReceiptModal({ onClose, onSaved }) {
             </label>
 
             <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Description</span>
-              <input
-                type="text"
-                maxLength={200}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                placeholder="What was this expense for?"
-              />
-              <span className="mt-1 block text-xs text-slate-400">{description.length}/200</span>
-            </label>
-
-            <label className="block">
-              <span className="mb-1 block text-sm font-medium text-slate-700">Date</span>
+              <span className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+                Date
+                {fieldConfidence.date != null && fieldConfidence.date < LOW_CONFIDENCE && (
+                  <span className="text-xs font-normal text-amber-600">low confidence</span>
+                )}
+              </span>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className={inputClass('date')}
               />
             </label>
+
+            <fieldset className="space-y-2">
+              <legend className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
+                Line items
+                {fieldConfidence.lineItems != null && fieldConfidence.lineItems < LOW_CONFIDENCE && lineItems.length > 0 && (
+                  <span className="text-xs font-normal text-amber-600">low confidence</span>
+                )}
+              </legend>
+              {lineItems.length === 0 ? (
+                <p className="text-xs text-slate-400">No line items detected.</p>
+              ) : (
+                lineItems.map((item, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                      className={`flex-1 rounded-xl border px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 ${fieldBorderClass(fieldConfidence.lineItems)}`}
+                      placeholder="Item"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={item.amount}
+                      onChange={(e) => updateLineItem(index, 'amount', e.target.value)}
+                      className={`w-24 rounded-xl border px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 ${fieldBorderClass(fieldConfidence.lineItems)}`}
+                      placeholder="0.00"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLineItem(index)}
+                      className="rounded-lg px-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                      aria-label="Remove line item"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              )}
+              <button
+                type="button"
+                onClick={addLineItem}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-500"
+              >
+                + Add line item
+              </button>
+            </fieldset>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50">
               <button
@@ -211,7 +342,7 @@ function ScanReceiptModal({ onClose, onSaved }) {
               </button>
               {showRawText && (
                 <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words border-t border-slate-200 px-4 py-3 text-xs text-slate-600">
-                  {draft?.ocr?.rawText?.trim() || 'No text detected.'}
+                  {draft?.ocr?.rawText?.trim() || draft?.extracted?.rawText?.trim() || 'No text detected.'}
                 </pre>
               )}
             </div>
