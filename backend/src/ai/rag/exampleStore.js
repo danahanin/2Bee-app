@@ -41,6 +41,11 @@ async function findAll(filter = {}) {
   const query = {}
   if (filter.type) query.type = filter.type
   if (filter.source) query.source = filter.source
+  for (const [key, value] of Object.entries(filter)) {
+    if (!['type', 'source'].includes(key) && value !== undefined) {
+      query[`metadata.${key}`] = value
+    }
+  }
   return ClassificationExample.find(query).lean()
 }
 

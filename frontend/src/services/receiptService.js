@@ -41,3 +41,21 @@ export async function classifyFromReceipt(token, extracted) {
   const body = await res.json()
   return body.data
 }
+
+export async function confirmReceipt(token, payload) {
+  const res = await fetch('/receipts/confirm', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!res.ok) {
+    throw new Error(await parseApiError(res, 'Failed to save receipt expense'))
+  }
+
+  const body = await res.json()
+  return body.data
+}

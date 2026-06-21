@@ -12,6 +12,7 @@
     "seed:pair-mock": "node scripts/seedPairMock.js",
     "seed:bank-mock": "node scripts/seedBankMockForHive.js",
     "seed:examples": "node scripts/seedClassificationExamples.js",
+    "seed:expense-groups": "node scripts/seedExpenseGroups.js",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "lint": "eslint .",

@@ -40,6 +40,16 @@ const { CATEGORIES } = require('../../models/Expense')
  */
 
 /**
+ * Phase 2 output: suggested named hive group for a shared receipt.
+ * @typedef {Object} HiveSuggestion
+ * @property {string|null} expenseGroupId
+ * @property {string|null} groupName
+ * @property {number} confidence 0..1
+ * @property {string} reasoning
+ * @property {Array<{ groupId: string, name: string, score: number }>} alternatives
+ */
+
+/**
  * A scanned receipt ready for user review: links the persisted receipt to its
  * OCR result, extracted fields, and optional classification.
  * @typedef {Object} ReceiptDraft
@@ -47,6 +57,7 @@ const { CATEGORIES } = require('../../models/Expense')
  * @property {OcrResult} ocr
  * @property {ExtractedReceipt} extracted
  * @property {Classification|null} [classification]
+ * @property {HiveSuggestion|null} [hiveSuggestion]
  */
 
 /**
@@ -86,12 +97,27 @@ function makeClassification({ type, confidence, reasoning = '', retrieved = [] }
 }
 
 /**
+ * Build a HiveSuggestion result.
+ * @param {{ expenseGroupId?: string|null, groupName?: string|null, confidence?: number, reasoning?: string, alternatives?: Array<{ groupId: string, name: string, score: number }> }} [input]
+ * @returns {HiveSuggestion}
+ */
+function makeHiveSuggestion({
+  expenseGroupId = null,
+  groupName = null,
+  confidence = 0,
+  reasoning = '',
+  alternatives = [],
+} = {}) {
+  return { expenseGroupId, groupName, confidence, reasoning, alternatives }
+}
+
+/**
  * Build a ReceiptDraft from its parts.
  * @param {{ receiptId?: string|null, ocr: OcrResult, extracted: ExtractedReceipt, classification?: Classification|null }} input
  * @returns {ReceiptDraft}
  */
-function makeReceiptDraft({ receiptId = null, ocr, extracted, classification = null }) {
-  return { receiptId, ocr, extracted, classification }
+function makeReceiptDraft({ receiptId = null, ocr, extracted, classification = null, hiveSuggestion = null }) {
+  return { receiptId, ocr, extracted, classification, hiveSuggestion }
 }
 
 module.exports = {
@@ -99,5 +125,6 @@ module.exports = {
   makeOcrResult,
   makeExtractedReceipt,
   makeClassification,
+  makeHiveSuggestion,
   makeReceiptDraft,
 }

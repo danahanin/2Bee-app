@@ -14,7 +14,17 @@ const tokenContexts = {
     pairId: null,
     hiveId: null,
   },
+  'token-bar': {
+    userId: 'user_bar',
+    email: 'bar@test.app',
+    firstName: 'Bar',
+    lastName: 'Tester',
+    pairId: 'user_partner',
+    hiveId: null,
+  },
 }
+
+const mockUpsertExample = jest.fn(async () => ({}))
 
 jest.mock('../middleware/auth', () => {
   return (req, res, next) => {
@@ -51,9 +61,15 @@ jest.mock('../src/ai/phase1/classifyPersonalShared', () => ({
   })),
 }))
 
+jest.mock('../src/ai/rag', () => ({
+  upsertExample: mockUpsertExample,
+}))
+
 const { createApp } = require('../app')
 const Receipt = require('../models/Receipt')
 const Expense = require('../models/Expense')
+const Hive = require('../models/Hive')
+const ExpenseGroup = require('../models/ExpenseGroup')
 
 describe('Receipt scan + personal expense API', () => {
   let mongoServer
@@ -79,7 +95,9 @@ describe('Receipt scan + personal expense API', () => {
   })
 
   beforeEach(async () => {
-    await Promise.all([Receipt.deleteMany({}), Expense.deleteMany({})])
+    await Promise.all([Receipt.deleteMany({}), Expense.deleteMany({}), Hive.deleteMany({}), ExpenseGroup.deleteMany({})])
+    mockUpsertExample.mockClear()
+    tokenContexts['token-bar'].hiveId = null
   })
 
   describe('POST /receipts/scan', () => {
@@ -201,6 +219,74 @@ describe('Receipt scan + personal expense API', () => {
 
       expect(response.status).toBe(201)
       expect(response.body.source).toBe('manual')
+    })
+  })
+
+  describe('POST /receipts/confirm', () => {
+    it('creates a shared expense with an expenseGroupId and stores feedback', async () => {
+      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
+      tokenContexts['token-bar'].hiveId = String(hive._id)
+      const expenseGroup = await ExpenseGroup.create({
+        hiveId: hive._id,
+        name: 'Work',
+        userIds: ['user_bar', 'user_partner'],
+      })
+      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
+
+      const response = await request(app)
+        .post('/receipts/confirm')
+        .set('Authorization', 'Bearer token-bar')
+        .send({
+          receiptId: String(receipt._id),
+          type: 'shared',
+          expenseGroupId: String(expenseGroup._id),
+          classifiedBy: 'user',
+          extracted: {
+            vendor: 'Cafe Aroma',
+            amount: 68,
+            category: 'dining',
+            date: '2026-06-13',
+            rawText: 'Cafe Aroma total 68',
+            lineItems: [{ description: 'Coffee', amount: 18 }],
+          },
+          expense: {
+            amount: 68,
+            category: 'dining',
+            description: 'Cafe Aroma',
+            date: '2026-06-13',
+          },
+        })
+
+      expect(response.status).toBe(201)
+      expect(response.body.data.feedbackStored).toBe(true)
+      expect(response.body.data.expense).toEqual(
+        expect.objectContaining({
+          type: 'shared',
+          source: 'receipt',
+          amount: 68,
+          category: 'dining',
+        }),
+      )
+      expect(String(response.body.data.expense.expenseGroupId)).toBe(String(expenseGroup._id))
+      expect(mockUpsertExample).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining('Cafe Aroma'),
+          metadata: expect.objectContaining({
+            type: 'shared',
+            source: 'dynamic',
+            hiveId: String(hive._id),
+            expenseGroupId: String(expenseGroup._id),
+            groupName: 'Work',
+          }),
+        }),
+      )
+
+      const stored = await Expense.findById(response.body.data.expense._id).lean()
+      expect(String(stored.expenseGroupId)).toBe(String(expenseGroup._id))
+
+      const updatedReceipt = await Receipt.findById(receipt._id).lean()
+      expect(updatedReceipt.status).toBe('confirmed')
+      expect(String(updatedReceipt.expenseId)).toBe(String(stored._id))
     })
   })
 })
