@@ -34,7 +34,7 @@ async function scan(req, res) {
       return res.status(400).json({ error: { code: 'NO_FILE', message: 'An image file is required' } })
     }
 
-    const { ocr, extracted, fieldConfidence } = await scanReceipt(req.file.buffer)
+    const { ocr, extracted, fieldConfidence, classification } = await scanReceipt(req.file.buffer)
 
     const imageRef = saveImage(req.file)
     ocr.imageRef = imageRef
@@ -46,7 +46,7 @@ async function scan(req, res) {
       ocr: { rawText: ocr.rawText, confidence: ocr.confidence, source: ocr.source },
     })
 
-    const draft = makeReceiptDraft({ receiptId: String(receipt._id), ocr, extracted })
+    const draft = makeReceiptDraft({ receiptId: String(receipt._id), ocr, extracted, classification })
     draft.fieldConfidence = fieldConfidence
     res.status(201).json({ data: draft })
   } catch (err) {

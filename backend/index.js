@@ -1,3 +1,4 @@
+require('./loadEnv')
 const mongoose = require('mongoose')
 const { createApp } = require('./app')
 const { startTransferSyncLoop } = require('./services/transferSyncService')

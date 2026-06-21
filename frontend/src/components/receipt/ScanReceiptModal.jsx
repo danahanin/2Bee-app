@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useCreatePersonalExpense } from '../../hooks/useHive.js'
-import { scanReceipt } from '../../services/receiptService.js'
+import { scanReceipt, classifyFromReceipt } from '../../services/receiptService.js'
+import ClassificationPanel from './ClassificationPanel.jsx'
 
 const CATEGORIES = [
   'groceries',
@@ -82,6 +83,9 @@ function ScanReceiptModal({ onClose, onSaved }) {
   const [fieldConfidence, setFieldConfidence] = useState({})
   const [errors, setErrors] = useState([])
   const [showRawText, setShowRawText] = useState(false)
+  const [classification, setClassification] = useState(null)
+  const [overriddenType, setOverriddenType] = useState(null)
+  const [isClassifying, setIsClassifying] = useState(false)
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -91,6 +95,8 @@ function ScanReceiptModal({ onClose, onSaved }) {
     try {
       const result = await scanReceipt(token, file)
       setDraft(result)
+      setClassification(result.classification || null)
+      setOverriddenType(null)
       applyDraftToForm(result, {
         setAmount,
         setCategory,
@@ -120,8 +126,56 @@ function ScanReceiptModal({ onClose, onSaved }) {
     setLineItems((items) => [...items, { description: '', amount: '' }])
   }
 
+  async function handleContinueToClassify(event) {
+    event.preventDefault()
+    const errs = validateForm({ amount, category, description, date })
+    if (errs.length > 0) {
+      setErrors(errs)
+      return
+    }
+    setErrors([])
+    setIsClassifying(true)
+    setError(null)
+
+    try {
+      const parsedLineItems = lineItems
+        .filter((item) => item.description?.trim())
+        .map((item) => ({
+          description: item.description.trim(),
+          amount: parseFloat(item.amount) || 0,
+        }))
+
+      const result = await classifyFromReceipt(token, {
+        vendor: description.trim(),
+        amount: parseFloat(amount),
+        category,
+        date,
+        currency: draft?.extracted?.currency || null,
+        lineItems: parsedLineItems,
+        rawText: draft?.ocr?.rawText || draft?.extracted?.rawText || '',
+      })
+
+      setClassification(result)
+      setOverriddenType(null)
+      setStep('classify')
+    } catch (err) {
+      setClassification(draft?.classification || null)
+      setStep('classify')
+      setError(err.message)
+    } finally {
+      setIsClassifying(false)
+    }
+  }
+
   async function handleSave(event) {
     event.preventDefault()
+    const effectiveType = overriddenType ?? classification?.type ?? 'personal'
+
+    if (effectiveType === 'shared') {
+      setErrors(['Shared expenses from receipt scan will be available after hive assignment (Bar\'s stage). Override to personal to save now, or add manually in the Shared tab.'])
+      return
+    }
+
     const errs = validateForm({ amount, category, description, date })
     if (errs.length > 0) {
       setErrors(errs)
@@ -191,7 +245,7 @@ function ScanReceiptModal({ onClose, onSaved }) {
         )}
 
         {step === 'review' && (
-          <form onSubmit={handleSave} className="space-y-4">
+          <form onSubmit={handleContinueToClassify} className="space-y-4">
             {Object.values(fieldConfidence).some((c) => c != null && c < LOW_CONFIDENCE) && (
               <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 Amber fields were guessed with low confidence — please double-check them.
@@ -354,6 +408,41 @@ function ScanReceiptModal({ onClose, onSaved }) {
                 className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isClassifying}
+                className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isClassifying ? 'Classifying…' : 'Continue'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === 'classify' && (
+          <form onSubmit={handleSave} className="space-y-4">
+            {errors.length > 0 && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                {errors.map((err) => (
+                  <p key={err} className="text-sm text-rose-700">{err}</p>
+                ))}
+              </div>
+            )}
+
+            <ClassificationPanel
+              classification={classification}
+              overriddenType={overriddenType}
+              onOverride={setOverriddenType}
+            />
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setStep('review')}
+                className="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Back
               </button>
               <button
                 type="submit"
