@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { useCreatePersonalExpense } from '../../hooks/useHive.js'
-import { scanReceipt, classifyFromReceipt } from '../../services/receiptService.js'
+import { scanReceipt, classifyFromReceipt, confirmReceipt } from '../../services/receiptService.js'
 import ClassificationPanel from './ClassificationPanel.jsx'
+import HiveSuggestionPanel from './HiveSuggestionPanel.jsx'
 
 const CATEGORIES = [
   'groceries',
@@ -69,7 +69,6 @@ function applyDraftToForm(result, setters) {
 
 function ScanReceiptModal({ onClose, onSaved }) {
   const { token } = useAuth()
-  const { create, isSubmitting } = useCreatePersonalExpense()
 
   const [step, setStep] = useState('picker')
   const [error, setError] = useState(null)
@@ -85,7 +84,10 @@ function ScanReceiptModal({ onClose, onSaved }) {
   const [showRawText, setShowRawText] = useState(false)
   const [classification, setClassification] = useState(null)
   const [overriddenType, setOverriddenType] = useState(null)
+  const [hiveSuggestion, setHiveSuggestion] = useState(null)
+  const [selectedExpenseGroupId, setSelectedExpenseGroupId] = useState(null)
   const [isClassifying, setIsClassifying] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -96,6 +98,8 @@ function ScanReceiptModal({ onClose, onSaved }) {
       const result = await scanReceipt(token, file)
       setDraft(result)
       setClassification(result.classification || null)
+      setHiveSuggestion(result.hiveSuggestion || null)
+      setSelectedExpenseGroupId(result.hiveSuggestion?.expenseGroupId || null)
       setOverriddenType(null)
       applyDraftToForm(result, {
         setAmount,
@@ -171,31 +175,45 @@ function ScanReceiptModal({ onClose, onSaved }) {
     event.preventDefault()
     const effectiveType = overriddenType ?? classification?.type ?? 'personal'
 
-    if (effectiveType === 'shared') {
-      setErrors(['Shared expenses from receipt scan will be available after hive assignment (Bar\'s stage). Override to personal to save now, or add manually in the Shared tab.'])
-      return
-    }
-
     const errs = validateForm({ amount, category, description, date })
+    if (effectiveType === 'shared' && !selectedExpenseGroupId) {
+      errs.push('Choose a hive group before saving this shared expense')
+    }
     if (errs.length > 0) {
       setErrors(errs)
       return
     }
     setErrors([])
 
-    const result = await create({
-      amount: parseFloat(amount),
-      category,
-      description: description.trim(),
-      date,
-      receiptId: draft?.receiptId || null,
-    })
-
-    if (result.ok) {
+    setIsConfirming(true)
+    try {
+      await confirmReceipt(token, {
+        receiptId: draft?.receiptId || null,
+        type: effectiveType,
+        expenseGroupId: effectiveType === 'shared' ? selectedExpenseGroupId : null,
+        classifiedBy: overriddenType ? 'user' : 'ai',
+        extracted: {
+          vendor: description.trim(),
+          amount: parseFloat(amount),
+          category,
+          date,
+          currency: draft?.extracted?.currency || null,
+          lineItems,
+          rawText: draft?.ocr?.rawText || draft?.extracted?.rawText || '',
+        },
+        expense: {
+          amount: parseFloat(amount),
+          category,
+          description: description.trim(),
+          date,
+        },
+      })
       onSaved?.()
       onClose()
-    } else {
-      setErrors([result.message])
+    } catch (err) {
+      setErrors([err.message])
+    } finally {
+      setIsConfirming(false)
     }
   }
 
@@ -436,6 +454,14 @@ function ScanReceiptModal({ onClose, onSaved }) {
               onOverride={setOverriddenType}
             />
 
+            {(overriddenType ?? classification?.type) === 'shared' && (
+              <HiveSuggestionPanel
+                suggestion={hiveSuggestion}
+                selectedGroupId={selectedExpenseGroupId}
+                onSelect={setSelectedExpenseGroupId}
+              />
+            )}
+
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
@@ -446,10 +472,10 @@ function ScanReceiptModal({ onClose, onSaved }) {
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isConfirming}
                 className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Save expense
+                {isConfirming ? 'Saving...' : 'Confirm & Save'}
               </button>
             </div>
           </form>

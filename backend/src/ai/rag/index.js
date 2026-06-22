@@ -3,7 +3,7 @@
  *
  * embedText(text) -> Promise<number[]>
  * upsertExample({ text, metadata }) -> Promise<Document>  // metadata.type required
- * retrieveSimilar(text, { k, filter }) -> Promise<{ text, type, score }[]>
+ * retrieveSimilar(text, { k, filter }) -> Promise<{ text, type, score, metadata? }[]>
  * llmChat(messages, opts) -> Promise<string>
  * llmGenerate(prompt, opts) -> Promise<string>
  */

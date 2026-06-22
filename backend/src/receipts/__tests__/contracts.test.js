@@ -3,6 +3,7 @@ const {
   makeOcrResult,
   makeExtractedReceipt,
   makeClassification,
+  makeHiveSuggestion,
   makeReceiptDraft,
 } = require('../contracts')
 
@@ -67,6 +68,36 @@ describe('makeClassification', () => {
   })
 })
 
+describe('makeHiveSuggestion', () => {
+  it('builds a hive suggestion with alternatives', () => {
+    expect(
+      makeHiveSuggestion({
+        expenseGroupId: 'group-1',
+        groupName: 'Work',
+        confidence: 0.82,
+        reasoning: 'Looks like a client meal',
+        alternatives: [{ groupId: 'group-2', name: 'Partner', score: 0.4 }],
+      }),
+    ).toEqual({
+      expenseGroupId: 'group-1',
+      groupName: 'Work',
+      confidence: 0.82,
+      reasoning: 'Looks like a client meal',
+      alternatives: [{ groupId: 'group-2', name: 'Partner', score: 0.4 }],
+    })
+  })
+
+  it('defaults to an empty unresolved suggestion', () => {
+    expect(makeHiveSuggestion()).toEqual({
+      expenseGroupId: null,
+      groupName: null,
+      confidence: 0,
+      reasoning: '',
+      alternatives: [],
+    })
+  })
+})
+
 describe('makeReceiptDraft', () => {
   it('combines receiptId, ocr, extracted, and classification', () => {
     const ocr = makeOcrResult({ rawText: 'x' })
@@ -77,10 +108,11 @@ describe('makeReceiptDraft', () => {
       ocr,
       extracted,
       classification,
+      hiveSuggestion: null,
     })
   })
 
-  it('defaults receiptId and classification to null', () => {
+  it('defaults receiptId, classification, and hiveSuggestion to null', () => {
     const ocr = makeOcrResult()
     const extracted = makeExtractedReceipt()
     expect(makeReceiptDraft({ ocr, extracted })).toEqual({
@@ -88,6 +120,7 @@ describe('makeReceiptDraft', () => {
       ocr,
       extracted,
       classification: null,
+      hiveSuggestion: null,
     })
   })
 })

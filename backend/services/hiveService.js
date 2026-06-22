@@ -74,18 +74,31 @@ async function getHiveExpenses(hiveId, { category, from, to, page = 1, limit = 2
 }
 
 async function createSharedExpense(hiveId, userId, data) {
+  const receiptId = data.receiptId || null
+
   const expense = new Expense({
     hiveId,
+    expenseGroupId: data.expenseGroupId || null,
     userId,
     amount: data.amount,
     category: data.category,
     description: data.description,
     type: 'shared',
-    source: 'manual',
+    source: receiptId ? 'receipt' : 'manual',
     date: data.date || new Date(),
-    classifiedBy: 'user',
+    classifiedBy: data.classifiedBy || 'user',
+    receiptId,
   })
-  return expense.save()
+  await expense.save()
+
+  if (receiptId) {
+    await Receipt.findOneAndUpdate(
+      { _id: receiptId, userId },
+      { status: 'confirmed', expenseId: expense._id },
+    )
+  }
+
+  return expense
 }
 
 async function createPersonalExpense(userId, data) {

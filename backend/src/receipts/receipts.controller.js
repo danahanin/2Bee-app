@@ -6,6 +6,7 @@ const Receipt = require('../../models/Receipt')
 const { sendError } = require('../../utils/appError')
 const { scanReceipt } = require('./receiptPipeline')
 const { makeReceiptDraft } = require('./contracts')
+const { confirmReceiptDraft } = require('./feedback')
 
 const UPLOAD_DIR = path.join(__dirname, '..', '..', 'uploads')
 
@@ -34,7 +35,10 @@ async function scan(req, res) {
       return res.status(400).json({ error: { code: 'NO_FILE', message: 'An image file is required' } })
     }
 
-    const { ocr, extracted, fieldConfidence, classification } = await scanReceipt(req.file.buffer)
+    const { ocr, extracted, fieldConfidence, classification, hiveSuggestion } = await scanReceipt(req.file.buffer, {
+      hiveId: req.user.hiveId,
+      userId: req.user.userId,
+    })
 
     const imageRef = saveImage(req.file)
     ocr.imageRef = imageRef
@@ -46,7 +50,13 @@ async function scan(req, res) {
       ocr: { rawText: ocr.rawText, confidence: ocr.confidence, source: ocr.source },
     })
 
-    const draft = makeReceiptDraft({ receiptId: String(receipt._id), ocr, extracted, classification })
+    const draft = makeReceiptDraft({
+      receiptId: String(receipt._id),
+      ocr,
+      extracted,
+      classification,
+      hiveSuggestion,
+    })
     draft.fieldConfidence = fieldConfidence
     res.status(201).json({ data: draft })
   } catch (err) {
@@ -54,4 +64,19 @@ async function scan(req, res) {
   }
 }
 
-module.exports = { scan }
+async function confirm(req, res) {
+  try {
+    const result = await confirmReceiptDraft(req.user, req.body)
+    res.status(201).json({
+      data: {
+        expense: result.expense,
+        expenseGroup: result.expenseGroup || null,
+        feedbackStored: result.feedbackStored,
+      },
+    })
+  } catch (err) {
+    sendError(res, err, err.message)
+  }
+}
+
+module.exports = { scan, confirm }

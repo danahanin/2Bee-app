@@ -18,6 +18,7 @@ const CATEGORIES = [
 const expenseSchema = new mongoose.Schema(
   {
     hiveId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hive', default: null },
+    expenseGroupId: { type: mongoose.Schema.Types.ObjectId, ref: 'ExpenseGroup', default: null },
     userId: { type: String, required: true },
     amount: { type: Number, required: true, min: 0.01 },
     category: { type: String, required: true, enum: CATEGORIES },
@@ -35,6 +36,7 @@ const expenseSchema = new mongoose.Schema(
 
 expenseSchema.index({ userId: 1 })
 expenseSchema.index({ hiveId: 1 })
+expenseSchema.index({ expenseGroupId: 1 })
 expenseSchema.index({ date: -1 })
 expenseSchema.index({ category: 1 })
 expenseSchema.index({ userId: 1, source: 1, externalTransactionId: 1 }, { sparse: true })

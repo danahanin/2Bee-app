@@ -8,5 +8,6 @@ const upload = multer({ storage: multer.memoryStorage() })
 const router = express.Router()
 
 router.post('/scan', authMiddleware, upload.single('image'), receiptsController.scan)
+router.post('/confirm', authMiddleware, receiptsController.confirm)
 
 module.exports = router
