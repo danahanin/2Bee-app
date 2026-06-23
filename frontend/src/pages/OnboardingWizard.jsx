@@ -17,7 +17,7 @@ function Stepper({ currentStep }) {
             key={step}
             className={`rounded-xl border px-4 py-3 text-sm font-semibold ${
               isActive
-                ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                ? 'border-[var(--honey-300)] bg-[var(--honey-50)] text-[var(--honey-800)]'
                 : isDone
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                   : 'border-slate-200 bg-white text-slate-500'
@@ -157,7 +157,7 @@ function OnboardingWizard() {
       <div className="mx-auto max-w-3xl space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
+            <p className="hive-eyebrow">2bee</p>
             <h1 className="text-2xl font-semibold text-slate-900">Set up your Hive</h1>
             <p className="mt-1 text-sm text-slate-600">Welcome, {displayName}. Finish setup to enter the app.</p>
           </div>
@@ -215,7 +215,7 @@ function OnboardingWizard() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
+                className="hive-btn-primary rounded-xl px-5 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Continue
               </button>
@@ -245,7 +245,7 @@ function OnboardingWizard() {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                  className="hive-btn-primary rounded-xl px-5 py-3 text-sm"
                 >
                   Continue
                 </button>
@@ -311,7 +311,7 @@ function OnboardingWizard() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="mt-4 w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="hive-btn-primary mt-4 w-full rounded-xl px-4 py-3 text-sm disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {isLoading ? 'Connecting...' : 'Join Hive'}
                   </button>

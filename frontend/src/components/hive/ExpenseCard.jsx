@@ -1,3 +1,5 @@
+import UserAvatar from '../design-system/UserAvatar.jsx'
+
 const CATEGORY_EMOJI = {
   groceries: '\u{1F6D2}',
   dining: '\u{1F37D}\uFE0F',
@@ -31,28 +33,41 @@ function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, showHiveBadge
   const paidByLabel = expense.paidBy?.isCurrentUser ? 'you' : expense.paidBy?.name
 
   return (
-    <div className="group flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:shadow-md">
-      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-lg">
+    <div className="group flex items-center gap-4 rounded-xl border border-[rgba(61,41,20,0.1)] bg-white px-4 py-3 shadow-sm transition hover:shadow-md">
+      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--honey-50)] text-lg">
         {emoji}
       </span>
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-semibold text-slate-900">{expense.description}</p>
+          <p className="truncate text-sm font-semibold text-[var(--brown-text)]">{expense.description}</p>
           {isShared && showHiveBadge ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--honey-50)] px-2 py-0.5 text-[11px] font-semibold text-[var(--honey-800)]">
               <HiveIcon className="h-3 w-3" />
               Hive
             </span>
           ) : null}
         </div>
-        <p className="mt-0.5 text-xs text-slate-500">
-          {expense.category} &middot; {formattedDate}
-          {isShared && paidByLabel ? ` · Paid by ${paidByLabel}` : ''}
+        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--brown-muted)]">
+          {isShared && expense.paidBy ? (
+            <UserAvatar
+              user={{
+                name: expense.paidBy.name,
+                avatarUrl: expense.paidBy.avatarUrl,
+                firstName: expense.paidBy.name?.split(' ')[0],
+                lastName: expense.paidBy.name?.split(' ').slice(1).join(' '),
+              }}
+              size="xs"
+            />
+          ) : null}
+          <span>
+            {expense.category} &middot; {formattedDate}
+            {isShared && paidByLabel ? ` · Paid by ${paidByLabel}` : ''}
+          </span>
         </p>
       </div>
 
-      <span className="whitespace-nowrap text-sm font-bold text-slate-900">
+      <span className="whitespace-nowrap text-sm font-bold text-[var(--brown-text)]">
         {'\u20AA'}{expense.amount.toLocaleString('en-IL', { minimumFractionDigits: 2 })}
       </span>
 

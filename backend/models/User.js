@@ -44,6 +44,7 @@ const userSchema = new mongoose.Schema(
     pairCodeExpiresAt: { type: Date, default: null, index: true },
     pairCodeUsedAt: { type: Date, default: null },
     avatarUrl: { type: String, default: null },
+    avatarType: { type: String, enum: ['gallery', 'upload', 'bee_self', null], default: null },
     bio: { type: String, default: '', maxlength: 200 },
     bankAccount: {
       connected: { type: Boolean, default: false },

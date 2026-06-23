@@ -2,12 +2,13 @@ const { z } = require('zod')
 const profileService = require('../services/profileService')
 const { AVAILABLE_SHARED_CATEGORIES } = require('../models/User')
 const { AppError } = require('../utils/appError')
+const { avatarUrlSchema } = require('../src/controllers/avatar.controller')
 
 const profileUpdateSchema = z
   .object({
     firstName: z.string().trim().min(1).max(50).optional(),
     lastName: z.string().trim().min(1).max(50).optional(),
-    avatarUrl: z.union([z.url(), z.null()]).optional(),
+    avatarUrl: avatarUrlSchema.optional(),
     bio: z.string().max(200).optional(),
   })
   .strict()

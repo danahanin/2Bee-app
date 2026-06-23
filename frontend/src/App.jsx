@@ -2,15 +2,13 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
 import PairingScreen from './pages/PairingScreen.jsx'
-import MainPage from './pages/MainPage.jsx'
-import HiveScreen from './pages/HiveScreen.jsx'
 import OnboardingWizard from './pages/OnboardingWizard.jsx'
-import PersonalDashboard from './pages/PersonalDashboard.jsx'
-import SharedDashboard from './pages/SharedDashboard.jsx'
+import AppShell from './layouts/AppShell.jsx'
+import DashboardPage from './pages/DashboardPage.jsx'
+import HiveScreen from './pages/HiveScreen.jsx'
+import PersonalExpensesPage from './pages/PersonalExpensesPage.jsx'
+import AssistantPage from './pages/AssistantPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
-import SettingsPage from './pages/SettingsPage.jsx'
-import InsightsPage from './pages/InsightsPage.jsx'
-import AnalyticsPage from './pages/AnalyticsPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
 
@@ -61,66 +59,21 @@ function App() {
         path="/app"
         element={
           <ProtectedRoute pairingMode="paired">
-            <MainPage />
+            <AppShell />
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/app/hive"
-        element={
-          <ProtectedRoute pairingMode="paired">
-            <HiveScreen />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/dashboard/personal"
-        element={
-          <ProtectedRoute pairingMode="paired">
-            <PersonalDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/profile"
-        element={
-          <ProtectedRoute pairingMode="paired">
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/dashboard/shared"
-        element={
-          <ProtectedRoute pairingMode="paired">
-            <SharedDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/settings"
-        element={
-          <ProtectedRoute pairingMode="paired">
-            <SettingsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/insights"
-        element={
-          <ProtectedRoute pairingMode="paired">
-            <InsightsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/app/analytics"
-        element={
-          <ProtectedRoute pairingMode="paired">
-            <AnalyticsPage />
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route index element={<DashboardPage />} />
+        <Route path="hive" element={<HiveScreen />} />
+        <Route path="expenses" element={<PersonalExpensesPage />} />
+        <Route path="assistant" element={<AssistantPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+      </Route>
+      <Route path="/app/dashboard/personal" element={<Navigate to="/app/expenses" replace />} />
+      <Route path="/app/analytics" element={<Navigate to="/app/expenses?tab=analytics" replace />} />
+      <Route path="/app/insights" element={<Navigate to="/app/assistant" replace />} />
+      <Route path="/app/settings" element={<Navigate to="/app/profile?section=settings" replace />} />
+      <Route path="/app/dashboard/shared" element={<Navigate to="/app/hive?tab=overview" replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )
