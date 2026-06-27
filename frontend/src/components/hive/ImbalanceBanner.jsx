@@ -1,3 +1,5 @@
+import UserAvatar from '../design-system/UserAvatar.jsx'
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-IL', {
     style: 'currency',
@@ -22,7 +24,9 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
 
   if (!balance) return null
 
-  const currentContribution = balance.contributions?.find((item) => item.userId === currentUserId) || null
+  const contributions = balance.contributions || []
+  const currentContribution = contributions.find((item) => item.userId === currentUserId) || null
+  const partnerContribution = contributions.find((item) => item.userId !== currentUserId) || null
   const canSettle = balance.suggestedTransfer?.fromUserId === currentUserId
   const remaining = formatCurrency(balance.remainingImbalance)
 
@@ -34,7 +38,7 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
       title = `You've covered ${formatCurrency(currentContribution.remainingNet)} more so far`
       description = `A transfer of ${remaining} would bring things back into balance.`
     } else {
-      title = `Your partner has covered ${formatCurrency(Math.abs(currentContribution.remainingNet))} more so far`
+      title = `${partnerContribution?.name || 'Your partner'} has covered ${formatCurrency(Math.abs(currentContribution.remainingNet))} more so far`
       description = canSettle
         ? `A transfer of ${remaining} would gently even things out.`
         : 'We are waiting for the next transfer step to even things out.'
@@ -42,17 +46,39 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
   }
 
   return (
-    <section className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
+    <section className="hive-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">Hive balance</p>
-          <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-          <p className="max-w-2xl text-sm text-slate-600">{description}</p>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
-            <span className="rounded-full bg-slate-100 px-3 py-1">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            {currentContribution ? (
+              <UserAvatar
+                user={{
+                  firstName: 'You',
+                  lastName: '',
+                  avatarUrl: currentContribution.avatarUrl,
+                }}
+                size="md"
+              />
+            ) : null}
+            {partnerContribution ? (
+              <UserAvatar
+                user={{
+                  firstName: partnerContribution.name?.split(' ')[0],
+                  lastName: partnerContribution.name?.split(' ').slice(1).join(' '),
+                  avatarUrl: partnerContribution.avatarUrl,
+                }}
+                size="md"
+              />
+            ) : null}
+          </div>
+          <p className="hive-eyebrow">Hive balance</p>
+          <h2 className="hive-title text-xl">{title}</h2>
+          <p className="max-w-2xl text-sm text-[var(--brown-muted)]">{description}</p>
+          <div className="flex flex-wrap gap-2 text-xs text-[var(--brown-muted)]">
+            <span className="rounded-full bg-[var(--honey-50)] px-3 py-1">
               Shared spend: {formatCurrency(balance.totalSharedSpend)}
             </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">
+            <span className="rounded-full bg-[var(--honey-50)] px-3 py-1">
               Each share: {formatCurrency(balance.equalShare)}
             </span>
             {balance.completedTransfersTotal > 0 && (
@@ -64,11 +90,7 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
         </div>
 
         {canSettle && balance.balanceStatus === 'imbalanced' && (
-          <button
-            type="button"
-            onClick={onSettle}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500"
-          >
+          <button type="button" onClick={onSettle} className="hive-btn-primary rounded-xl px-4 py-2 text-sm">
             Start transfer
           </button>
         )}

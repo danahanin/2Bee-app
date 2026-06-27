@@ -1,18 +1,20 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
+import NotificationSettings from '../components/settings/NotificationSettings.jsx'
+import PairingManagement from '../components/settings/PairingManagement.jsx'
+import PrivacySettings from '../components/settings/PrivacySettings.jsx'
+import SharedCategoriesSettings from '../components/settings/SharedCategoriesSettings.jsx'
+import BankAccountCard from '../components/settings/BankAccountCard.jsx'
+import HiveCard from '../components/design-system/HiveCard.jsx'
+import HivePanel from '../components/design-system/HivePanel.jsx'
+import HexButton from '../components/design-system/HexButton.jsx'
+import UserAvatar from '../components/design-system/UserAvatar.jsx'
+import AvatarPickerModal from '../components/profile/AvatarPickerModal.jsx'
 import { useProfile } from '../hooks/useProfile.js'
-
-function ProfileSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="mx-auto h-20 w-20 animate-pulse rounded-full bg-slate-100" />
-      <div className="mx-auto h-6 w-48 animate-pulse rounded bg-slate-100" />
-      <div className="mx-auto h-4 w-56 animate-pulse rounded bg-slate-100" />
-      <div className="mx-auto h-8 w-36 animate-pulse rounded-full bg-slate-100" />
-    </div>
-  )
-}
+import { AVAILABLE_CATEGORIES, useSettings } from '../hooks/useSettings.js'
+import { useHiveBalance } from '../hooks/useHive.js'
 
 function StatusToast({ message }) {
   if (!message) return null
@@ -30,12 +32,47 @@ function StatusToast({ message }) {
 }
 
 function ProfilePage() {
-  const { profile, loading, updating, error, updateProfile } = useProfile()
+  const { logout, pairingStatus } = useAuth()
+  const [searchParams] = useSearchParams()
+  const sectionParam = searchParams.get('section')
+  const defaultSection = sectionParam === 'settings' ? 'notifications' : sectionParam || 'account'
+  const [openSection, setOpenSection] = useState(defaultSection)
+  const { profile, loading, updating, error, updateProfile, refetch } = useProfile()
   const [isEditing, setIsEditing] = useState(false)
   const [statusMessage, setStatusMessage] = useState(null)
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false)
+
+  const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
+  const { balance } = useHiveBalance(hiveId)
+
+  const {
+    privacySettings,
+    updatePrivacySettings,
+    notificationSettings,
+    updateNotificationSettings,
+    sharedCategories,
+    updateSharedCategories,
+    disconnectPair,
+    bankAccount,
+    disconnectBankAccount,
+    pairing,
+    loading: settingsLoading,
+    savingPrivacy,
+    savingNotifications,
+    savingSharedCategories,
+    disconnectingPair,
+    disconnectingBank,
+  } = useSettings()
+
+  useEffect(() => {
+    if (searchParams.get('section')) {
+      setOpenSection(searchParams.get('section'))
+    }
+  }, [searchParams])
 
   const initials = `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}`.toUpperCase() || 'U'
   const paired = Boolean(profile.pairId)
+  const partner = balance?.participants?.find((p) => !p.isCurrentUser)
 
   async function handleSaveProfile(payload) {
     const result = await updateProfile(payload)
@@ -43,87 +80,254 @@ function ProfilePage() {
       setStatusMessage({ type: 'error', text: 'Failed to update profile. Please try again.' })
       return
     }
-
     setStatusMessage({ type: 'success', text: 'Profile updated' })
     setIsEditing(false)
   }
 
+  async function handlePrivacyToggle(field, value) {
+    const result = await updatePrivacySettings({ [field]: value })
+    if (!result.ok) setStatusMessage({ type: 'error', text: result.message || 'Failed to update privacy.' })
+  }
+
+  async function handleNotificationToggle(field, value) {
+    const result = await updateNotificationSettings({ [field]: value })
+    if (!result.ok) setStatusMessage({ type: 'error', text: result.message || 'Failed to update notifications.' })
+  }
+
+  async function handleSaveCategories(nextCategories) {
+    const result = await updateSharedCategories(nextCategories)
+    if (!result.ok) {
+      setStatusMessage({ type: 'error', text: result.message || 'Failed to update categories.' })
+      return { ok: false }
+    }
+    setStatusMessage({ type: 'success', text: 'Shared categories saved.' })
+    return { ok: true }
+  }
+
+  async function handleDisconnectBank() {
+    const result = await disconnectBankAccount()
+    if (!result.ok) {
+      setStatusMessage({ type: 'error', text: result.message || 'Failed to disconnect bank.' })
+      return
+    }
+    setStatusMessage({ type: 'success', text: 'Bank account disconnected.' })
+  }
+
+  const sections = [
+    { id: 'account', label: 'Account' },
+    { id: 'partner', label: 'Partner' },
+    { id: 'payment', label: 'Payment' },
+    { id: 'notifications', label: 'Notifications' },
+    { id: 'privacy', label: 'Privacy' },
+    { id: 'categories', label: 'Categories' },
+    { id: 'pairing', label: 'Pairing' },
+    { id: 'security', label: 'Security' },
+  ]
+
   return (
-    <main className="min-h-screen p-4 md:p-8">
-      <div className="mx-auto max-w-lg">
-        <header className="mb-6 flex items-center gap-3">
-          <Link to="/app" className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-            &larr; Back
-          </Link>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-600">2Bee</p>
-        </header>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <header>
+        <p className="hive-eyebrow">Profile</p>
+        <h1 className="hive-title text-2xl md:text-3xl">Account settings</h1>
+      </header>
 
-        <StatusToast message={statusMessage} />
+      <StatusToast message={statusMessage} />
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          {loading ? <ProfileSkeleton /> : null}
-
-          {!loading && error ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-              Failed to load profile. Try again.
+      <HiveCard className="flex flex-col items-center gap-4 py-8">
+        {loading ? (
+          <div className="h-20 w-20 animate-pulse rounded-full bg-[var(--honey-100)]" />
+        ) : (
+          <>
+            <UserAvatar user={profile} size="xl" />
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-[var(--brown-text)]">
+                {profile.firstName} {profile.lastName}
+              </h2>
+              <p className="text-sm text-[var(--brown-muted)]">{profile.email}</p>
+              {profile.bio ? <p className="mt-2 text-sm text-[var(--brown-muted)]">{profile.bio}</p> : null}
             </div>
-          ) : null}
-
-          {!loading && !error ? (
-            <>
-              {!isEditing ? (
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-bold text-indigo-700">
-                    {initials}
-                  </div>
-
-                  <div className="text-center">
-                    <h1 className="text-2xl font-semibold text-slate-900">
-                      {profile.firstName} {profile.lastName}
-                    </h1>
-                    <p className="mt-1 text-sm text-slate-500">{profile.email}</p>
-                  </div>
-
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      paired ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                    }`}
-                  >
-                    {paired ? 'Paired' : 'Not paired'}
-                  </span>
-                </div>
-              ) : (
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                paired ? 'bg-emerald-100 text-emerald-800' : 'bg-[var(--honey-100)] text-[var(--brown-muted)]'
+              }`}
+            >
+              {paired ? 'Paired' : 'Not paired'}
+            </span>
+            {!isEditing ? (
+              <div className="flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAvatarModalOpen(true)}
+                  className="hive-btn-primary rounded-xl px-4 py-2 text-sm"
+                >
+                  Change photo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="rounded-xl border border-[rgba(61,41,20,0.12)] px-4 py-2 text-sm font-semibold text-[var(--brown-text)] hover:bg-[var(--honey-50)]"
+                >
+                  Edit profile
+                </button>
+              </div>
+            ) : (
+              <div className="w-full max-w-md">
                 <EditProfileForm
                   profile={profile}
                   isSaving={updating}
                   onCancel={() => setIsEditing(false)}
                   onSave={handleSaveProfile}
                 />
-              )}
-
-              <div className="mt-6 flex flex-col gap-3">
-                {!isEditing ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditing(true)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                  >
-                    Edit Profile
-                  </button>
-                ) : null}
-
-                <Link
-                  to="/app/settings"
-                  className="block w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-center text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
-                >
-                  Go to Settings
-                </Link>
               </div>
-            </>
-          ) : null}
-        </div>
+            )}
+          </>
+        )}
+        {error ? (
+          <p className="text-sm text-rose-700">Failed to load profile.</p>
+        ) : null}
+      </HiveCard>
+
+      <div className="flex flex-wrap gap-2">
+        {sections.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setOpenSection(s.id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+              openSection === s.id
+                ? 'bg-[var(--honey-400)] text-white'
+                : 'bg-white text-[var(--brown-muted)] border border-[rgba(61,41,20,0.1)] hover:bg-[var(--honey-50)]'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
-    </main>
+
+      {openSection === 'partner' && (
+        <HivePanel title="Connected partner" subtitle="Your hive partner">
+          {partner ? (
+            <div className="flex items-center gap-4">
+              <UserAvatar
+                user={{
+                  firstName: partner.name?.split(' ')[0],
+                  lastName: partner.name?.split(' ').slice(1).join(' '),
+                  name: partner.name,
+                  avatarUrl: partner.avatarUrl,
+                }}
+                size="lg"
+              />
+              <div>
+                <p className="font-semibold text-[var(--brown-text)]">{partner.name}</p>
+                <p className="text-sm text-[var(--brown-muted)]">
+                  Paid {partner.paid != null ? `₪${partner.paid}` : '—'} in shared expenses
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-[var(--brown-muted)]">No partner connected yet.</p>
+          )}
+        </HivePanel>
+      )}
+
+      {openSection === 'payment' && (
+        <HivePanel title="Payment details" subtitle="Bank account for transfers">
+          <BankAccountCard
+            bankAccount={bankAccount}
+            isDisconnecting={disconnectingBank}
+            onDisconnect={handleDisconnectBank}
+          />
+        </HivePanel>
+      )}
+
+      {openSection === 'notifications' && (
+        <HivePanel title="Notifications" subtitle="Alerts and reminders">
+          <NotificationSettings
+            settings={notificationSettings}
+            loading={settingsLoading}
+            savingMap={savingNotifications}
+            onToggle={handleNotificationToggle}
+          />
+        </HivePanel>
+      )}
+
+      {openSection === 'privacy' && (
+        <HivePanel title="Privacy" subtitle="Control what your partner sees">
+          <PrivacySettings
+            settings={privacySettings}
+            loading={settingsLoading}
+            savingMap={savingPrivacy}
+            onToggle={handlePrivacyToggle}
+          />
+        </HivePanel>
+      )}
+
+      {openSection === 'categories' && (
+        <HivePanel title="Shared categories" subtitle="Categories for hive expenses">
+          <SharedCategoriesSettings
+            availableCategories={AVAILABLE_CATEGORIES}
+            selectedCategories={sharedCategories}
+            loading={settingsLoading}
+            isSaving={savingSharedCategories}
+            onSave={handleSaveCategories}
+          />
+        </HivePanel>
+      )}
+
+      {openSection === 'pairing' && (
+        <HivePanel title="Pairing" subtitle="Manage your connection">
+          <PairingManagement
+            pairing={pairing}
+            isDisconnecting={disconnectingPair}
+            onDisconnect={disconnectPair}
+            onStatusMessage={setStatusMessage}
+          />
+        </HivePanel>
+      )}
+
+      {openSection === 'security' && (
+        <HivePanel title="Security" subtitle="Session and account">
+          <p className="mb-4 text-sm text-[var(--brown-muted)]">
+            Password change will be available in a future update. You can sign out of your current session below.
+          </p>
+          <HexButton onClick={logout} variant="primary" size="md">
+            <span>Log out</span>
+          </HexButton>
+        </HivePanel>
+      )}
+
+      {openSection === 'account' && !isEditing && (
+        <HivePanel title="Account" subtitle="Profile information">
+          <dl className="space-y-3 text-sm">
+            <div className="flex justify-between border-b border-[rgba(61,41,20,0.06)] pb-2">
+              <dt className="text-[var(--brown-muted)]">Name</dt>
+              <dd className="font-medium text-[var(--brown-text)]">
+                {profile.firstName} {profile.lastName}
+              </dd>
+            </div>
+            <div className="flex justify-between border-b border-[rgba(61,41,20,0.06)] pb-2">
+              <dt className="text-[var(--brown-muted)]">Email</dt>
+              <dd className="font-medium text-[var(--brown-text)]">{profile.email}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-[var(--brown-muted)]">Status</dt>
+              <dd className="font-medium text-[var(--brown-text)]">{paired ? 'Paired' : 'Unpaired'}</dd>
+            </div>
+          </dl>
+        </HivePanel>
+      )}
+
+      {avatarModalOpen ? (
+        <AvatarPickerModal
+          user={profile}
+          onClose={() => setAvatarModalOpen(false)}
+          onSaved={() => {
+            refetch()
+            setStatusMessage({ type: 'success', text: 'Profile image updated' })
+          }}
+        />
+      ) : null}
+    </div>
   )
 }
 

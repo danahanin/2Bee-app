@@ -1,0 +1,270 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
+import HivePanel from '../components/design-system/HivePanel.jsx'
+import MetricCell from '../components/design-system/MetricCell.jsx'
+import HexButton from '../components/design-system/HexButton.jsx'
+import ExpenseList from '../components/hive/ExpenseList.jsx'
+import ScanReceiptModal from '../components/receipt/ScanReceiptModal.jsx'
+import DateRangePicker from '../components/analytics/DateRangePicker.jsx'
+import SpendingPieChart from '../components/analytics/SpendingPieChart.jsx'
+import TrendLineChart from '../components/analytics/TrendLineChart.jsx'
+import ComparisonBarChart from '../components/analytics/ComparisonBarChart.jsx'
+import { useExpenses } from '../hooks/useHive.js'
+import { fetchPersonalDashboard } from '../services/dashboardService.js'
+import { buildPresetRange } from '../utils/dateRangePresets.js'
+import {
+  fetchComparison,
+  fetchSpendingBreakdown,
+  fetchTrends,
+} from '../services/analyticsService.js'
+import { formatCurrency } from '../utils/formatCurrency.js'
+
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'expenses', label: 'All expenses' },
+]
+
+function PersonalExpensesPage() {
+  const { pairingStatus } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'overview'
+  const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
+
+  const [dashboardData, setDashboardData] = useState(null)
+  const [dashboardLoading, setDashboardLoading] = useState(true)
+  const [scanOpen, setScanOpen] = useState(false)
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [presetId, setPresetId] = useState('this-month')
+  const [range, setRange] = useState(() => buildPresetRange('this-month'))
+  const [breakdown, setBreakdown] = useState(null)
+  const [trends, setTrends] = useState(null)
+  const [comparison, setComparison] = useState(null)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+
+  const { expenses, isLoading: expensesLoading, error: expensesError, refetch } = useExpenses(hiveId, 'personal')
+
+  useEffect(() => {
+    setDashboardLoading(true)
+    fetchPersonalDashboard()
+      .then(setDashboardData)
+      .catch(() => setDashboardData(null))
+      .finally(() => setDashboardLoading(false))
+  }, [])
+
+  const loadAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true)
+    try {
+      const [breakdownData, trendsData, comparisonData] = await Promise.all([
+        fetchSpendingBreakdown({ type: 'personal', from: range.from, to: range.to }),
+        fetchTrends({ type: 'personal', from: range.from, to: range.to, months: range.months }),
+        fetchComparison({ type: 'personal' }),
+      ])
+      setBreakdown(breakdownData)
+      setTrends(trendsData)
+      setComparison(comparisonData)
+    } catch {
+      setBreakdown(null)
+      setTrends(null)
+      setComparison(null)
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [range.from, range.to, range.months])
+
+  useEffect(() => {
+    if (activeTab === 'analytics') loadAnalytics()
+  }, [activeTab, loadAnalytics])
+
+  const categories = useMemo(() => {
+    const set = new Set(expenses.map((e) => e.category).filter(Boolean))
+    return ['all', ...Array.from(set)]
+  }, [expenses])
+
+  const filteredExpenses = useMemo(() => {
+    if (categoryFilter === 'all') return expenses
+    return expenses.filter((e) => e.category === categoryFilter)
+  }, [expenses, categoryFilter])
+
+  function setTab(tab) {
+    setSearchParams(tab === 'overview' ? {} : { tab })
+  }
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="hive-eyebrow">Personal Expenses</p>
+          <h1 className="hive-title text-2xl md:text-3xl">Your spending dashboard</h1>
+          <p className="mt-1 text-sm text-[var(--brown-muted)]">
+            Track categories, analyze trends, and manage personal expenses.
+          </p>
+        </div>
+        <HexButton onClick={() => setScanOpen(true)} size="md">
+          <span>+</span>
+          <span>Add</span>
+        </HexButton>
+      </header>
+
+      <div className="flex flex-wrap gap-2">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setTab(tab.id)}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              activeTab === tab.id
+                ? 'bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] text-white shadow-md'
+                : 'border border-[rgba(61,41,20,0.12)] bg-white text-[var(--brown-text)] hover:bg-[var(--honey-50)]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'overview' && (
+        <>
+          <section className="grid gap-4 md:grid-cols-3">
+            <MetricCell
+              label="Monthly spend"
+              value={
+                dashboardLoading
+                  ? '...'
+                  : formatCurrency(dashboardData?.totalSpendThisMonth ?? 0, { maximumFractionDigits: 0 })
+              }
+              subtitle="Personal expenses"
+            />
+            <MetricCell
+              label="Top category"
+              value={dashboardData?.topCategory?.category || 'N/A'}
+              subtitle={
+                dashboardData?.topCategory
+                  ? formatCurrency(dashboardData.topCategory.amount)
+                  : 'No spending yet'
+              }
+            />
+            <MetricCell
+              label="Budgets"
+              value={String(dashboardData?.budgetStatus?.length || 0)}
+              subtitle="Tracked this month"
+            />
+          </section>
+
+          <HivePanel title="Budget status" subtitle="Personal budget tracking">
+            {dashboardData?.budgetStatus?.length ? (
+              <div className="space-y-3">
+                {dashboardData.budgetStatus.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-[rgba(61,41,20,0.08)] bg-white p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-[var(--brown-text)]">{item.category}</p>
+                      <p className="text-sm text-[var(--brown-muted)]">{item.percentUsed}% used</p>
+                    </div>
+                    <p className="mt-1 text-sm text-[var(--brown-muted)]">
+                      {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--brown-muted)]">No personal budgets yet.</p>
+            )}
+          </HivePanel>
+        </>
+      )}
+
+      {activeTab === 'analytics' && (
+        <>
+          <DateRangePicker
+            presetId={presetId}
+            from={range.from}
+            to={range.to}
+            onPresetChange={(id) => {
+              setPresetId(id)
+              setRange(buildPresetRange(id))
+            }}
+            onCustomRangeChange={({ from, to }) => {
+              setPresetId('custom')
+              setRange((prev) => ({ ...prev, from: from || prev.from, to: to || prev.to }))
+            }}
+          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <HivePanel title="Spending breakdown" subtitle="By category">
+              {analyticsLoading ? (
+                <div className="h-64 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+              ) : (
+                <SpendingPieChart breakdown={breakdown?.breakdown} total={breakdown?.total} />
+              )}
+            </HivePanel>
+            <HivePanel title="Monthly trends" subtitle="Top categories over time">
+              {analyticsLoading ? (
+                <div className="h-64 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+              ) : (
+                <TrendLineChart months={trends?.months} series={trends?.series} />
+              )}
+            </HivePanel>
+          </div>
+          <HivePanel title="Month comparison" subtitle="Current vs previous month">
+            {analyticsLoading ? (
+              <div className="h-64 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+            ) : (
+              <ComparisonBarChart
+                categories={comparison?.categories}
+                currentLabel={comparison?.currentMonth?.key ?? 'Current'}
+                previousLabel={comparison?.previousMonth?.key ?? 'Previous'}
+              />
+            )}
+          </HivePanel>
+        </>
+      )}
+
+      {activeTab === 'expenses' && (
+        <HivePanel
+          title="All personal expenses"
+          subtitle="Filter by category"
+          action={
+            <div className="flex flex-wrap gap-1">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize transition ${
+                    categoryFilter === cat
+                      ? 'bg-[var(--honey-400)] text-white'
+                      : 'bg-[var(--honey-50)] text-[var(--brown-muted)] hover:bg-[var(--honey-100)]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          <ExpenseList
+            expenses={filteredExpenses}
+            isLoading={expensesLoading}
+            error={expensesError}
+            showHiveBadge
+          />
+        </HivePanel>
+      )}
+
+      {scanOpen ? (
+        <ScanReceiptModal
+          onClose={() => setScanOpen(false)}
+          onSaved={() => {
+            refetch()
+            fetchPersonalDashboard().then(setDashboardData)
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+export default PersonalExpensesPage

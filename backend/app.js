@@ -1,5 +1,6 @@
 const express = require('express')
 const cors = require('cors')
+const path = require('path')
 const mongoose = require('mongoose')
 
 const aiRoutes = require('./src/routes/ai.routes')
@@ -18,6 +19,7 @@ function createApp() {
 
   app.use(cors())
   app.use(express.json())
+  app.use('/uploads/avatars', express.static(path.join(__dirname, 'uploads/avatars')))
   app.use('/ai', aiRoutes)
   app.use('/auth', authRoutes)
 

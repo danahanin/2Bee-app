@@ -88,6 +88,7 @@ export function useProfile() {
     email: currentUser?.email || '',
     bio: '',
     avatarUrl: null,
+    avatarType: null,
     pairId: null,
     sharedCategories: [],
   }

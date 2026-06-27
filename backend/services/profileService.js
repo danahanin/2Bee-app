@@ -59,6 +59,7 @@ function toProfile(user) {
     lastName: user.lastName,
     email: user.email,
     avatarUrl: user.avatarUrl,
+    avatarType: user.avatarType || null,
     bio: user.bio,
     pairId: user.pairId,
     hiveId: user.hiveId,
@@ -78,8 +79,17 @@ async function updateProfile(userId, data, fallbackUser) {
   if (data.firstName !== undefined) user.firstName = data.firstName
   if (data.lastName !== undefined) user.lastName = data.lastName
   if (data.avatarUrl !== undefined) user.avatarUrl = data.avatarUrl
+  if (data.avatarType !== undefined) user.avatarType = data.avatarType
   if (data.bio !== undefined) user.bio = data.bio
 
+  await user.save()
+  return toProfile(user)
+}
+
+async function setAvatar(userId, { avatarUrl, avatarType }, fallbackUser) {
+  const user = await ensureUserRecord(userId, fallbackUser)
+  user.avatarUrl = avatarUrl
+  if (avatarType) user.avatarType = avatarType
   await user.save()
   return toProfile(user)
 }
@@ -211,6 +221,7 @@ async function reconnectPair(userId, { partnerId, partnerCode }, fallbackUser) {
 module.exports = {
   getProfile,
   updateProfile,
+  setAvatar,
   getPrivacySettings,
   updatePrivacySettings,
   getNotificationSettings,

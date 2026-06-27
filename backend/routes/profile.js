@@ -17,6 +17,7 @@
  */
 
 const { Router } = require('express')
+const multer = require('multer')
 const authMiddleware = require('../middleware/auth')
 const {
   getProfile,
@@ -29,6 +30,13 @@ const {
   disconnectPair,
   reconnectPair,
 } = require('../controllers/profileController')
+const {
+  uploadAvatar,
+  generateBeeSelf,
+  setAvatar,
+} = require('../src/controllers/avatar.controller')
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
 const router = Router()
 
@@ -38,6 +46,9 @@ router.use(authMiddleware)
 // Profile
 router.get('/profile', getProfile)
 router.put('/profile', updateProfile)
+router.put('/profile/avatar', setAvatar)
+router.post('/profile/avatar/upload', upload.single('image'), uploadAvatar)
+router.post('/profile/avatar/bee-self', upload.single('photo'), generateBeeSelf)
 
 // Privacy settings
 router.get('/settings/privacy', getPrivacySettings)

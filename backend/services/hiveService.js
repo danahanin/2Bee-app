@@ -35,6 +35,7 @@ function decorateExpense(expense, users, currentUserId) {
       id: expense.userId,
       name: displayNameForUser(user, expense.userId),
       email: user?.email || null,
+      avatarUrl: user?.avatarUrl || null,
       isCurrentUser: expense.userId === currentUserId,
     },
   }
@@ -198,6 +199,7 @@ async function calculateHiveBalance(hiveId) {
   if (!hive) return null
 
   const memberIds = hive.userIds || []
+  const users = await getUserMap(memberIds)
   const sharedExpenses = await Expense.find({ hiveId, type: 'shared', isDeleted: false }).lean()
   const completedTransfers = await Transfer.find({ hiveId, status: 'completed' }).lean()
 
@@ -227,8 +229,11 @@ async function calculateHiveBalance(hiveId) {
     const net = roundAmount(paid - equalShare)
     const settled = roundAmount(settledByUser[userId] || 0)
     const remainingNet = roundAmount(net + settled)
+    const user = users.get(userId)
     return {
       userId,
+      name: displayNameForUser(user, userId),
+      avatarUrl: user?.avatarUrl || null,
       paid,
       expectedShare: equalShare,
       net,
@@ -271,8 +276,20 @@ async function getHiveTransfers(hiveId, { page = 1, limit = 20 }) {
     Transfer.countDocuments({ hiveId }),
   ])
 
+  const userIds = [...new Set(items.flatMap((t) => [t.fromUserId, t.toUserId, t.initiatedByUserId].filter(Boolean)))]
+  const users = await getUserMap(userIds)
+
+  const enriched = items.map((transfer) => ({
+    ...transfer,
+    fromAvatarUrl: users.get(transfer.fromUserId)?.avatarUrl || null,
+    toAvatarUrl: users.get(transfer.toUserId)?.avatarUrl || null,
+    initiatedByAvatarUrl: users.get(transfer.initiatedByUserId)?.avatarUrl || null,
+    fromName: displayNameForUser(users.get(transfer.fromUserId), transfer.fromUserId),
+    toName: displayNameForUser(users.get(transfer.toUserId), transfer.toUserId),
+  }))
+
   return {
-    items,
+    items: enriched,
     total,
     page,
     limit,
@@ -394,9 +411,11 @@ async function getHiveBalance(hiveId, currentUserId) {
 
   const participants = userIds.map((userId) => {
     const paid = paidByUser.get(userId) || 0
+    const user = users.get(userId)
     return {
       id: userId,
-      name: displayNameForUser(users.get(userId), userId),
+      name: displayNameForUser(user, userId),
+      avatarUrl: user?.avatarUrl || null,
       paid,
       share,
       balance: paid - share,
@@ -419,8 +438,18 @@ async function getHiveBalance(hiveId, currentUserId) {
 
       const amount = Math.min(debtor.balance, creditor.balance)
       settlements.push({
-        from: { id: debtor.id, name: debtor.name, isCurrentUser: debtor.isCurrentUser },
-        to: { id: creditor.id, name: creditor.name, isCurrentUser: creditor.isCurrentUser },
+        from: {
+          id: debtor.id,
+          name: debtor.name,
+          avatarUrl: users.get(debtor.id)?.avatarUrl || null,
+          isCurrentUser: debtor.isCurrentUser,
+        },
+        to: {
+          id: creditor.id,
+          name: creditor.name,
+          avatarUrl: users.get(creditor.id)?.avatarUrl || null,
+          isCurrentUser: creditor.isCurrentUser,
+        },
         amount,
       })
       debtor.balance -= amount
