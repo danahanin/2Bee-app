@@ -12,6 +12,8 @@ const hiveRoutes = require('./routes/hive')
 const expensesRoutes = require('./routes/expenses')
 const dashboardRoutes = require('./routes/dashboard')
 const analyticsRoutes = require('./routes/analytics')
+const budgetRoutes = require('./routes/budgets')
+const goalRoutes = require('./routes/goals')
 const { AppError } = require('./utils/appError')
 
 function createApp() {
@@ -32,6 +34,8 @@ function createApp() {
   app.use('/expenses', expensesRoutes)
   app.use('/dashboard', dashboardRoutes)
   app.use('/analytics', analyticsRoutes)
+  app.use('/budgets', budgetRoutes)
+  app.use('/goals', goalRoutes)
   app.use('/api', profileRouter)
   app.use('/api', pairRouter)
 
