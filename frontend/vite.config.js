@@ -36,6 +36,14 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      '/budgets': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+      '/goals': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
       '/ai': {
         target: 'http://localhost:4000',
         changeOrigin: true,

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import ViewToggle, { HiveBalanceHero } from '../components/hive/ViewToggle.jsx'
 import HivePanel from '../components/design-system/HivePanel.jsx'
 import HexButton from '../components/design-system/HexButton.jsx'
+import BudgetFormModal from '../components/budget/BudgetFormModal.jsx'
+import BudgetProgressBar from '../components/budget/BudgetProgressBar.jsx'
 import ExpenseList from '../components/hive/ExpenseList.jsx'
 import ExpenseFormModal from '../components/hive/ExpenseFormModal.jsx'
 import ScanReceiptModal from '../components/receipt/ScanReceiptModal.jsx'
@@ -25,6 +27,8 @@ import {
   useConnectToHive,
 } from '../hooks/useHive.js'
 import { useHiveParticipants } from '../hooks/useHiveParticipants.js'
+import { createBudget, deleteBudget, updateBudget } from '../services/budgetService.js'
+import { fetchSharedDashboard } from '../services/dashboardService.js'
 import { formatCurrency } from '../utils/formatCurrency.js'
 
 function BalancePanel({ balance, isLoading, error, currentUserId }) {
@@ -135,6 +139,30 @@ function HiveScreen() {
   const [editingExpense, setEditingExpense] = useState(null)
   const [transferModalOpen, setTransferModalOpen] = useState(false)
   const [scanModalOpen, setScanModalOpen] = useState(false)
+  const [sharedDashboard, setSharedDashboard] = useState(null)
+  const [sharedDashboardLoading, setSharedDashboardLoading] = useState(false)
+  const [budgetActionError, setBudgetActionError] = useState('')
+  const [budgetActionMessage, setBudgetActionMessage] = useState('')
+  const [isSavingBudget, setIsSavingBudget] = useState(false)
+  const [budgetModal, setBudgetModal] = useState(null)
+
+  const loadSharedDashboard = useCallback(async () => {
+    setSharedDashboardLoading(true)
+    try {
+      const result = await fetchSharedDashboard()
+      setSharedDashboard(result)
+    } catch {
+      setSharedDashboard(null)
+    } finally {
+      setSharedDashboardLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (view === 'shared') {
+      loadSharedDashboard()
+    }
+  }, [view, loadSharedDashboard])
 
   useEffect(() => {
     if (searchParams.get('action') === 'settle') {
@@ -218,6 +246,43 @@ function HiveScreen() {
     }
   }
 
+  async function handleSharedBudgetSubmit(payload) {
+    setIsSavingBudget(true)
+    setBudgetActionError('')
+    setBudgetActionMessage('')
+    try {
+      if (budgetModal?.mode === 'edit') {
+        await updateBudget(budgetModal.budget.id, {
+          limit: payload.limit,
+          period: payload.period,
+        })
+        setBudgetActionMessage('Shared budget updated.')
+      } else {
+        await createBudget(payload)
+        setBudgetActionMessage('Shared budget created.')
+      }
+      setBudgetModal(null)
+      await loadSharedDashboard()
+    } catch (err) {
+      setBudgetActionError(err.message || 'Failed to save budget')
+    } finally {
+      setIsSavingBudget(false)
+    }
+  }
+
+  async function handleSharedBudgetDelete(budgetId) {
+    if (!window.confirm('Delete this shared budget?')) return
+    setBudgetActionError('')
+    setBudgetActionMessage('')
+    try {
+      await deleteBudget(budgetId)
+      setBudgetActionMessage('Shared budget deleted.')
+      await loadSharedDashboard()
+    } catch (err) {
+      setBudgetActionError(err.message || 'Failed to delete budget')
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
@@ -276,6 +341,18 @@ function HiveScreen() {
 
       {view === 'shared' ? (
         <div className="grid gap-6 lg:grid-cols-3">
+          {budgetActionError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 lg:col-span-3">
+              {budgetActionError}
+            </div>
+          ) : null}
+
+          {budgetActionMessage ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 lg:col-span-3">
+              {budgetActionMessage}
+            </div>
+          ) : null}
+
           <HivePanel title="Shared expenses" subtitle="Recent hive activity" className="lg:col-span-2">
             <ExpenseList
               expenses={expenses}
@@ -305,6 +382,69 @@ function HiveScreen() {
 
           <HivePanel title="Monthly overview" subtitle="Contribution breakdown" className="lg:col-span-3">
             <ContributionChart balance={balance} currentUserId={currentUser?.id} />
+          </HivePanel>
+
+          <HivePanel
+            title="Shared budgets"
+            subtitle="Track spending limits for the hive"
+            className="lg:col-span-3"
+            action={
+              sharedDashboard?.paired !== false ? (
+                <button
+                  type="button"
+                  onClick={() => setBudgetModal({ mode: 'create' })}
+                  className="rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                >
+                  Add shared budget
+                </button>
+              ) : null
+            }
+          >
+            {sharedDashboardLoading ? (
+              <div className="h-24 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+            ) : sharedDashboard?.paired === false ? (
+              <p className="text-sm text-[var(--brown-muted)]">
+                Pair with a partner to manage shared budgets.
+              </p>
+            ) : sharedDashboard?.sharedBudgetStatus?.length ? (
+              <div className="space-y-3">
+                {sharedDashboard.sharedBudgetStatus.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-[rgba(61,41,20,0.08)] bg-white p-3"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold capitalize text-[var(--brown-text)]">{item.category}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-[var(--brown-muted)]">{item.percentUsed}% used</p>
+                        <button
+                          type="button"
+                          onClick={() => setBudgetModal({ mode: 'edit', budget: item })}
+                          className="text-xs font-semibold text-[var(--honey-800)]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSharedBudgetDelete(item.id)}
+                          className="text-xs font-semibold text-rose-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                    <p className="mt-1 text-sm text-[var(--brown-muted)]">
+                      {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
+                    </p>
+                    <div className="mt-3">
+                      <BudgetProgressBar percentUsed={item.percentUsed} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--brown-muted)]">No shared budgets yet.</p>
+            )}
           </HivePanel>
         </div>
       ) : view === 'balance' ? (
@@ -347,6 +487,16 @@ function HiveScreen() {
           isSubmitting={isCreatingTransfer}
         />
       )}
+
+      {budgetModal ? (
+        <BudgetFormModal
+          budget={budgetModal.mode === 'edit' ? budgetModal.budget : null}
+          budgetType="shared"
+          onSubmit={handleSharedBudgetSubmit}
+          onClose={() => setBudgetModal(null)}
+          isSubmitting={isSavingBudget}
+        />
+      ) : null}
     </div>
   )
 }
