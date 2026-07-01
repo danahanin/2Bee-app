@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProfile } from '../hooks/useProfile.js'
 import { useAIPageData } from '../hooks/useAIPageData.js'
+import { useGoalSuggestions } from '../hooks/useAI.js'
 import PartnerAvatars from '../components/design-system/PartnerAvatars.jsx'
 import HivePanel from '../components/design-system/HivePanel.jsx'
 import AIFinancialOverview from '../components/ai/AIFinancialOverview.jsx'
@@ -9,12 +11,18 @@ import RecommendationCard from '../components/ai/RecommendationCard.jsx'
 import SuggestedActions from '../components/ai/SuggestedActions.jsx'
 import MonthlyAIReport from '../components/ai/MonthlyAIReport.jsx'
 import ForecastSection from '../components/ai/ForecastSection.jsx'
+import GoalSuggestionsPanel from '../components/ai/GoalSuggestionsPanel.jsx'
 import CompactChatAssistant from '../components/ai/CompactChatAssistant.jsx'
+import { createGoal, goalFromSuggestion } from '../services/goalService.js'
 
 function AssistantPage() {
   const { currentUser, pairingStatus } = useAuth()
   const { profile } = useProfile()
   const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
+  const goalSuggestions = useGoalSuggestions()
+  const [acceptingGoalId, setAcceptingGoalId] = useState(null)
+  const [goalActionError, setGoalActionError] = useState('')
+  const [goalActionMessage, setGoalActionMessage] = useState('')
 
   const {
     balance,
@@ -30,6 +38,24 @@ function AssistantPage() {
     loading,
     error,
   } = useAIPageData(hiveId, currentUser?.id)
+
+  useEffect(() => {
+    goalSuggestions.fetch()
+  }, [])
+
+  async function handleGoalAccept(goal) {
+    setAcceptingGoalId(goal.id)
+    setGoalActionError('')
+    setGoalActionMessage('')
+    try {
+      await createGoal(goalFromSuggestion(goal))
+      setGoalActionMessage(`Goal "${goal.title}" was added. View it under Expenses → Overview.`)
+    } catch (err) {
+      setGoalActionError(err.message || 'Failed to accept goal')
+    } finally {
+      setAcceptingGoalId(null)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-8">
@@ -50,6 +76,24 @@ function AssistantPage() {
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
+        </div>
+      ) : null}
+
+      {goalActionError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {goalActionError}
+        </div>
+      ) : null}
+
+      {goalActionMessage ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {goalActionMessage}
+        </div>
+      ) : null}
+
+      {goalSuggestions.error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {goalSuggestions.error}
         </div>
       ) : null}
 
@@ -104,6 +148,15 @@ function AssistantPage() {
 
       <HivePanel title="Forecast snapshot" subtitle="Predicted shared spending by category">
         <ForecastSection forecasts={forecast} isLoading={loading} />
+      </HivePanel>
+
+      <HivePanel title="Goal suggestions" subtitle="Personalized savings goals based on your spending">
+        <GoalSuggestionsPanel
+          goals={goalSuggestions.data}
+          isLoading={goalSuggestions.loading}
+          onAccept={handleGoalAccept}
+          acceptingGoalId={acceptingGoalId}
+        />
       </HivePanel>
 
       <CompactChatAssistant hiveId={hiveId} />

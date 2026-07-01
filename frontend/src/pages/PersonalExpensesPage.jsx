@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import BudgetFormModal from '../components/budget/BudgetFormModal.jsx'
+import BudgetProgressBar from '../components/budget/BudgetProgressBar.jsx'
+import GoalFormModal from '../components/goals/GoalFormModal.jsx'
+import GoalList from '../components/goals/GoalList.jsx'
 import HivePanel from '../components/design-system/HivePanel.jsx'
 import MetricCell from '../components/design-system/MetricCell.jsx'
 import HexButton from '../components/design-system/HexButton.jsx'
@@ -11,6 +15,8 @@ import SpendingPieChart from '../components/analytics/SpendingPieChart.jsx'
 import TrendLineChart from '../components/analytics/TrendLineChart.jsx'
 import ComparisonBarChart from '../components/analytics/ComparisonBarChart.jsx'
 import { useExpenses } from '../hooks/useHive.js'
+import { createBudget, deleteBudget, updateBudget } from '../services/budgetService.js'
+import { createGoal, fetchGoals } from '../services/goalService.js'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
 import { buildPresetRange } from '../utils/dateRangePresets.js'
 import {
@@ -34,6 +40,13 @@ function PersonalExpensesPage() {
 
   const [dashboardData, setDashboardData] = useState(null)
   const [dashboardLoading, setDashboardLoading] = useState(true)
+  const [goals, setGoals] = useState([])
+  const [goalsLoading, setGoalsLoading] = useState(true)
+  const [actionError, setActionError] = useState('')
+  const [actionMessage, setActionMessage] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [budgetModal, setBudgetModal] = useState(null)
+  const [goalModalOpen, setGoalModalOpen] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [presetId, setPresetId] = useState('this-month')
@@ -45,13 +58,93 @@ function PersonalExpensesPage() {
 
   const { expenses, isLoading: expensesLoading, error: expensesError, refetch } = useExpenses(hiveId, 'personal')
 
-  useEffect(() => {
+  const loadDashboard = useCallback(async () => {
     setDashboardLoading(true)
-    fetchPersonalDashboard()
-      .then(setDashboardData)
-      .catch(() => setDashboardData(null))
-      .finally(() => setDashboardLoading(false))
+    try {
+      const result = await fetchPersonalDashboard()
+      setDashboardData(result)
+    } catch {
+      setDashboardData(null)
+    } finally {
+      setDashboardLoading(false)
+    }
   }, [])
+
+  const loadGoals = useCallback(async ({ showLoading = true } = {}) => {
+    if (showLoading) setGoalsLoading(true)
+    try {
+      const nextGoals = await fetchGoals('personal')
+      setGoals(nextGoals)
+    } catch (err) {
+      setActionError(err.message || 'Failed to load goals')
+    } finally {
+      if (showLoading) setGoalsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadDashboard()
+    loadGoals()
+  }, [loadDashboard, loadGoals])
+
+  async function handleBudgetSubmit(payload) {
+    setIsSaving(true)
+    setActionError('')
+    setActionMessage('')
+    try {
+      if (budgetModal?.mode === 'edit') {
+        await updateBudget(budgetModal.budget.id, {
+          limit: payload.limit,
+          period: payload.period,
+        })
+        setActionMessage('Budget updated.')
+      } else {
+        await createBudget(payload)
+        setActionMessage('Budget created.')
+      }
+      setBudgetModal(null)
+      await loadDashboard()
+    } catch (err) {
+      setActionError(err.message || 'Failed to save budget')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleBudgetDelete(budgetId) {
+    if (!window.confirm('Delete this budget?')) return
+    setActionError('')
+    setActionMessage('')
+    try {
+      await deleteBudget(budgetId)
+      setActionMessage('Budget deleted.')
+      await loadDashboard()
+    } catch (err) {
+      setActionError(err.message || 'Failed to delete budget')
+    }
+  }
+
+  async function handleGoalSubmit(payload) {
+    setIsSaving(true)
+    setActionError('')
+    setActionMessage('')
+    try {
+      const created = await createGoal(payload)
+      setGoalModalOpen(false)
+      setActionMessage('Goal created.')
+      if (created?.id && !created.hiveId) {
+        setGoals((prev) => {
+          if (prev.some((goal) => goal.id === created.id)) return prev
+          return [...prev, created]
+        })
+      }
+      await loadGoals({ showLoading: false })
+    } catch (err) {
+      setActionError(err.message || 'Failed to create goal')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   const loadAnalytics = useCallback(async () => {
     setAnalyticsLoading(true)
@@ -124,6 +217,18 @@ function PersonalExpensesPage() {
         ))}
       </div>
 
+      {actionError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {actionError}
+        </div>
+      ) : null}
+
+      {actionMessage ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {actionMessage}
+        </div>
+      ) : null}
+
       {activeTab === 'overview' && (
         <>
           <section className="grid gap-4 md:grid-cols-3">
@@ -152,21 +257,70 @@ function PersonalExpensesPage() {
             />
           </section>
 
-          <HivePanel title="Budget status" subtitle="Personal budget tracking">
-            {dashboardData?.budgetStatus?.length ? (
+          <HivePanel
+            title="Savings goals"
+            subtitle="Track what you are saving toward"
+            action={
+              <button
+                type="button"
+                onClick={() => setGoalModalOpen(true)}
+                className="rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              >
+                Add goal
+              </button>
+            }
+          >
+            <GoalList goals={goals} isLoading={goalsLoading} onAddGoal={() => setGoalModalOpen(true)} />
+          </HivePanel>
+
+          <HivePanel
+            title="Budget status"
+            subtitle="Personal budget tracking"
+            action={
+              <button
+                type="button"
+                onClick={() => setBudgetModal({ mode: 'create' })}
+                className="rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              >
+                Add budget
+              </button>
+            }
+          >
+            {dashboardLoading ? (
+              <div className="h-24 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+            ) : dashboardData?.budgetStatus?.length ? (
               <div className="space-y-3">
                 {dashboardData.budgetStatus.map((item) => (
                   <div
                     key={item.id}
                     className="rounded-xl border border-[rgba(61,41,20,0.08)] bg-white p-3"
                   >
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-[var(--brown-text)]">{item.category}</p>
-                      <p className="text-sm text-[var(--brown-muted)]">{item.percentUsed}% used</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold capitalize text-[var(--brown-text)]">{item.category}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-[var(--brown-muted)]">{item.percentUsed}% used</p>
+                        <button
+                          type="button"
+                          onClick={() => setBudgetModal({ mode: 'edit', budget: item })}
+                          className="text-xs font-semibold text-[var(--honey-800)]"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBudgetDelete(item.id)}
+                          className="text-xs font-semibold text-rose-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                     <p className="mt-1 text-sm text-[var(--brown-muted)]">
                       {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
                     </p>
+                    <div className="mt-3">
+                      <BudgetProgressBar percentUsed={item.percentUsed} />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -259,8 +413,26 @@ function PersonalExpensesPage() {
           onClose={() => setScanOpen(false)}
           onSaved={() => {
             refetch()
-            fetchPersonalDashboard().then(setDashboardData)
+            loadDashboard()
           }}
+        />
+      ) : null}
+
+      {budgetModal ? (
+        <BudgetFormModal
+          budget={budgetModal.mode === 'edit' ? budgetModal.budget : null}
+          budgetType="personal"
+          onSubmit={handleBudgetSubmit}
+          onClose={() => setBudgetModal(null)}
+          isSubmitting={isSaving}
+        />
+      ) : null}
+
+      {goalModalOpen ? (
+        <GoalFormModal
+          onSubmit={handleGoalSubmit}
+          onClose={() => setGoalModalOpen(false)}
+          isSubmitting={isSaving}
         />
       ) : null}
     </div>
