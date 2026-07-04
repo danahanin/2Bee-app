@@ -35,7 +35,7 @@ function PersonalExpensesPage() {
   const [dashboardData, setDashboardData] = useState(null)
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [scanOpen, setScanOpen] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || 'all')
   const [presetId, setPresetId] = useState('this-month')
   const [range, setRange] = useState(() => buildPresetRange('this-month'))
   const [breakdown, setBreakdown] = useState(null)

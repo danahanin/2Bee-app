@@ -186,7 +186,7 @@ describe('generateRecommendations', () => {
 
     expect(recommendations[0].title).toBe('Review subscription');
     expect(recommendations[0].description).toContain('Old Magazine');
-    expect(recommendations[0].description).toContain('$14.99');
+    expect(recommendations[0].description).toContain('₪15');
     expect(recommendations[0].potentialSavings).toBe(14.99);
   });
 
@@ -203,7 +203,7 @@ describe('generateRecommendations', () => {
     const recommendations = generateRecommendations(patterns);
 
     expect(recommendations[0].title).toContain('utilities');
-    expect(recommendations[0].description).toContain('$30');
+    expect(recommendations[0].description).toContain('₪30');
   });
 
   test('handles multiple patterns', () => {

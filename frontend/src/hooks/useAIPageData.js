@@ -14,6 +14,7 @@ export function useAIPageData(hiveId, currentUserId) {
   const [recommendations, setRecommendations] = useState([])
   const [imbalance, setImbalance] = useState(null)
   const [forecast, setForecast] = useState([])
+  const [goalSuggestions, setGoalSuggestions] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -24,13 +25,14 @@ export function useAIPageData(hiveId, currentUserId) {
       setLoading(true)
       setError(null)
       try {
-        const [personal, shared, insightsRes, recsRes, imbalanceRes, forecastRes] = await Promise.all([
+        const [personal, shared, insightsRes, recsRes, imbalanceRes, forecastRes, goalsRes] = await Promise.all([
           fetchPersonalDashboard().catch(() => null),
           fetchSharedDashboard().catch(() => null),
           aiService.fetchInsights().catch(() => ({ data: [] })),
           aiService.fetchRecommendations().catch(() => ({ data: [] })),
           aiService.fetchImbalance(hiveId ? { hiveId } : {}).catch(() => ({ data: null })),
           aiService.fetchForecast({ scope: 'shared', hiveId: hiveId || undefined }).catch(() => ({ data: [] })),
+          aiService.fetchGoalSuggestions().catch(() => ({ data: [] })),
         ])
 
         if (cancelled) return
@@ -40,6 +42,7 @@ export function useAIPageData(hiveId, currentUserId) {
         setRecommendations(Array.isArray(recsRes?.data) ? recsRes.data : [])
         setImbalance(imbalanceRes?.data ?? null)
         setForecast(Array.isArray(forecastRes?.data) ? forecastRes.data : [])
+        setGoalSuggestions(Array.isArray(goalsRes?.data) ? goalsRes.data : [])
       } catch (err) {
         if (!cancelled) setError(err.message || 'Failed to load AI data')
       } finally {
@@ -87,6 +90,7 @@ export function useAIPageData(hiveId, currentUserId) {
     recommendations,
     imbalance,
     forecast,
+    goalSuggestions,
     alerts,
     overviewSummary,
     loading,

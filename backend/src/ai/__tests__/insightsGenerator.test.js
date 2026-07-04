@@ -30,7 +30,7 @@ describe('formatInsightMessage', () => {
     const { title, description } = formatInsightMessage(pattern);
 
     expect(title).toBe('Unusual purchase in shopping');
-    expect(description).toContain('$500');
+    expect(description).toContain('₪500');
     expect(description).toContain('Electronics Store');
   });
 
@@ -59,7 +59,7 @@ describe('formatInsightMessage', () => {
 
     expect(title).toBe('Recurring charge detected');
     expect(description).toContain('Netflix');
-    expect(description).toContain('$15.99');
+    expect(description).toContain('₪16');
   });
 
   test('formats budget_warning pattern', () => {
@@ -74,8 +74,8 @@ describe('formatInsightMessage', () => {
 
     expect(title).toBe('Budget alert for dining');
     expect(description).toContain('90%');
-    expect(description).toContain('$180');
-    expect(description).toContain('$200');
+    expect(description).toContain('₪180');
+    expect(description).toContain('₪200');
   });
 
   test('formats forecast_exceeded pattern', () => {
@@ -89,9 +89,9 @@ describe('formatInsightMessage', () => {
     const { title, description } = formatInsightMessage(pattern);
 
     expect(title).toBe('utilities spending above forecast');
-    expect(description).toContain('$150');
+    expect(description).toContain('₪150');
     expect(description).toContain('50%');
-    expect(description).toContain('$100');
+    expect(description).toContain('₪100');
   });
 
   test('handles unknown pattern type gracefully', () => {

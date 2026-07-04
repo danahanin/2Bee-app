@@ -174,8 +174,8 @@ describe('suggestGoals', () => {
 
     const goals = suggestGoals(categorySpendByMonth, forecast, { remainingMonths: 6 });
 
-    expect(goals[0].reasoning).toContain('$160');
-    expect(goals[0].reasoning).toContain('$100');
-    expect(goals[0].reasoning).toContain('$60');
+    expect(goals[0].reasoning).toContain('₪160');
+    expect(goals[0].reasoning).toContain('₪100');
+    expect(goals[0].reasoning).toContain('₪60');
   });
 });

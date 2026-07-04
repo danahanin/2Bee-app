@@ -118,9 +118,37 @@ function normalizeAmount(amount, category) {
   return range.min + Math.random() * (range.max - range.min)
 }
 
+function getTransactionDate(tx) {
+  const raw =
+    tx.date?.transactionDate ||
+    tx.date?.bookingDate ||
+    tx.date?.valueDate ||
+    tx.bookingDate ||
+    tx.valueDate
+  if (!raw) return null
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+// Sandbox transactions are dated in the past (and sometimes the future). The
+// app's "this month" views and the AI's recent-months window both need data
+// right up to today, so we shift every transaction by the same amount of time
+// such that the newest non-future transaction lands on `now`. This keeps real
+// amounts and spacing while giving continuous coverage through the current day.
+function computeTimeShiftMs(transactions, now) {
+  const pastTimes = transactions
+    .map(getTransactionDate)
+    .filter((date) => date && date.getTime() <= now.getTime())
+    .map((date) => date.getTime())
+  if (pastTimes.length === 0) return 0
+  return now.getTime() - Math.max(...pastTimes)
+}
+
 function transformTransactions(transactions, userId, hiveId) {
   const expenses = []
-  
+  const now = new Date()
+  const timeShiftMs = computeTimeShiftMs(transactions, now)
+
   for (let i = 0; i < transactions.length; i++) {
     const tx = transactions[i]
     const rawAmount = tx.amount?.originalAmount?.amount || tx.amount?.chargedAmount?.amount || tx.amount || 0
@@ -152,7 +180,10 @@ function transformTransactions(transactions, userId, hiveId) {
     }
 
     const externalId = tx.id || tx.transactionId || null
-    const txDate = tx.date?.transactionDate || tx.date?.bookingDate || tx.date?.valueDate || tx.bookingDate || tx.valueDate
+    const txDate = getTransactionDate(tx)
+    const shiftedDate = txDate ? new Date(txDate.getTime() + timeShiftMs) : now
+
+    if (shiftedDate.getTime() > now.getTime()) continue
 
     const isShared = SHARED_CATEGORIES.includes(category)
 
@@ -166,7 +197,7 @@ function transformTransactions(transactions, userId, hiveId) {
       description,
       type: isShared ? 'shared' : 'personal',
       source: 'bank_sync',
-      date: txDate ? new Date(txDate) : new Date(),
+      date: shiftedDate,
       classifiedBy: 'user',
       externalTransactionId: externalId,
     })
