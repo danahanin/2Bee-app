@@ -118,9 +118,48 @@ function normalizeAmount(amount, category) {
   return range.min + Math.random() * (range.max - range.min)
 }
 
+function getTransactionDate(tx) {
+  const raw =
+    tx.date?.transactionDate ||
+    tx.date?.bookingDate ||
+    tx.date?.valueDate ||
+    tx.bookingDate ||
+    tx.valueDate
+  if (!raw) return null
+  const date = new Date(raw)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function monthIndex(date) {
+  return date.getUTCFullYear() * 12 + date.getUTCMonth()
+}
+
+// Sandbox transactions are dated in the past (and sometimes future). The AI
+// analyzes only the most recent months, so we shift every transaction by a
+// whole number of months such that the newest non-future transaction lands in
+// the current month. This keeps real amounts/spacing while making the data recent.
+function computeMonthShift(transactions, now) {
+  const nowIndex = monthIndex(now)
+  const pastMonthIndexes = transactions
+    .map(getTransactionDate)
+    .filter((date) => date && date.getTime() <= now.getTime())
+    .map(monthIndex)
+  if (pastMonthIndexes.length === 0) return 0
+  const newestPastIndex = Math.max(...pastMonthIndexes)
+  return nowIndex - newestPastIndex
+}
+
+function shiftDateByMonths(date, months) {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate(), 12, 0, 0),
+  )
+}
+
 function transformTransactions(transactions, userId, hiveId) {
   const expenses = []
-  
+  const now = new Date()
+  const monthShift = computeMonthShift(transactions, now)
+
   for (let i = 0; i < transactions.length; i++) {
     const tx = transactions[i]
     const rawAmount = tx.amount?.originalAmount?.amount || tx.amount?.chargedAmount?.amount || tx.amount || 0
@@ -152,7 +191,10 @@ function transformTransactions(transactions, userId, hiveId) {
     }
 
     const externalId = tx.id || tx.transactionId || null
-    const txDate = tx.date?.transactionDate || tx.date?.bookingDate || tx.date?.valueDate || tx.bookingDate || tx.valueDate
+    const txDate = getTransactionDate(tx)
+    const shiftedDate = txDate ? shiftDateByMonths(txDate, monthShift) : now
+
+    if (shiftedDate.getTime() > now.getTime()) continue
 
     const isShared = SHARED_CATEGORIES.includes(category)
 
@@ -166,7 +208,7 @@ function transformTransactions(transactions, userId, hiveId) {
       description,
       type: isShared ? 'shared' : 'personal',
       source: 'bank_sync',
-      date: txDate ? new Date(txDate) : new Date(),
+      date: shiftedDate,
       classifiedBy: 'user',
       externalTransactionId: externalId,
     })

@@ -1,17 +1,4 @@
-const crypto = require('crypto');
-
-function generateId() {
-  return crypto.randomUUID();
-}
-
-function formatCurrency(amount) {
-  const value = Number(amount) || 0;
-  return new Intl.NumberFormat('en-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+const { generateId, formatCurrency } = require('./format');
 
 const INSIGHT_TEMPLATES = {
   overspend: {
