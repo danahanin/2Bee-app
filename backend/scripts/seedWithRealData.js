@@ -130,35 +130,24 @@ function getTransactionDate(tx) {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function monthIndex(date) {
-  return date.getUTCFullYear() * 12 + date.getUTCMonth()
-}
-
-// Sandbox transactions are dated in the past (and sometimes future). The AI
-// analyzes only the most recent months, so we shift every transaction by a
-// whole number of months such that the newest non-future transaction lands in
-// the current month. This keeps real amounts/spacing while making the data recent.
-function computeMonthShift(transactions, now) {
-  const nowIndex = monthIndex(now)
-  const pastMonthIndexes = transactions
+// Sandbox transactions are dated in the past (and sometimes the future). The
+// app's "this month" views and the AI's recent-months window both need data
+// right up to today, so we shift every transaction by the same amount of time
+// such that the newest non-future transaction lands on `now`. This keeps real
+// amounts and spacing while giving continuous coverage through the current day.
+function computeTimeShiftMs(transactions, now) {
+  const pastTimes = transactions
     .map(getTransactionDate)
     .filter((date) => date && date.getTime() <= now.getTime())
-    .map(monthIndex)
-  if (pastMonthIndexes.length === 0) return 0
-  const newestPastIndex = Math.max(...pastMonthIndexes)
-  return nowIndex - newestPastIndex
-}
-
-function shiftDateByMonths(date, months) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, date.getUTCDate(), 12, 0, 0),
-  )
+    .map((date) => date.getTime())
+  if (pastTimes.length === 0) return 0
+  return now.getTime() - Math.max(...pastTimes)
 }
 
 function transformTransactions(transactions, userId, hiveId) {
   const expenses = []
   const now = new Date()
-  const monthShift = computeMonthShift(transactions, now)
+  const timeShiftMs = computeTimeShiftMs(transactions, now)
 
   for (let i = 0; i < transactions.length; i++) {
     const tx = transactions[i]
@@ -192,7 +181,7 @@ function transformTransactions(transactions, userId, hiveId) {
 
     const externalId = tx.id || tx.transactionId || null
     const txDate = getTransactionDate(tx)
-    const shiftedDate = txDate ? shiftDateByMonths(txDate, monthShift) : now
+    const shiftedDate = txDate ? new Date(txDate.getTime() + timeShiftMs) : now
 
     if (shiftedDate.getTime() > now.getTime()) continue
 

@@ -11,9 +11,10 @@ import InsightsPanel from '../components/ai/InsightsPanel.jsx'
 
 function ctaToRoute(cta = '') {
   const text = cta.toLowerCase()
-  if (text.includes('budget')) return '/app/expenses?tab=analytics'
   if (text.includes('transfer') || text.includes('settle') || text.includes('balance')) return '/app/hive'
-  return '/app/expenses'
+  if (text.includes('budget') || text.includes('breakdown')) return '/app/expenses?tab=analytics'
+  if (text.includes('subscription')) return '/app/expenses?tab=expenses&category=subscriptions'
+  return '/app/expenses?tab=expenses'
 }
 
 function AssistantPage() {

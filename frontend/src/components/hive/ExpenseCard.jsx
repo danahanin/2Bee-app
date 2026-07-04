@@ -48,7 +48,7 @@ function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, showHiveBadge
             </span>
           ) : null}
         </div>
-        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--brown-muted)]">
+        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-[var(--brown-muted)]">
           {isShared && expense.paidBy ? (
             <UserAvatar
               user={{
@@ -64,7 +64,7 @@ function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, showHiveBadge
             {expense.category} &middot; {formattedDate}
             {isShared && paidByLabel ? ` · Paid by ${paidByLabel}` : ''}
           </span>
-        </p>
+        </div>
       </div>
 
       <span className="whitespace-nowrap text-sm font-bold text-[var(--brown-text)]">
