@@ -202,6 +202,7 @@ async function getSharedDashboard(userId, hiveId) {
 module.exports = {
   utcMonthRange,
   resolveBudgetAlertLevel,
+  getBudgetStatusForBudget,
   getPersonalDashboard,
   getSharedDashboard,
 }

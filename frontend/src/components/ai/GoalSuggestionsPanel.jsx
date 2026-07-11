@@ -9,8 +9,9 @@ function getConfidenceLabel(confidence) {
   return 'Low'
 }
 
-function GoalCard({ goal, onAccept }) {
+function GoalCard({ goal, onAccept, acceptingGoalId }) {
   const confidenceLabel = getConfidenceLabel(goal.confidence)
+  const isAccepting = acceptingGoalId === goal.id
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -41,9 +42,10 @@ function GoalCard({ goal, onAccept }) {
         <button
           type="button"
           onClick={() => onAccept(goal)}
-          className="mt-3 w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+          disabled={Boolean(acceptingGoalId)}
+          className="mt-3 w-full rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          Accept Goal
+          {isAccepting ? 'Adding goal...' : 'Accept Goal'}
         </button>
       )}
     </div>
@@ -60,7 +62,7 @@ function GoalsSkeleton() {
   )
 }
 
-function GoalSuggestionsPanel({ goals, isLoading, onAccept }) {
+function GoalSuggestionsPanel({ goals, isLoading, onAccept, acceptingGoalId }) {
   if (isLoading) {
     return <GoalsSkeleton />
   }
@@ -76,7 +78,7 @@ function GoalSuggestionsPanel({ goals, isLoading, onAccept }) {
   return (
     <div className="space-y-3">
       {goals.map((goal) => (
-        <GoalCard key={goal.id} goal={goal} onAccept={onAccept} />
+        <GoalCard key={goal.id} goal={goal} onAccept={onAccept} acceptingGoalId={acceptingGoalId} />
       ))}
     </div>
   )
