@@ -240,16 +240,25 @@ async function getGoalSuggestions(options = {}) {
   }
   
   try {
+    // Goal suggestions compare the most recent *completed* month against the
+    // forecast. Anchoring to last month avoids the current in-progress month
+    // (which is near-empty early on) always falling short of the forecast.
+    const referenceDate = lastCompletedMonthReference();
+
     const categoryMonthTotals = scope === 'shared' && hiveId
-      ? await getSharedCategoryMonthTotals(hiveId)
-      : await getPersonalCategoryMonthTotals(userId);
-    
+      ? await getSharedCategoryMonthTotals(hiveId, { referenceDate })
+      : await getPersonalCategoryMonthTotals(userId, { referenceDate });
+
     const forecast = forecastFromCategoryMonthTotals({ categoryMonthTotals });
-    
+
     return suggestGoals(categoryMonthTotals, forecast);
   } catch {
     return [];
   }
+}
+
+function lastCompletedMonthReference(now = new Date()) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15, 12, 0, 0));
 }
 
 module.exports = {

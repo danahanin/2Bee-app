@@ -1,26 +1,29 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProfile } from '../hooks/useProfile.js'
 import { useAIPageData } from '../hooks/useAIPageData.js'
-import { useGoalSuggestions } from '../hooks/useAI.js'
 import PartnerAvatars from '../components/design-system/PartnerAvatars.jsx'
-import HivePanel from '../components/design-system/HivePanel.jsx'
 import AIFinancialOverview from '../components/ai/AIFinancialOverview.jsx'
 import AIAlertsStrip from '../components/ai/AIAlertsStrip.jsx'
-import RecommendationCard from '../components/ai/RecommendationCard.jsx'
 import SuggestedActions from '../components/ai/SuggestedActions.jsx'
-import MonthlyAIReport from '../components/ai/MonthlyAIReport.jsx'
-import ForecastSection from '../components/ai/ForecastSection.jsx'
-import GoalSuggestionsPanel from '../components/ai/GoalSuggestionsPanel.jsx'
 import CompactChatAssistant from '../components/ai/CompactChatAssistant.jsx'
+import InsightsPanel from '../components/ai/InsightsPanel.jsx'
 import { createGoal, goalFromSuggestion } from '../services/goalService.js'
+
+function ctaToRoute(cta = '') {
+  const text = cta.toLowerCase()
+  if (text.includes('transfer') || text.includes('settle') || text.includes('balance')) return '/app/hive'
+  if (text.includes('budget') || text.includes('breakdown')) return '/app/expenses?tab=analytics'
+  if (text.includes('subscription')) return '/app/expenses?tab=expenses&category=subscriptions'
+  return '/app/expenses?tab=expenses'
+}
 
 function AssistantPage() {
   const { currentUser, pairingStatus } = useAuth()
   const { profile } = useProfile()
+  const navigate = useNavigate()
   const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
-  const goalSuggestions = useGoalSuggestions()
-  const [acceptingGoalId, setAcceptingGoalId] = useState(null)
   const [goalActionError, setGoalActionError] = useState('')
   const [goalActionMessage, setGoalActionMessage] = useState('')
 
@@ -33,18 +36,19 @@ function AssistantPage() {
     insights,
     recommendations,
     forecast,
+    goalSuggestions,
+    imbalance,
     alerts,
     overviewSummary,
     loading,
     error,
   } = useAIPageData(hiveId, currentUser?.id)
 
-  useEffect(() => {
-    goalSuggestions.fetch()
-  }, [])
+  function handleRecommendationAction(rec) {
+    navigate(ctaToRoute(rec?.cta))
+  }
 
   async function handleGoalAccept(goal) {
-    setAcceptingGoalId(goal.id)
     setGoalActionError('')
     setGoalActionMessage('')
     try {
@@ -52,8 +56,6 @@ function AssistantPage() {
       setGoalActionMessage(`Goal "${goal.title}" was added. View it under Expenses → Overview.`)
     } catch (err) {
       setGoalActionError(err.message || 'Failed to accept goal')
-    } finally {
-      setAcceptingGoalId(null)
     }
   }
 
@@ -64,7 +66,7 @@ function AssistantPage() {
           <p className="hive-eyebrow">AI Control Center</p>
           <h1 className="hive-title text-2xl md:text-3xl">Insights for your hive</h1>
           <p className="mt-1 text-sm text-[var(--brown-muted)]">
-            Overview, alerts, and recommendations — with chat when you need it.
+            Your spending overview, alerts, forecast, and recommendations — with chat when you need it.
           </p>
         </div>
         <PartnerAvatars
@@ -91,12 +93,6 @@ function AssistantPage() {
         </div>
       ) : null}
 
-      {goalSuggestions.error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-          {goalSuggestions.error}
-        </div>
-      ) : null}
-
       <AIFinancialOverview
         balance={balance}
         current={current || { ...currentUser, avatarUrl: profile.avatarUrl }}
@@ -108,56 +104,25 @@ function AssistantPage() {
       />
 
       <section className="space-y-2">
-        <p className="hive-eyebrow">Alerts &amp; insights</p>
+        <p className="hive-eyebrow">Alerts</p>
         <AIAlertsStrip alerts={alerts} isLoading={loading} />
       </section>
-
-      <HivePanel title="Smart recommendations" subtitle="Personalized ways to improve your hive finances">
-        {loading ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl bg-[var(--honey-50)]" />
-            ))}
-          </div>
-        ) : recommendations?.length ? (
-          <div className="grid gap-3 md:grid-cols-2">
-            {recommendations.map((rec) => (
-              <RecommendationCard key={rec.id} recommendation={rec} onAction={() => {}} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-[var(--brown-muted)]">No recommendations right now.</p>
-        )}
-      </HivePanel>
 
       <section className="space-y-3">
         <p className="hive-eyebrow">Suggested actions</p>
         <SuggestedActions />
       </section>
 
-      <MonthlyAIReport
-        personalDashboard={personalDashboard}
-        sharedDashboard={sharedDashboard}
-        balance={balance}
-        current={current}
-        partner={partner}
+      <InsightsPanel
         insights={insights}
         recommendations={recommendations}
+        forecast={forecast}
+        imbalance={imbalance}
+        goalSuggestions={goalSuggestions}
         isLoading={loading}
+        onGoalAccept={handleGoalAccept}
+        onRecommendationAction={handleRecommendationAction}
       />
-
-      <HivePanel title="Forecast snapshot" subtitle="Predicted shared spending by category">
-        <ForecastSection forecasts={forecast} isLoading={loading} />
-      </HivePanel>
-
-      <HivePanel title="Goal suggestions" subtitle="Personalized savings goals based on your spending">
-        <GoalSuggestionsPanel
-          goals={goalSuggestions.data}
-          isLoading={goalSuggestions.loading}
-          onAccept={handleGoalAccept}
-          acceptingGoalId={acceptingGoalId}
-        />
-      </HivePanel>
 
       <CompactChatAssistant hiveId={hiveId} />
     </div>

@@ -12,6 +12,8 @@ import TransferModal from '../components/hive/TransferModal.jsx'
 import { useHive, useExpenses, useHiveBalance, useCreateTransfer } from '../hooks/useHive.js'
 import { useHiveParticipants } from '../hooks/useHiveParticipants.js'
 import { useProfile } from '../hooks/useProfile.js'
+import { useInsights } from '../hooks/useAI.js'
+import InsightCard from '../components/ai/InsightCard.jsx'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
 import { formatCurrency } from '../utils/formatCurrency.js'
 
@@ -39,12 +41,16 @@ function DashboardPage() {
   const { createTransfer, isSubmitting: isCreatingTransfer } = useCreateTransfer(hiveId)
   const [personalData, setPersonalData] = useState(null)
   const [transferOpen, setTransferOpen] = useState(false)
+  const { data: insights, fetch: fetchInsights } = useInsights()
 
   useEffect(() => {
     fetchPersonalDashboard()
       .then(setPersonalData)
       .catch(() => setPersonalData(null))
-  }, [])
+    fetchInsights()
+  }, [fetchInsights])
+
+  const topInsight = insights?.[0] || null
 
   const { profile } = useProfile()
   const { partner } = useHiveParticipants(balance, currentUser?.id)
@@ -182,6 +188,23 @@ function DashboardPage() {
         </HivePanel>
 
         <div className="space-y-3">
+          {topInsight ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="hive-eyebrow">AI insight</p>
+                <Link
+                  to="/app/assistant"
+                  className="text-xs font-semibold text-[var(--honey-700)] hover:underline"
+                >
+                  See all
+                </Link>
+              </div>
+              <Link to="/app/assistant" className="block">
+                <InsightCard insight={topInsight} variant="compact" />
+              </Link>
+            </div>
+          ) : null}
+
           <p className="hive-eyebrow">Quick access</p>
           <div className="grid grid-cols-2 gap-3">
             <HexButton to="/app/hive" size="md">
