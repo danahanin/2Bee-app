@@ -11,6 +11,7 @@ import SpendingPieChart from '../components/analytics/SpendingPieChart.jsx'
 import TrendLineChart from '../components/analytics/TrendLineChart.jsx'
 import ComparisonBarChart from '../components/analytics/ComparisonBarChart.jsx'
 import { useExpenses } from '../hooks/useHive.js'
+import BudgetAlertBanner from '../components/budget/BudgetAlertBanner.jsx'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
 import { buildPresetRange } from '../utils/dateRangePresets.js'
 import {
@@ -152,23 +153,57 @@ function PersonalExpensesPage() {
             />
           </section>
 
+          <BudgetAlertBanner budgetStatus={dashboardData?.budgetStatus || []} />
+
           <HivePanel title="Budget status" subtitle="Personal budget tracking">
             {dashboardData?.budgetStatus?.length ? (
               <div className="space-y-3">
-                {dashboardData.budgetStatus.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-[rgba(61,41,20,0.08)] bg-white p-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-[var(--brown-text)]">{item.category}</p>
-                      <p className="text-sm text-[var(--brown-muted)]">{item.percentUsed}% used</p>
+                {dashboardData.budgetStatus.map((item) => {
+                  const isWarning = item.alertLevel === 'warning'
+                  const isCritical = item.alertLevel === 'critical'
+                  const rowBorder = isCritical
+                    ? 'border-rose-200'
+                    : isWarning
+                      ? 'border-[var(--honey-300)]'
+                      : 'border-[rgba(61,41,20,0.08)]'
+                  const rowBg = isCritical
+                    ? 'bg-rose-50'
+                    : isWarning
+                      ? 'bg-[var(--honey-50)]'
+                      : 'bg-white'
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-xl border ${rowBorder} ${rowBg} p-3`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-semibold capitalize text-[var(--brown-text)]">
+                          {item.category}
+                        </p>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {isWarning || isCritical ? (
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                isCritical
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : 'bg-[var(--honey-100)] text-[var(--honey-800)]'
+                              }`}
+                            >
+                              {isCritical ? 'Limit reached' : 'Near limit'}
+                            </span>
+                          ) : null}
+                          <p className="text-sm text-[var(--brown-muted)]">
+                            {item.percentUsed}% used
+                          </p>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-sm text-[var(--brown-muted)]">
+                        {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
+                      </p>
                     </div>
-                    <p className="mt-1 text-sm text-[var(--brown-muted)]">
-                      {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
-                    </p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <p className="text-sm text-[var(--brown-muted)]">No personal budgets yet.</p>
