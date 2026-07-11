@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useProfile } from '../hooks/useProfile.js'
@@ -8,6 +9,7 @@ import AIAlertsStrip from '../components/ai/AIAlertsStrip.jsx'
 import SuggestedActions from '../components/ai/SuggestedActions.jsx'
 import CompactChatAssistant from '../components/ai/CompactChatAssistant.jsx'
 import InsightsPanel from '../components/ai/InsightsPanel.jsx'
+import { createGoal, goalFromSuggestion } from '../services/goalService.js'
 
 function ctaToRoute(cta = '') {
   const text = cta.toLowerCase()
@@ -22,6 +24,8 @@ function AssistantPage() {
   const { profile } = useProfile()
   const navigate = useNavigate()
   const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
+  const [goalActionError, setGoalActionError] = useState('')
+  const [goalActionMessage, setGoalActionMessage] = useState('')
 
   const {
     balance,
@@ -44,8 +48,15 @@ function AssistantPage() {
     navigate(ctaToRoute(rec?.cta))
   }
 
-  function handleGoalAccept(goal) {
-    navigate('/app/expenses?tab=analytics', { state: { suggestedGoal: goal } })
+  async function handleGoalAccept(goal) {
+    setGoalActionError('')
+    setGoalActionMessage('')
+    try {
+      await createGoal(goalFromSuggestion(goal))
+      setGoalActionMessage(`Goal "${goal.title}" was added. View it under Expenses → Overview.`)
+    } catch (err) {
+      setGoalActionError(err.message || 'Failed to accept goal')
+    }
   }
 
   return (
@@ -67,6 +78,18 @@ function AssistantPage() {
       {error ? (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
+        </div>
+      ) : null}
+
+      {goalActionError ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {goalActionError}
+        </div>
+      ) : null}
+
+      {goalActionMessage ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {goalActionMessage}
         </div>
       ) : null}
 
