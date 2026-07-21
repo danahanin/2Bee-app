@@ -472,6 +472,34 @@ components:
           type: integer
           minimum: 0
           maximum: 100
+        alertLevel:
+          type: string
+          nullable: true
+          enum: [warning, critical]
+          description: |
+            Budget threshold flag derived from percentUsed.
+            warning when percentUsed >= 80; critical when percentUsed >= 100; otherwise null.
+
+    DashboardTopInsight:
+      type: object
+      nullable: true
+      description: Top prioritized AI insight from the existing insights flow (or null when unavailable).
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        confidence:
+          type: number
+        category:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
 
     BudgetItem:
       allOf:
@@ -622,6 +650,8 @@ components:
           type: string
           nullable: true
           description: Reserved for PR5 — embedded AI insight.
+        topInsight:
+          $ref: '#/components/schemas/DashboardTopInsight'
 
     SharedDashboardContribution:
       type: object

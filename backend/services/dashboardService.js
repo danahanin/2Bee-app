@@ -11,6 +11,31 @@ function utcMonthRange(referenceDate = new Date()) {
   return { start, end }
 }
 
+/** @returns {'warning' | 'critical' | null} */
+function resolveBudgetAlertLevel(percentUsed) {
+  if (percentUsed >= 100) return 'critical'
+  if (percentUsed >= 80) return 'warning'
+  return null
+}
+
+async function fetchTopInsight(userId, hiveId) {
+  try {
+    // Lazy require avoids circular dependency with ai.service → dashboardService.
+    const aiService = require('../src/services/ai.service')
+    const insights = await aiService.getInsights({
+      userId,
+      hiveId,
+      scope: 'personal',
+    })
+    if (!Array.isArray(insights) || insights.length === 0) {
+      return null
+    }
+    return insights[0]
+  } catch {
+    return null
+  }
+}
+
 async function sumPersonalCategorySpend(userId, category, start, end) {
   const filter = {
     userId,
@@ -58,6 +83,7 @@ async function getBudgetStatusForBudget(budget, userId, hiveId, start, end) {
     limit,
     spent,
     percentUsed,
+    alertLevel: resolveBudgetAlertLevel(percentUsed),
   }
 }
 
@@ -89,6 +115,8 @@ async function getPersonalDashboard(userId, hiveId) {
     budgets.map((b) => getBudgetStatusForBudget(b, userId, hiveId, start, end)),
   )
 
+  const topInsight = await fetchTopInsight(userId, hiveId)
+
   return {
     period: { from: start.toISOString(), to: end.toISOString() },
     hiveId: hiveId || null,
@@ -100,6 +128,7 @@ async function getPersonalDashboard(userId, hiveId) {
     topCategory,
     budgetStatus,
     insightPlaceholder: null,
+    topInsight,
   }
 }
 
@@ -172,6 +201,7 @@ async function getSharedDashboard(userId, hiveId) {
 
 module.exports = {
   utcMonthRange,
+  resolveBudgetAlertLevel,
   getBudgetStatusForBudget,
   getPersonalDashboard,
   getSharedDashboard,

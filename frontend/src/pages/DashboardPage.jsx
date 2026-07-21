@@ -50,7 +50,8 @@ function DashboardPage() {
     fetchInsights()
   }, [fetchInsights])
 
-  const topInsight = insights?.[0] || null
+  // Prefer embedded dashboard topInsight (PR5); keep /ai/insights fallback.
+  const topInsight = personalData?.topInsight || insights?.[0] || null
 
   const { profile } = useProfile()
   const { partner } = useHiveParticipants(balance, currentUser?.id)
