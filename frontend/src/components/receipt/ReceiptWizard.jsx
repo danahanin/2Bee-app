@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
+import { EXPENSE_CATEGORIES } from '../../constants/categories.js'
 import { useReceiptScan } from '../../hooks/useReceiptScan.js'
+import ReviewExtractedStep from './ReviewExtractedStep.jsx'
 import UploadStep from './UploadStep.jsx'
 
 const RECEIPT_STEPS = ['upload', 'review', 'classification', 'hive', 'complete']
@@ -26,6 +28,51 @@ function previousLinearStep(step) {
   const index = stepIndex(step)
   if (index <= 0) return step
   return RECEIPT_STEPS[index - 1]
+}
+
+function toDateInputValue(isoDate) {
+  if (!isoDate) return ''
+  return String(isoDate).split('T')[0]
+}
+
+function createEditableExtracted(draft) {
+  const extracted = draft?.extracted || {}
+  return {
+    vendor: extracted.vendor ?? '',
+    amount: extracted.amount ?? null,
+    currency: extracted.currency ?? null,
+    date: toDateInputValue(extracted.date),
+    category: extracted.category ?? '',
+    lineItems: Array.isArray(extracted.lineItems)
+      ? extracted.lineItems.map((item) => ({
+          description: item?.description ?? '',
+          amount: item?.amount ?? null,
+        }))
+      : [],
+    rawText: extracted.rawText ?? draft?.ocr?.rawText ?? '',
+  }
+}
+
+function validateExtracted(extracted) {
+  const errors = []
+  const vendor = extracted?.vendor?.trim?.() ?? ''
+  const amount = typeof extracted?.amount === 'number' ? extracted.amount : Number(extracted?.amount)
+  const date = extracted?.date ?? ''
+  const category = extracted?.category ?? ''
+
+  if (!vendor) {
+    errors.push('Vendor is required')
+  }
+  if (extracted?.amount == null || Number.isNaN(amount) || amount <= 0) {
+    errors.push('Amount must be a positive number')
+  }
+  if (!date || Number.isNaN(Date.parse(date))) {
+    errors.push('Please enter a valid date')
+  }
+  if (!EXPENSE_CATEGORIES.includes(category)) {
+    errors.push('Please select a valid category')
+  }
+  return errors
 }
 
 function Stepper({ currentStep, skippedHive }) {
@@ -75,6 +122,9 @@ function ReceiptWizard() {
   const [step, setStep] = useState('upload')
   const [skippedHive, setSkippedHive] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
+  const [editableExtracted, setEditableExtracted] = useState(null)
+  const [fieldConfidence, setFieldConfidence] = useState({})
+  const [reviewErrors, setReviewErrors] = useState([])
 
   const receiptApi = useMemo(
     () => ({ draft, isScanning, isConfirming, error, scan, confirm, reset }),
@@ -82,14 +132,65 @@ function ReceiptWizard() {
   )
 
   const isUploadStep = step === 'upload'
+  const isReviewStep = step === 'review'
   const canGoBack = stepIndex(step) > 0
   const canGoNext = !isUploadStep && stepIndex(step) < RECEIPT_STEPS.length - 1
   const isBusy = receiptApi.isScanning || receiptApi.isConfirming
   const canScan = Boolean(selectedFile) && !receiptApi.isScanning
 
+  const updateExtractedField = useCallback((field, value) => {
+    setEditableExtracted((prev) => {
+      if (!prev) return prev
+      return { ...prev, [field]: value }
+    })
+  }, [])
+
+  const updateLineItem = useCallback((index, field, value) => {
+    setEditableExtracted((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        lineItems: prev.lineItems.map((item, itemIndex) =>
+          itemIndex === index ? { ...item, [field]: value } : item,
+        ),
+      }
+    })
+  }, [])
+
+  const addLineItem = useCallback(() => {
+    setEditableExtracted((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        lineItems: [...prev.lineItems, { description: '', amount: null }],
+      }
+    })
+  }, [])
+
+  const removeLineItem = useCallback((index) => {
+    setEditableExtracted((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        lineItems: prev.lineItems.filter((_, itemIndex) => itemIndex !== index),
+      }
+    })
+  }, [])
+
   const goNext = useCallback(
     ({ skipHive = false } = {}) => {
       if (step === 'upload') return
+
+      if (step === 'review') {
+        const errors = validateExtracted(editableExtracted)
+        if (errors.length > 0) {
+          setReviewErrors(errors)
+          return
+        }
+        setReviewErrors([])
+        setStep('classification')
+        return
+      }
 
       if (step === 'classification') {
         if (skipHive) {
@@ -111,7 +212,7 @@ function ReceiptWizard() {
       if (!canGoNext) return
       setStep(nextLinearStep(step))
     },
-    [canGoNext, step],
+    [canGoNext, editableExtracted, step],
   )
 
   const goBack = useCallback(() => {
@@ -121,6 +222,10 @@ function ReceiptWizard() {
       setSkippedHive(false)
       setStep('classification')
       return
+    }
+
+    if (step === 'review') {
+      setReviewErrors([])
     }
 
     setStep(previousLinearStep(step))
@@ -139,6 +244,9 @@ function ReceiptWizard() {
 
     const result = await receiptApi.scan(selectedFile)
     if (result.ok && result.draft) {
+      setEditableExtracted(createEditableExtracted(result.draft))
+      setFieldConfidence(result.draft.fieldConfidence || {})
+      setReviewErrors([])
       setStep('review')
     }
   }, [receiptApi, selectedFile])
@@ -147,6 +255,9 @@ function ReceiptWizard() {
     setStep('upload')
     setSkippedHive(false)
     setSelectedFile(null)
+    setEditableExtracted(null)
+    setFieldConfidence({})
+    setReviewErrors([])
     receiptApi.reset()
   }, [receiptApi])
 
@@ -167,14 +278,21 @@ function ReceiptWizard() {
       />
     )
   } else if (step === 'review') {
-    stepPanel = (
+    stepPanel = editableExtracted ? (
+      <ReviewExtractedStep
+        extracted={editableExtracted}
+        fieldConfidence={fieldConfidence}
+        ocrRawText={receiptApi.draft?.ocr?.rawText || ''}
+        onUpdateField={updateExtractedField}
+        onUpdateLineItem={updateLineItem}
+        onAddLineItem={addLineItem}
+        onRemoveLineItem={removeLineItem}
+        errors={reviewErrors}
+      />
+    ) : (
       <PlaceholderPanel
         title="Review step"
-        description={
-          receiptApi.draft
-            ? 'Draft is ready for the extracted-fields review panel.'
-            : 'Extracted receipt fields will appear here after a successful scan.'
-        }
+        description="Extracted receipt fields will appear here after a successful scan."
       />
     )
   } else if (step === 'classification') {
@@ -243,7 +361,7 @@ function ReceiptWizard() {
           <button
             type="button"
             onClick={() => goNext()}
-            disabled={!canGoNext || isBusy}
+            disabled={!canGoNext || isBusy || (isReviewStep && !editableExtracted)}
             className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue
