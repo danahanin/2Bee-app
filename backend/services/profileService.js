@@ -7,6 +7,7 @@ const {
   DEFAULT_SHARED_CATEGORIES,
 } = require('../models/User')
 const { AppError } = require('../utils/appError')
+const openFinance = require('./openFinanceService')
 
 function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase()
@@ -218,9 +219,36 @@ async function reconnectPair(userId, { partnerId, partnerCode }, fallbackUser) {
   }
 }
 
+async function connectBank(userId, fallbackUser, { redirectUrl } = {}) {
+  const user = await ensureUserRecord(userId, fallbackUser)
+
+  if (openFinance.isConfigured()) {
+    const connection = await openFinance.createBankConnection({ redirectUrl })
+    return { configured: true, connected: false, connectUrl: connection.connectUrl }
+  }
+
+  user.bankAccount = {
+    ...(user.bankAccount?.toObject?.() || user.bankAccount || {}),
+    connected: true,
+    bankName: user.bankAccount?.bankName || 'Sandbox Bank',
+    lastSyncedAt: new Date(),
+  }
+  await user.save()
+  return {
+    configured: false,
+    connected: true,
+    bankAccount: {
+      connected: true,
+      bankName: user.bankAccount.bankName,
+      lastSyncedAt: user.bankAccount.lastSyncedAt,
+    },
+  }
+}
+
 module.exports = {
   getProfile,
   updateProfile,
+  connectBank,
   setAvatar,
   getPrivacySettings,
   updatePrivacySettings,

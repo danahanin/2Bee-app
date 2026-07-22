@@ -66,6 +66,7 @@ function detectSpendingSpike(recentTransactions) {
         category: cat,
         severity: 'high',
         data: {
+          expenseId: tx.expenseId,
           amount: roundMoney(tx.amount),
           description: tx.description || '',
           date: tx.date,

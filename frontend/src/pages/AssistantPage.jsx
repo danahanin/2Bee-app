@@ -48,6 +48,12 @@ function AssistantPage() {
     navigate(ctaToRoute(rec?.cta))
   }
 
+  function handleAlertSelect(alert) {
+    if (alert?.expenseId) {
+      navigate(`/app/expenses?tab=expenses&tx=${alert.expenseId}`)
+    }
+  }
+
   async function handleGoalAccept(goal) {
     setGoalActionError('')
     setGoalActionMessage('')
@@ -105,7 +111,7 @@ function AssistantPage() {
 
       <section className="space-y-2">
         <p className="hive-eyebrow">Alerts</p>
-        <AIAlertsStrip alerts={alerts} isLoading={loading} />
+        <AIAlertsStrip alerts={alerts} isLoading={loading} onSelect={handleAlertSelect} />
       </section>
 
       <section className="space-y-3">

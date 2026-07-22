@@ -8,7 +8,7 @@ const TYPE_STYLES = {
   imbalance: 'border-[var(--honey-300)] bg-[var(--honey-100)] text-[var(--honey-900)]',
 }
 
-function AIAlertsStrip({ alerts, isLoading }) {
+function AIAlertsStrip({ alerts, isLoading, onSelect }) {
   const [dismissed, setDismissed] = useState(new Set())
 
   if (isLoading) {
@@ -27,10 +27,13 @@ function AIAlertsStrip({ alerts, isLoading }) {
 
   return (
     <div className="hive-scroll-x sm:flex sm:flex-wrap sm:overflow-visible">
-      {visible.map((alert) => (
+      {visible.map((alert) => {
+        const clickable = Boolean(onSelect && alert.expenseId)
+        return (
         <div
           key={alert.id}
-          className={`w-[min(85vw,20rem)] shrink-0 rounded-xl border px-4 py-3 sm:w-auto sm:min-w-[240px] sm:max-w-sm ${TYPE_STYLES[alert.type] || 'border-slate-200 bg-white text-slate-800'}`}
+          onClick={clickable ? () => onSelect(alert) : undefined}
+          className={`w-[min(85vw,20rem)] shrink-0 rounded-xl border px-4 py-3 sm:w-auto sm:min-w-[240px] sm:max-w-sm ${TYPE_STYLES[alert.type] || 'border-slate-200 bg-white text-slate-800'} ${clickable ? 'cursor-pointer hover:brightness-95' : ''}`}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -39,7 +42,10 @@ function AIAlertsStrip({ alerts, isLoading }) {
             </div>
             <button
               type="button"
-              onClick={() => setDismissed((prev) => new Set([...prev, alert.id]))}
+              onClick={(e) => {
+                e.stopPropagation()
+                setDismissed((prev) => new Set([...prev, alert.id]))
+              }}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base opacity-60 hover:bg-black/5 hover:opacity-100"
               aria-label="Dismiss alert"
             >
@@ -47,7 +53,8 @@ function AIAlertsStrip({ alerts, isLoading }) {
             </button>
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

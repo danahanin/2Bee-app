@@ -6,9 +6,11 @@ import BudgetProgressBar from '../components/budget/BudgetProgressBar.jsx'
 import BudgetAlertBanner from '../components/budget/BudgetAlertBanner.jsx'
 import GoalFormModal from '../components/goals/GoalFormModal.jsx'
 import GoalList from '../components/goals/GoalList.jsx'
+import ForecastSection from '../components/ai/ForecastSection.jsx'
 import HivePanel from '../components/design-system/HivePanel.jsx'
 import MetricCell from '../components/design-system/MetricCell.jsx'
 import ExpenseList from '../components/hive/ExpenseList.jsx'
+import ManualExpenseModal from '../components/hive/ManualExpenseModal.jsx'
 import ScanReceiptModal from '../components/receipt/ScanReceiptModal.jsx'
 import DateRangePicker from '../components/analytics/DateRangePicker.jsx'
 import SpendingPieChart from '../components/analytics/SpendingPieChart.jsx'
@@ -17,6 +19,7 @@ import ComparisonBarChart from '../components/analytics/ComparisonBarChart.jsx'
 import { useExpenses } from '../hooks/useHive.js'
 import { createBudget, deleteBudget, updateBudget } from '../services/budgetService.js'
 import { createGoal, fetchGoals } from '../services/goalService.js'
+import { fetchForecast } from '../services/aiService.js'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
 import { buildPresetRange } from '../utils/dateRangePresets.js'
 import {
@@ -36,18 +39,22 @@ function PersonalExpensesPage() {
   const { pairingStatus } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'overview'
+  const highlightTxId = searchParams.get('tx') || ''
   const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
 
   const [dashboardData, setDashboardData] = useState(null)
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [goals, setGoals] = useState([])
   const [goalsLoading, setGoalsLoading] = useState(true)
+  const [forecast, setForecast] = useState([])
+  const [forecastLoading, setForecastLoading] = useState(true)
   const [actionError, setActionError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [budgetModal, setBudgetModal] = useState(null)
   const [goalModalOpen, setGoalModalOpen] = useState(false)
   const [scanOpen, setScanOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get('category') || 'all')
   const [presetId, setPresetId] = useState('this-month')
   const [range, setRange] = useState(() => buildPresetRange('this-month'))
@@ -82,10 +89,23 @@ function PersonalExpensesPage() {
     }
   }, [])
 
+  const loadForecast = useCallback(async () => {
+    setForecastLoading(true)
+    try {
+      const res = await fetchForecast({ scope: 'personal' })
+      setForecast(Array.isArray(res?.data) ? res.data : [])
+    } catch {
+      setForecast([])
+    } finally {
+      setForecastLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     loadDashboard()
     loadGoals()
-  }, [loadDashboard, loadGoals])
+    loadForecast()
+  }, [loadDashboard, loadGoals, loadForecast])
 
   async function handleBudgetSubmit(payload) {
     setIsSaving(true)
@@ -194,13 +214,22 @@ function PersonalExpensesPage() {
             Track categories, analyze trends, and manage personal expenses.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setScanOpen(true)}
-          className="hive-btn-primary min-h-11 w-full rounded-xl px-4 py-2.5 text-sm sm:w-auto"
-        >
-          + Add expense
-        </button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <button
+            type="button"
+            onClick={() => setManualOpen(true)}
+            className="min-h-11 w-full rounded-xl border border-[rgba(61,41,20,0.15)] px-4 py-2.5 text-sm font-semibold text-[var(--brown-text)] hover:bg-[var(--honey-50)] sm:w-auto"
+          >
+            + Add expense
+          </button>
+          <button
+            type="button"
+            onClick={() => setScanOpen(true)}
+            className="hive-btn-primary min-h-11 w-full rounded-xl px-4 py-2.5 text-sm sm:w-auto"
+          >
+            Scan receipt
+          </button>
+        </div>
       </header>
 
       <div className="flex w-full gap-1 rounded-xl border border-[rgba(61,41,20,0.1)] bg-[var(--honey-50)] p-1">
@@ -276,6 +305,10 @@ function PersonalExpensesPage() {
             }
           >
             <GoalList goals={goals} isLoading={goalsLoading} onAddGoal={() => setGoalModalOpen(true)} />
+          </HivePanel>
+
+          <HivePanel title="Spending forecast" subtitle="AI predictions for next month">
+            <ForecastSection forecasts={forecast} isLoading={forecastLoading} />
           </HivePanel>
 
           <HivePanel
@@ -434,10 +467,21 @@ function PersonalExpensesPage() {
             expenses={filteredExpenses}
             isLoading={expensesLoading}
             error={expensesError}
+            highlightId={highlightTxId}
             showHiveBadge
           />
         </HivePanel>
       )}
+
+      {manualOpen ? (
+        <ManualExpenseModal
+          onClose={() => setManualOpen(false)}
+          onSaved={() => {
+            refetch()
+            loadDashboard()
+          }}
+        />
+      ) : null}
 
       {scanOpen ? (
         <ScanReceiptModal

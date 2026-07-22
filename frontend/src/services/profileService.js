@@ -21,3 +21,18 @@ export async function updateProfile(token, profile) {
 
   return data.user
 }
+
+export async function connectBank(token, redirectUrl) {
+  const res = await fetch(apiUrl('/api/bank/connect'), {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ redirectUrl }),
+  })
+
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error?.message || 'Failed to connect bank account')
+  }
+
+  return data
+}

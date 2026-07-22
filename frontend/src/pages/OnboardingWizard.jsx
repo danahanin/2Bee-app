@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { fetchPairStatus, generatePairCode, joinPairCode } from '../services/pairService.js'
-import { updateProfile } from '../services/profileService.js'
+import { connectBank, updateProfile } from '../services/profileService.js'
 
 const steps = ['Profile', 'Bank', 'Pair']
 
@@ -48,6 +48,7 @@ function OnboardingWizard() {
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState(location.state?.statusError || '')
   const [error, setError] = useState('')
+  const [bankConnected, setBankConnected] = useState(false)
 
   const displayName = useMemo(() => {
     const name = `${firstName} ${lastName}`.trim()
@@ -92,6 +93,25 @@ function OnboardingWizard() {
       setStep(1)
     } catch (submitError) {
       setError(submitError.message || 'Unable to save profile basics')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function handleConnectBank() {
+    setError('')
+    setMessage('')
+    setIsLoading(true)
+    try {
+      const result = await connectBank(token, window.location.origin)
+      if (result.configured && result.connectUrl) {
+        window.location.href = result.connectUrl
+        return
+      }
+      setBankConnected(true)
+      setMessage('Bank account connected in sandbox mode. You can continue.')
+    } catch (connectError) {
+      setError(connectError.message || 'Unable to connect bank account')
     } finally {
       setIsLoading(false)
     }
@@ -227,13 +247,30 @@ function OnboardingWizard() {
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">Bank connection</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Bank sync is not active yet. This step reserves the connection point for the next finance integration.
+                  Connect your bank via Open Finance to sync transactions automatically, or skip and add expenses manually.
                 </p>
               </div>
-              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
-                <p className="text-sm font-semibold text-slate-700">Manual mode enabled</p>
-                <p className="mt-2 text-sm text-slate-600">You can add expenses manually after pairing.</p>
-              </div>
+              {bankConnected ? (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+                  <p className="text-sm font-semibold text-emerald-700">Bank account connected</p>
+                  <p className="mt-2 text-sm text-emerald-700">Transactions will sync automatically once available.</p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6">
+                  <p className="text-sm font-semibold text-slate-700">Open Finance</p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    You will be redirected to your bank to authorize a secure read-only connection.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleConnectBank}
+                    disabled={isLoading}
+                    className="mt-4 w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
+                  >
+                    {isLoading ? 'Connecting...' : 'Connect bank account'}
+                  </button>
+                </div>
+              )}
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
@@ -247,7 +284,7 @@ function OnboardingWizard() {
                   onClick={() => setStep(2)}
                   className="hive-btn-primary rounded-xl px-5 py-3 text-sm"
                 >
-                  Continue
+                  {bankConnected ? 'Continue' : 'Skip for now'}
                 </button>
               </div>
             </div>

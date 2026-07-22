@@ -6,6 +6,15 @@ async function requireHiveAccess(hiveId, userId) {
   return hiveService.getHiveById(hiveId, userId)
 }
 
+async function listMyHives(req, res) {
+  try {
+    const hives = await hiveService.listUserHives(req.user.userId)
+    res.json({ hives })
+  } catch (err) {
+    sendError(res, err, err.message)
+  }
+}
+
 async function getHive(req, res) {
   try {
     const hive = await requireHiveAccess(req.params.id, req.user.userId)
@@ -312,6 +321,7 @@ async function connectExpenseToHive(req, res) {
 }
 
 module.exports = {
+  listMyHives,
   getHive,
   getHiveExpenses,
   getHiveBalance,

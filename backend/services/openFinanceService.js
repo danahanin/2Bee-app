@@ -147,6 +147,22 @@ async function createPayment({
   }
 }
 
+async function createBankConnection({ redirectUrl } = {}) {
+  const payload = await openFinanceFetch('/v2/connections', {
+    method: 'POST',
+    body: JSON.stringify({
+      includeFakeProviders: true,
+      language: 'en',
+      redirectUrl: redirectUrl || undefined,
+    }),
+  })
+
+  return {
+    connectionId: payload.id,
+    connectUrl: payload.connectUrl || payload.payUrl || '',
+  }
+}
+
 async function getPaymentStatus(paymentId) {
   const payload = await openFinanceFetch(`/v2/payments/${paymentId}`, { method: 'GET' })
   return {
@@ -173,6 +189,7 @@ async function fetchAccountTransactions(accountId, { from, to } = {}) {
 module.exports = {
   OPEN_FINANCE_SYNC_INTERVAL_MS,
   createPayment,
+  createBankConnection,
   getPaymentStatus,
   fetchAccountTransactions,
   isConfigured,

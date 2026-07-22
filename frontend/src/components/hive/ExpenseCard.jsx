@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import UserAvatar from '../design-system/UserAvatar.jsx'
 
 const CATEGORY_EMOJI = {
@@ -32,7 +33,13 @@ function formatAmount(amount) {
   })}`
 }
 
-function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, showHiveBadge = true }) {
+function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, isHighlighted = false, showHiveBadge = true }) {
+  const cardRef = useRef(null)
+  useEffect(() => {
+    if (isHighlighted && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [isHighlighted])
   const emoji = CATEGORY_EMOJI[expense.category] || '\u{1F4CC}'
   const formattedDate = new Date(expense.date).toLocaleDateString('en-IL', {
     day: 'numeric',
@@ -43,7 +50,14 @@ function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, showHiveBadge
   const hasActions = Boolean(onEdit || onDelete || onConnectToHive)
 
   return (
-    <div className="rounded-xl border border-[rgba(61,41,20,0.1)] bg-white px-2.5 py-2.5 shadow-sm transition hover:shadow-md sm:px-3 sm:py-3">
+    <div
+      ref={cardRef}
+      className={`rounded-xl border bg-white px-2.5 py-2.5 shadow-sm transition hover:shadow-md sm:px-3 sm:py-3 ${
+        isHighlighted
+          ? 'border-[var(--honey-400)] ring-2 ring-[var(--honey-300)]'
+          : 'border-[rgba(61,41,20,0.1)]'
+      }`}
+    >
       <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-x-2.5 sm:gap-x-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--honey-50)] text-base">
           {emoji}

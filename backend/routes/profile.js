@@ -27,6 +27,7 @@ const {
   getNotificationSettings,
   updateNotificationSettings,
   updateSharedCategories,
+  connectBank,
   disconnectPair,
   reconnectPair,
 } = require('../controllers/profileController')
@@ -60,6 +61,9 @@ router.put('/settings/notifications', updateNotificationSettings)
 
 // Shared categories
 router.put('/settings/shared-categories', updateSharedCategories)
+
+// Bank / Open Finance connection
+router.post('/bank/connect', connectBank)
 
 // Pairing management
 router.delete('/pair', disconnectPair)
