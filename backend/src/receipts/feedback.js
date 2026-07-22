@@ -1,3 +1,4 @@
+const mongoose = require('mongoose')
 const ExpenseGroup = require('../../models/ExpenseGroup')
 const { CATEGORIES } = require('../../models/Expense')
 const { AppError } = require('../../utils/appError')
@@ -46,6 +47,12 @@ function buildFeedbackText(expense, extracted = {}) {
     .trim()
 }
 
+function normalizeExpenseGroupId(rawGroupId) {
+  if (rawGroupId == null) return null
+  if (typeof rawGroupId === 'string' && rawGroupId.trim() === '') return null
+  return rawGroupId
+}
+
 async function confirmReceiptDraft(user, payload) {
   const type = payload.type === 'shared' ? 'shared' : 'personal'
   const expenseData = {
@@ -60,7 +67,7 @@ async function confirmReceiptDraft(user, payload) {
 
   if (type === 'personal') {
     const expense = await createPersonalExpense(user.userId, expenseData)
-    return { expense, feedbackStored: false }
+    return { expense, feedbackStored: false, expenseGroup: null }
   }
 
   const hiveId = payload.hiveId || user.hiveId
@@ -73,36 +80,50 @@ async function confirmReceiptDraft(user, payload) {
     throw new AppError(404, 'HIVE_NOT_FOUND', 'Hive not found')
   }
 
-  const expenseGroup = await ExpenseGroup.findOne({
-    _id: payload.expenseGroupId || expenseData.expenseGroupId,
-    hiveId,
-    isActive: true,
-  }).lean()
-  if (!expenseGroup) {
-    throw new AppError(400, 'INVALID_EXPENSE_GROUP', 'Choose an active hive group for this expense')
+  const rawGroupId = normalizeExpenseGroupId(
+    payload.expenseGroupId !== undefined ? payload.expenseGroupId : expenseData.expenseGroupId,
+  )
+
+  let expenseGroup = null
+  if (rawGroupId != null) {
+    if (!mongoose.isValidObjectId(rawGroupId)) {
+      throw new AppError(400, 'INVALID_EXPENSE_GROUP', 'Choose an active hive group for this expense')
+    }
+
+    expenseGroup = await ExpenseGroup.findOne({
+      _id: rawGroupId,
+      hiveId,
+      isActive: true,
+    }).lean()
+
+    if (!expenseGroup) {
+      throw new AppError(400, 'INVALID_EXPENSE_GROUP', 'Choose an active hive group for this expense')
+    }
   }
 
   const expense = await createSharedExpense(hiveId, user.userId, {
     ...expenseData,
-    expenseGroupId: expenseGroup._id,
+    expenseGroupId: expenseGroup ? expenseGroup._id : null,
   })
 
   const text = buildFeedbackText(expenseData, payload.extracted || {})
+  let feedbackStored = false
   if (text) {
-    await upsertExample({
-      text,
-      metadata: {
-        type: 'shared',
-        source: 'dynamic',
-        hiveId: String(hiveId),
-        expenseGroupId: String(expenseGroup._id),
-        groupName: expenseGroup.name,
-        expenseId: String(expense._id),
-      },
-    })
+    const metadata = {
+      type: 'shared',
+      source: 'dynamic',
+      hiveId: String(hiveId),
+      expenseId: String(expense._id),
+    }
+    if (expenseGroup) {
+      metadata.expenseGroupId = String(expenseGroup._id)
+      metadata.groupName = expenseGroup.name
+    }
+    await upsertExample({ text, metadata })
+    feedbackStored = true
   }
 
-  return { expense, feedbackStored: Boolean(text), expenseGroup }
+  return { expense, feedbackStored, expenseGroup }
 }
 
 module.exports = {
