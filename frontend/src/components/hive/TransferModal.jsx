@@ -75,9 +75,9 @@ function TransferModal({ balance, onClose, onSubmit, isSubmitting }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div className="hive-modal-backdrop" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="hive-modal-panel max-w-full sm:max-w-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between gap-4">

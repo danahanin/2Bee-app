@@ -41,8 +41,8 @@ function AvatarPickerModal({ user, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto hive-card p-6 shadow-xl">
+    <div className="hive-modal-backdrop" onClick={onClose}>
+      <div className="hive-modal-panel hive-card max-w-full sm:max-w-lg" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="hive-title text-lg">Choose profile image</h2>
           <button type="button" onClick={onClose} className="text-sm text-[var(--brown-muted)] hover:text-[var(--brown-text)]">

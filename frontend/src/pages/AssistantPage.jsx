@@ -60,11 +60,11 @@ function AssistantPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6 pb-8">
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
         <div>
           <p className="hive-eyebrow">AI Control Center</p>
-          <h1 className="hive-title text-2xl md:text-3xl">Insights for your hive</h1>
+          <h1 className="hive-title text-xl sm:text-2xl md:text-3xl">Insights for your hive</h1>
           <p className="mt-1 text-sm text-[var(--brown-muted)]">
             Your spending overview, alerts, forecast, and recommendations — with chat when you need it.
           </p>

@@ -8,7 +8,6 @@ import GoalFormModal from '../components/goals/GoalFormModal.jsx'
 import GoalList from '../components/goals/GoalList.jsx'
 import HivePanel from '../components/design-system/HivePanel.jsx'
 import MetricCell from '../components/design-system/MetricCell.jsx'
-import HexButton from '../components/design-system/HexButton.jsx'
 import ExpenseList from '../components/hive/ExpenseList.jsx'
 import ScanReceiptModal from '../components/receipt/ScanReceiptModal.jsx'
 import DateRangePicker from '../components/analytics/DateRangePicker.jsx'
@@ -186,31 +185,34 @@ function PersonalExpensesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
         <div>
           <p className="hive-eyebrow">Personal Expenses</p>
-          <h1 className="hive-title text-2xl md:text-3xl">Your spending dashboard</h1>
+          <h1 className="hive-title text-xl sm:text-2xl md:text-3xl">Your spending dashboard</h1>
           <p className="mt-1 text-sm text-[var(--brown-muted)]">
             Track categories, analyze trends, and manage personal expenses.
           </p>
         </div>
-        <HexButton onClick={() => setScanOpen(true)} size="md">
-          <span>+</span>
-          <span>Add</span>
-        </HexButton>
+        <button
+          type="button"
+          onClick={() => setScanOpen(true)}
+          className="hive-btn-primary min-h-11 w-full rounded-xl px-4 py-2.5 text-sm sm:w-auto"
+        >
+          + Add expense
+        </button>
       </header>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex w-full gap-1 rounded-xl border border-[rgba(61,41,20,0.1)] bg-[var(--honey-50)] p-1">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setTab(tab.id)}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            className={`min-h-10 flex-1 rounded-lg px-2 py-2 text-xs font-semibold transition sm:px-4 sm:text-sm ${
               activeTab === tab.id
                 ? 'bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] text-white shadow-md'
-                : 'border border-[rgba(61,41,20,0.12)] bg-white text-[var(--brown-text)] hover:bg-[var(--honey-50)]'
+                : 'text-[var(--brown-text)] hover:bg-white/70'
             }`}
           >
             {tab.label}
@@ -232,7 +234,7 @@ function PersonalExpensesPage() {
 
       {activeTab === 'overview' && (
         <>
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
             <MetricCell
               label="Monthly spend"
               value={
@@ -267,7 +269,7 @@ function PersonalExpensesPage() {
               <button
                 type="button"
                 onClick={() => setGoalModalOpen(true)}
-                className="rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                className="w-full rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 sm:w-auto"
               >
                 Add goal
               </button>
@@ -283,7 +285,7 @@ function PersonalExpensesPage() {
               <button
                 type="button"
                 onClick={() => setBudgetModal({ mode: 'create' })}
-                className="rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                className="w-full rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 sm:w-auto"
               >
                 Add budget
               </button>
@@ -376,24 +378,24 @@ function PersonalExpensesPage() {
             }}
           />
           <div className="grid gap-4 lg:grid-cols-2">
-            <HivePanel title="Spending breakdown" subtitle="By category">
+            <HivePanel title="Spending breakdown" subtitle="By category" className="min-w-0">
               {analyticsLoading ? (
-                <div className="h-64 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+                <div className="h-56 animate-pulse rounded-xl bg-[var(--honey-50)] sm:h-72" />
               ) : (
                 <SpendingPieChart breakdown={breakdown?.breakdown} total={breakdown?.total} />
               )}
             </HivePanel>
-            <HivePanel title="Monthly trends" subtitle="Top categories over time">
+            <HivePanel title="Monthly trends" subtitle="Top categories over time" className="min-w-0">
               {analyticsLoading ? (
-                <div className="h-64 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+                <div className="h-56 animate-pulse rounded-xl bg-[var(--honey-50)] sm:h-72" />
               ) : (
                 <TrendLineChart months={trends?.months} series={trends?.series} />
               )}
             </HivePanel>
           </div>
-          <HivePanel title="Month comparison" subtitle="Current vs previous month">
+          <HivePanel title="Month comparison" subtitle="Current vs previous month" className="min-w-0">
             {analyticsLoading ? (
-              <div className="h-64 animate-pulse rounded-xl bg-[var(--honey-50)]" />
+              <div className="h-56 animate-pulse rounded-xl bg-[var(--honey-50)] sm:h-72" />
             ) : (
               <ComparisonBarChart
                 categories={comparison?.categories}

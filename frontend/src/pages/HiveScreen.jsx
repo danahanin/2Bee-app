@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import ViewToggle, { HiveBalanceHero } from '../components/hive/ViewToggle.jsx'
 import HivePanel from '../components/design-system/HivePanel.jsx'
-import HexButton from '../components/design-system/HexButton.jsx'
 import BudgetFormModal from '../components/budget/BudgetFormModal.jsx'
 import BudgetProgressBar from '../components/budget/BudgetProgressBar.jsx'
 import ExpenseList from '../components/hive/ExpenseList.jsx'
@@ -284,10 +283,10 @@ function HiveScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto max-w-6xl space-y-5 sm:space-y-6">
       <header>
         <p className="hive-eyebrow">The Hive</p>
-        <h1 className="hive-title text-2xl md:text-3xl">Shared money with your partner</h1>
+        <h1 className="hive-title text-xl sm:text-2xl md:text-3xl">Shared money with your partner</h1>
         {hive ? (
           <p className="mt-1 text-sm text-[var(--brown-muted)]">
             {hive.userIds?.length || 0} partners · Created{' '}
@@ -312,29 +311,35 @@ function HiveScreen() {
         />
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <ViewToggle active={view} onChange={setView} />
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {view === 'shared' && balance?.suggestedTransfer?.fromUserId === currentUser?.id && (
             <button
               type="button"
               onClick={handleOpenTransferModal}
-              className="rounded-xl border border-[var(--honey-300)] bg-[var(--honey-50)] px-4 py-2 text-sm font-semibold text-[var(--honey-800)] transition hover:bg-[var(--honey-100)]"
+              className="min-h-10 flex-1 rounded-xl border border-[var(--honey-300)] bg-[var(--honey-50)] px-4 py-2 text-sm font-semibold text-[var(--honey-800)] transition hover:bg-[var(--honey-100)] sm:flex-none"
             >
               Settle up
             </button>
           )}
           {view === 'shared' && (
-            <HexButton onClick={handleAdd} size="sm">
-              <span>+</span>
-              <span>Add</span>
-            </HexButton>
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="hive-btn-primary min-h-10 flex-1 rounded-xl px-4 py-2 text-sm sm:flex-none"
+            >
+              + Add expense
+            </button>
           )}
           {view === 'personal' && (
-            <HexButton onClick={() => setScanModalOpen(true)} size="sm">
-              <span>📷</span>
-              <span>Scan</span>
-            </HexButton>
+            <button
+              type="button"
+              onClick={() => setScanModalOpen(true)}
+              className="hive-btn-primary min-h-10 flex-1 rounded-xl px-4 py-2 text-sm sm:flex-none"
+            >
+              📷 Scan receipt
+            </button>
           )}
         </div>
       </div>
@@ -393,7 +398,7 @@ function HiveScreen() {
                 <button
                   type="button"
                   onClick={() => setBudgetModal({ mode: 'create' })}
-                  className="rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                  className="w-full rounded-xl bg-gradient-to-r from-[var(--honey-400)] to-[var(--honey-600)] px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 sm:w-auto"
                 >
                   Add shared budget
                 </button>

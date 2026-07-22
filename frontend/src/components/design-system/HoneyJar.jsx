@@ -48,8 +48,8 @@ function HoneyJar({ balance, label = 'Shared balance', status = 'settled', isLoa
           </svg>
         </div>
         <div>
-          <p className={`text-3xl font-bold bg-gradient-to-r ${statusColors[status] || statusColors.settled} bg-clip-text text-transparent`}>
-            {new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS' }).format(amount)}
+          <p className={`text-2xl font-bold whitespace-nowrap bg-gradient-to-r sm:text-3xl ${statusColors[status] || statusColors.settled} bg-clip-text text-transparent`}>
+            {`₪${amount.toLocaleString('en-IL', { maximumFractionDigits: 0 })}`}
           </p>
           <p className="mt-1 text-sm text-[var(--brown-muted)]">
             {status === 'settled' ? 'All balanced' : status === 'owed' ? 'Partner owes you' : 'You owe partner'}

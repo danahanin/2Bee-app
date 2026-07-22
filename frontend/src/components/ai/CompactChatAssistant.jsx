@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import HiveCard from '../design-system/HiveCard.jsx'
 import Hexagon from '../design-system/Hexagon.jsx'
-import HexButton from '../design-system/HexButton.jsx'
 import { useAssistantChat } from '../../hooks/useAssistantChat.js'
 
 function ChatBubble({ message }) {
@@ -76,17 +75,21 @@ function CompactChatAssistant({ hiveId }) {
         ) : null}
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-3 flex gap-2 border-t border-[rgba(61,41,20,0.08)] pt-3">
+      <form onSubmit={handleSubmit} className="mt-3 flex items-center gap-2 border-t border-[rgba(61,41,20,0.08)] pt-3">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about your finances..."
-          className="hive-input flex-1 text-sm"
+          className="hive-input min-h-11 flex-1 text-sm"
         />
-        <HexButton type="submit" size="sm" disabled={isTyping || !input.trim()}>
-          <span>Send</span>
-        </HexButton>
+        <button
+          type="submit"
+          disabled={isTyping || !input.trim()}
+          className="hive-btn-primary min-h-11 shrink-0 rounded-xl px-4 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Send
+        </button>
       </form>
     </HiveCard>
   )
