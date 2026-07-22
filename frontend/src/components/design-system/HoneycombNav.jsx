@@ -60,9 +60,15 @@ const NAV_ITEMS = [
   },
 ]
 
-function NavItem({ item, active }) {
+function NavItem({ item, active, stretch }) {
   return (
-    <HexButton to={item.to} active={active} variant="primary" size="sm" className="shrink-0">
+    <HexButton
+      to={item.to}
+      active={active}
+      variant="primary"
+      size="sm"
+      className={stretch ? 'mx-auto' : 'shrink-0'}
+    >
       <span className="opacity-90">{item.icon}</span>
       <span>{item.label}</span>
     </HexButton>
@@ -86,11 +92,11 @@ function HoneycombNav({ layout = 'auto' }) {
 
   return (
     <nav
-      className="flex items-center justify-center gap-2 overflow-x-auto px-2 py-2"
+      className="grid w-full grid-cols-5 items-center justify-items-center gap-0 px-0.5 py-1 md:flex md:justify-center md:gap-2 md:px-2 md:py-2"
       aria-label="Main navigation"
     >
       {NAV_ITEMS.map((item) => (
-        <NavItem key={item.id} item={item} active={item.match(pathname)} />
+        <NavItem key={item.id} item={item} active={item.match(pathname)} stretch />
       ))}
     </nav>
   )

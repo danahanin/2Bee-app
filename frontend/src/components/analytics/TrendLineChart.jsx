@@ -3,12 +3,12 @@ import {
   Legend,
   Line,
   LineChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
 import { colorForCategory } from '../../utils/categoryColors.js'
+import useChartSize from './useChartSize.js'
 
 function formatCurrency(value) {
   return new Intl.NumberFormat('en-IL', {
@@ -19,9 +19,11 @@ function formatCurrency(value) {
 }
 
 function TrendLineChart({ months, series }) {
+  const [frameRef, { width, height }] = useChartSize()
+
   if (!series?.length || !months?.length) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500">
+      <div className="flex h-56 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-500 sm:h-72">
         No trend data for this range.
       </div>
     )
@@ -37,14 +39,19 @@ function TrendLineChart({ months, series }) {
   })
 
   return (
-    <div className="h-80">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData}>
+    <div ref={frameRef} className="h-56 w-full min-w-0 sm:h-72">
+      {width > 0 && height > 0 ? (
+        <LineChart
+          width={width}
+          height={height}
+          data={chartData}
+          margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        >
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-          <YAxis tickFormatter={(value) => `₪${value}`} tick={{ fontSize: 12 }} />
+          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+          <YAxis width={48} tickFormatter={(value) => `₪${value}`} tick={{ fontSize: 11 }} />
           <Tooltip formatter={(value) => formatCurrency(value)} />
-          <Legend />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
           {topSeries.map((entry, index) => (
             <Line
               key={entry.category}
@@ -56,7 +63,7 @@ function TrendLineChart({ months, series }) {
             />
           ))}
         </LineChart>
-      </ResponsiveContainer>
+      ) : null}
     </div>
   )
 }

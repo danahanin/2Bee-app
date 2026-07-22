@@ -25,12 +25,83 @@
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   background: linear-gradient(180deg, var(--cream-bg) 0%, var(--honey-100) 100%);
   color: var(--brown-text);
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+/* Mobile bottom-sheet modals; centered dialogs from sm+ */
+.hive-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.hive-modal-panel {
+  width: 100%;
+  max-width: 100%;
+  max-height: min(92dvh, 92vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 1.25rem 1.25rem 0 0;
+  background: white;
+  padding: 1.25rem;
+  box-shadow: var(--shadow-warm-lg);
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 640px) {
+  .hive-modal-backdrop {
+    align-items: center;
+    padding: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .hive-modal-panel {
+    max-height: min(90dvh, 90vh);
+    border-radius: 1rem;
+    padding: 1.5rem;
+  }
+}
+
+.hive-scroll-x {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.hive-scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+.hive-scroll-x > * {
+  scroll-snap-align: start;
 }
 
 .clip-hex {
@@ -53,6 +124,8 @@ body {
   border-radius: 1rem;
   box-shadow: var(--shadow-warm);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .hive-card:hover {

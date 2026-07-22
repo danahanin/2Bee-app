@@ -41,9 +41,9 @@ function BudgetFormModal({ budget, budgetType, onSubmit, onClose, isSubmitting }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div className="hive-modal-backdrop" onClick={onClose}>
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        className="hive-modal-panel max-w-full sm:max-w-md"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">

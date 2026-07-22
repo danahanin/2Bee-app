@@ -12,7 +12,8 @@ function HexButton({
   size = 'md',
 }) {
   const sizes = {
-    sm: 'h-14 w-16 text-[10px]',
+    // sm used in bottom nav — keep tap area ≥ ~44px while fitting 5 items
+    sm: 'h-[3.25rem] w-[3.75rem] text-[10px] sm:h-14 sm:w-16',
     md: 'h-16 w-[4.5rem] text-xs',
     lg: 'h-20 w-24 text-sm',
   }

@@ -2,17 +2,17 @@ import { PRESETS } from '../../utils/dateRangePresets.js'
 
 function DateRangePicker({ presetId, from, to, onPresetChange, onCustomRangeChange }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
+    <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Date range</p>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {PRESETS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
                 onClick={() => onPresetChange(preset.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                className={`min-h-10 shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   presetId === preset.id
                     ? 'bg-indigo-600 text-white'
                     : 'border border-slate-200 text-slate-700 hover:bg-slate-50'
@@ -24,7 +24,7 @@ function DateRangePicker({ presetId, from, to, onPresetChange, onCustomRangeChan
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
           <label className="text-sm text-slate-600">
             From
             <input
@@ -36,7 +36,7 @@ function DateRangePicker({ presetId, from, to, onPresetChange, onCustomRangeChan
                   to,
                 })
               }
-              className="mt-1 block rounded-lg border border-slate-200 px-2 py-1.5 text-slate-900"
+              className="mt-1 block w-full min-h-10 rounded-lg border border-slate-200 px-2 py-2 text-slate-900"
             />
           </label>
           <label className="text-sm text-slate-600">
@@ -50,7 +50,7 @@ function DateRangePicker({ presetId, from, to, onPresetChange, onCustomRangeChan
                   to: event.target.value ? new Date(`${event.target.value}T23:59:59.999Z`).toISOString() : '',
                 })
               }
-              className="mt-1 block rounded-lg border border-slate-200 px-2 py-1.5 text-slate-900"
+              className="mt-1 block w-full min-h-10 rounded-lg border border-slate-200 px-2 py-2 text-slate-900"
             />
           </label>
         </div>

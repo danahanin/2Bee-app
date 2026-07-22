@@ -90,7 +90,11 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
         </div>
 
         {canSettle && balance.balanceStatus === 'imbalanced' && (
-          <button type="button" onClick={onSettle} className="hive-btn-primary rounded-xl px-4 py-2 text-sm">
+          <button
+            type="button"
+            onClick={onSettle}
+            className="hive-btn-primary w-full min-h-11 rounded-xl px-4 py-2.5 text-sm sm:w-auto"
+          >
             Start transfer
           </button>
         )}

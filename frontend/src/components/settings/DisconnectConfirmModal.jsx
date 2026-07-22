@@ -1,7 +1,7 @@
 function DisconnectConfirmModal({ isDisconnecting, onCancel, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onCancel}>
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(event) => event.stopPropagation()}>
+    <div className="hive-modal-backdrop" onClick={onCancel}>
+      <div className="hive-modal-panel max-w-full sm:max-w-md" onClick={(event) => event.stopPropagation()}>
         <h3 className="text-lg font-semibold text-slate-900">Are you sure you want to disconnect?</h3>
         <p className="mt-2 text-sm text-slate-600">
           This will remove your partner from your Hive. Your shared expense history will be archived.

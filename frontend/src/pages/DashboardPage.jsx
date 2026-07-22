@@ -77,10 +77,10 @@ function DashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto w-full min-w-0 max-w-6xl space-y-5 sm:space-y-6">
       <header>
         <p className="hive-eyebrow">Dashboard</p>
-        <h1 className="hive-title text-2xl md:text-3xl">
+        <h1 className="hive-title text-xl sm:text-2xl md:text-3xl">
           Welcome back, {currentUser?.firstName || 'there'}
         </h1>
         <p className="mt-1 text-sm text-[var(--brown-muted)]">
@@ -88,8 +88,8 @@ function DashboardPage() {
         </p>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <HiveCard className="flex flex-col items-center justify-center py-8">
+      <div className="grid min-w-0 gap-4 sm:gap-6 lg:grid-cols-[1.4fr_1fr]">
+        <HiveCard className="flex min-w-0 flex-col items-center justify-center py-6 sm:py-8">
           <PartnerAvatars
             user={{ ...currentUser, avatarUrl: profile.avatarUrl }}
             partner={partner}
@@ -105,7 +105,7 @@ function DashboardPage() {
         />
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <MetricCell
           label="Personal spend"
           value={formatCurrency(personalData?.totalSpendThisMonth ?? 0, { maximumFractionDigits: 0 })}
@@ -127,12 +127,15 @@ function DashboardPage() {
         />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <HivePanel
           title="Recent expenses"
-          subtitle="Your latest personal and shared activity"
+          subtitle="Latest activity"
           action={
-            <Link to="/app/expenses" className="text-sm font-semibold text-[var(--honey-700)] hover:underline">
+            <Link
+              to="/app/expenses"
+              className="inline-flex min-h-9 items-center text-sm font-semibold text-[var(--honey-700)] hover:underline"
+            >
               View all
             </Link>
           }
@@ -144,40 +147,47 @@ function DashboardPage() {
               ))}
             </div>
           ) : recentExpenses.length ? (
-            <ul className="space-y-2">
+            <ul className="space-y-1.5 sm:space-y-2">
               {recentExpenses.map((expense) => (
                 <li
                   key={expense._id}
-                  className="flex items-center gap-3 rounded-xl border border-[rgba(61,41,20,0.08)] bg-white px-4 py-3 transition hover:shadow-sm"
+                  className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-x-2.5 rounded-xl border border-[rgba(61,41,20,0.08)] bg-white px-2.5 py-2.5 sm:gap-x-3 sm:px-3 sm:py-3"
                 >
-                  <div className="relative shrink-0">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--honey-50)] text-base">
-                      {CATEGORY_EMOJI[expense.category] || '📌'}
-                    </span>
-                    <div className="absolute -bottom-1 -right-1">
-                      <UserAvatar
-                        user={
-                          expense.paidBy
-                            ? {
-                                firstName: expense.paidBy.name?.split(' ')[0],
-                                lastName: expense.paidBy.name?.split(' ').slice(1).join(' '),
-                                avatarUrl: expense.paidBy.avatarUrl,
-                              }
-                            : { ...currentUser, avatarUrl: profile.avatarUrl }
-                        }
-                        size="xs"
-                        showHexFrame={false}
-                      />
-                    </div>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[var(--brown-text)]">{expense.description}</p>
-                    <p className="text-xs text-[var(--brown-muted)]">
-                      {expense.category} ·{' '}
-                      {new Date(expense.date).toLocaleDateString('en-IL', { day: 'numeric', month: 'short' })}
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--honey-50)] text-base">
+                    {CATEGORY_EMOJI[expense.category] || '📌'}
+                  </span>
+
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--brown-text)]">
+                      {expense.description}
                     </p>
+                    <p className="mt-0.5 truncate text-xs text-[var(--brown-muted)]">
+                      <span className="capitalize">{expense.category}</span>
+                      {' · '}
+                      {new Date(expense.date).toLocaleDateString('en-IL', {
+                        day: 'numeric',
+                        month: 'short',
+                      })}
+                    </p>
+                    {expense.paidBy?.name ? (
+                      <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-[var(--brown-muted)]">
+                        <UserAvatar
+                          user={{
+                            firstName: expense.paidBy.name?.split(' ')[0],
+                            lastName: expense.paidBy.name?.split(' ').slice(1).join(' '),
+                            avatarUrl: expense.paidBy.avatarUrl,
+                          }}
+                          size="xs"
+                          showHexFrame={false}
+                        />
+                        <span className="truncate">
+                          {expense.paidBy.isCurrentUser ? 'You' : expense.paidBy.name}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
-                  <span className="text-sm font-bold text-[var(--brown-text)]">
+
+                  <span className="pt-0.5 text-right text-sm font-bold tabular-nums whitespace-nowrap text-[var(--brown-text)]">
                     {formatCurrency(expense.amount)}
                   </span>
                 </li>
@@ -188,7 +198,7 @@ function DashboardPage() {
           )}
         </HivePanel>
 
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           {topInsight ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -200,14 +210,14 @@ function DashboardPage() {
                   See all
                 </Link>
               </div>
-              <Link to="/app/assistant" className="block">
+              <Link to="/app/assistant" className="block min-w-0">
                 <InsightCard insight={topInsight} variant="compact" />
               </Link>
             </div>
           ) : null}
 
           <p className="hive-eyebrow">Quick access</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 justify-items-center gap-3">
             <HexButton to="/app/hive" size="md">
               <span>🍯</span>
               <span>Hive</span>

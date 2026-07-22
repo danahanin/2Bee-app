@@ -125,15 +125,15 @@ function ProfilePage() {
   ]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
       <header>
         <p className="hive-eyebrow">Profile</p>
-        <h1 className="hive-title text-2xl md:text-3xl">Account settings</h1>
+        <h1 className="hive-title text-xl sm:text-2xl md:text-3xl">Account settings</h1>
       </header>
 
       <StatusToast message={statusMessage} />
 
-      <HiveCard className="flex flex-col items-center gap-4 py-8">
+      <HiveCard className="flex flex-col items-center gap-4 px-4 py-6 sm:py-8">
         {loading ? (
           <div className="h-20 w-20 animate-pulse rounded-full bg-[var(--honey-100)]" />
         ) : (
@@ -143,7 +143,7 @@ function ProfilePage() {
               <h2 className="text-xl font-semibold text-[var(--brown-text)]">
                 {profile.firstName} {profile.lastName}
               </h2>
-              <p className="text-sm text-[var(--brown-muted)]">{profile.email}</p>
+              <p className="break-all text-sm text-[var(--brown-muted)]">{profile.email}</p>
               {profile.bio ? <p className="mt-2 text-sm text-[var(--brown-muted)]">{profile.bio}</p> : null}
             </div>
             <span
@@ -154,18 +154,18 @@ function ProfilePage() {
               {paired ? 'Paired' : 'Not paired'}
             </span>
             {!isEditing ? (
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex w-full max-w-sm flex-col gap-2 sm:max-w-none sm:flex-row sm:flex-wrap sm:justify-center">
                 <button
                   type="button"
                   onClick={() => setAvatarModalOpen(true)}
-                  className="hive-btn-primary rounded-xl px-4 py-2 text-sm"
+                  className="hive-btn-primary min-h-11 rounded-xl px-4 py-2 text-sm"
                 >
                   Change photo
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="rounded-xl border border-[rgba(61,41,20,0.12)] px-4 py-2 text-sm font-semibold text-[var(--brown-text)] hover:bg-[var(--honey-50)]"
+                  className="min-h-11 rounded-xl border border-[rgba(61,41,20,0.12)] px-4 py-2 text-sm font-semibold text-[var(--brown-text)] hover:bg-[var(--honey-50)]"
                 >
                   Edit profile
                 </button>
@@ -187,16 +187,16 @@ function ProfilePage() {
         ) : null}
       </HiveCard>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="hive-scroll-x gap-2 sm:flex-wrap sm:overflow-visible">
         {sections.map((s) => (
           <button
             key={s.id}
             type="button"
             onClick={() => setOpenSection(s.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+            className={`min-h-10 shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition ${
               openSection === s.id
                 ? 'bg-[var(--honey-400)] text-white'
-                : 'bg-white text-[var(--brown-muted)] border border-[rgba(61,41,20,0.1)] hover:bg-[var(--honey-50)]'
+                : 'border border-[rgba(61,41,20,0.1)] bg-white text-[var(--brown-muted)] hover:bg-[var(--honey-50)]'
             }`}
           >
             {s.label}

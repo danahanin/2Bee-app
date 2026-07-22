@@ -221,9 +221,9 @@ function ScanReceiptModal({ onClose, onSaved }) {
     `w-full rounded-xl border px-4 py-2.5 text-slate-900 outline-none transition focus:ring-2 ${fieldBorderClass(fieldConfidence[field])}`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div className="hive-modal-backdrop" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="hive-modal-panel max-w-full sm:max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-center justify-between">

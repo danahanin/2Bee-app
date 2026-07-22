@@ -26,11 +26,11 @@ function AIAlertsStrip({ alerts, isLoading }) {
   }
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-1">
+    <div className="hive-scroll-x sm:flex sm:flex-wrap sm:overflow-visible">
       {visible.map((alert) => (
         <div
           key={alert.id}
-          className={`min-w-[240px] shrink-0 rounded-xl border px-4 py-3 ${TYPE_STYLES[alert.type] || 'border-slate-200 bg-white text-slate-800'}`}
+          className={`w-[min(85vw,20rem)] shrink-0 rounded-xl border px-4 py-3 sm:w-auto sm:min-w-[240px] sm:max-w-sm ${TYPE_STYLES[alert.type] || 'border-slate-200 bg-white text-slate-800'}`}
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -40,7 +40,7 @@ function AIAlertsStrip({ alerts, isLoading }) {
             <button
               type="button"
               onClick={() => setDismissed((prev) => new Set([...prev, alert.id]))}
-              className="shrink-0 rounded-full px-1.5 text-xs opacity-60 hover:opacity-100"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base opacity-60 hover:bg-black/5 hover:opacity-100"
               aria-label="Dismiss alert"
             >
               ×

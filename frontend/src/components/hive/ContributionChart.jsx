@@ -25,7 +25,7 @@ function ContributionChart({ balance, currentUserId }) {
         const isCurrentUser = item.userId === currentUserId
         return (
           <div key={item.userId} className="space-y-2">
-            <div className="flex items-center justify-between gap-3 text-sm">
+            <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <div className="flex items-center gap-2">
                 <UserAvatar
                   user={{
@@ -39,7 +39,7 @@ function ContributionChart({ balance, currentUserId }) {
                   {isCurrentUser ? 'You' : item.name || 'Partner'}
                 </span>
               </div>
-              <span className="text-[var(--brown-muted)]">
+              <span className="pl-10 text-xs text-[var(--brown-muted)] sm:pl-0 sm:text-sm">
                 Paid {formatCurrency(item.paid)} • Remaining {formatCurrency(Math.abs(item.remainingNet))}
               </span>
             </div>
