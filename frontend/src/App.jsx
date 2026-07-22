@@ -9,6 +9,7 @@ import HiveScreen from './pages/HiveScreen.jsx'
 import PersonalExpensesPage from './pages/PersonalExpensesPage.jsx'
 import AssistantPage from './pages/AssistantPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import ReceiptScanPage from './pages/ReceiptScanPage.jsx'
 import ProtectedRoute from './routes/ProtectedRoute.jsx'
 import PublicRoute from './routes/PublicRoute.jsx'
 
@@ -68,6 +69,7 @@ function App() {
         <Route path="expenses" element={<PersonalExpensesPage />} />
         <Route path="assistant" element={<AssistantPage />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="receipt-scan" element={<ReceiptScanPage />} />
       </Route>
       <Route path="/app/dashboard/personal" element={<Navigate to="/app/expenses" replace />} />
       <Route path="/app/analytics" element={<Navigate to="/app/expenses?tab=analytics" replace />} />
