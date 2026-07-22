@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useReceiptScan } from '../../hooks/useReceiptScan.js'
+import UploadStep from './UploadStep.jsx'
 
 const RECEIPT_STEPS = ['upload', 'review', 'classification', 'hive', 'complete']
 
@@ -73,18 +74,23 @@ function ReceiptWizard() {
   const { draft, isScanning, isConfirming, error, scan, confirm, reset } = useReceiptScan()
   const [step, setStep] = useState('upload')
   const [skippedHive, setSkippedHive] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
 
   const receiptApi = useMemo(
     () => ({ draft, isScanning, isConfirming, error, scan, confirm, reset }),
     [confirm, draft, error, isConfirming, isScanning, reset, scan],
   )
 
+  const isUploadStep = step === 'upload'
   const canGoBack = stepIndex(step) > 0
-  const canGoNext = stepIndex(step) < RECEIPT_STEPS.length - 1
+  const canGoNext = !isUploadStep && stepIndex(step) < RECEIPT_STEPS.length - 1
   const isBusy = receiptApi.isScanning || receiptApi.isConfirming
+  const canScan = Boolean(selectedFile) && !receiptApi.isScanning
 
   const goNext = useCallback(
     ({ skipHive = false } = {}) => {
+      if (step === 'upload') return
+
       if (step === 'classification') {
         if (skipHive) {
           setSkippedHive(true)
@@ -120,9 +126,27 @@ function ReceiptWizard() {
     setStep(previousLinearStep(step))
   }, [canGoBack, skippedHive, step])
 
+  const handleSelectFile = useCallback((file) => {
+    setSelectedFile(file)
+  }, [])
+
+  const handleClearFile = useCallback(() => {
+    setSelectedFile(null)
+  }, [])
+
+  const handleScanReceipt = useCallback(async () => {
+    if (!selectedFile || receiptApi.isScanning) return
+
+    const result = await receiptApi.scan(selectedFile)
+    if (result.ok && result.draft) {
+      setStep('review')
+    }
+  }, [receiptApi, selectedFile])
+
   const resetWizard = useCallback(() => {
     setStep('upload')
     setSkippedHive(false)
+    setSelectedFile(null)
     receiptApi.reset()
   }, [receiptApi])
 
@@ -135,9 +159,11 @@ function ReceiptWizard() {
   let stepPanel = null
   if (step === 'upload') {
     stepPanel = (
-      <PlaceholderPanel
-        title="Upload step"
-        description="Receipt image upload will plug in here and call the shared scan action."
+      <UploadStep
+        selectedFile={selectedFile}
+        onSelectFile={handleSelectFile}
+        onClearFile={handleClearFile}
+        disabled={receiptApi.isScanning}
       />
     )
   } else if (step === 'review') {
@@ -204,14 +230,25 @@ function ReceiptWizard() {
         >
           Back
         </button>
-        <button
-          type="button"
-          onClick={() => goNext()}
-          disabled={!canGoNext || isBusy}
-          className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Continue
-        </button>
+        {isUploadStep ? (
+          <button
+            type="button"
+            onClick={handleScanReceipt}
+            disabled={!canScan}
+            className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {receiptApi.isScanning ? 'Scanning…' : 'Scan receipt'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => goNext()}
+            disabled={!canGoNext || isBusy}
+            className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Continue
+          </button>
+        )}
         <button
           type="button"
           onClick={resetWizard}
