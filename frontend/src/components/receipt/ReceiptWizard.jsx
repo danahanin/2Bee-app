@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { EXPENSE_CATEGORIES } from '../../constants/categories.js'
 import { useReceiptScan } from '../../hooks/useReceiptScan.js'
+import ClassificationStep from './ClassificationStep.jsx'
 import ReviewExtractedStep from './ReviewExtractedStep.jsx'
 import UploadStep from './UploadStep.jsx'
 
@@ -125,6 +126,9 @@ function ReceiptWizard() {
   const [editableExtracted, setEditableExtracted] = useState(null)
   const [fieldConfidence, setFieldConfidence] = useState({})
   const [reviewErrors, setReviewErrors] = useState([])
+  const [aiClassification, setAiClassification] = useState(null)
+  const [selectedType, setSelectedType] = useState(null)
+  const [classificationErrors, setClassificationErrors] = useState([])
 
   const receiptApi = useMemo(
     () => ({ draft, isScanning, isConfirming, error, scan, confirm, reset }),
@@ -133,6 +137,7 @@ function ReceiptWizard() {
 
   const isUploadStep = step === 'upload'
   const isReviewStep = step === 'review'
+  const isClassificationStep = step === 'classification'
   const canGoBack = stepIndex(step) > 0
   const canGoNext = !isUploadStep && stepIndex(step) < RECEIPT_STEPS.length - 1
   const isBusy = receiptApi.isScanning || receiptApi.isConfirming
@@ -193,11 +198,18 @@ function ReceiptWizard() {
       }
 
       if (step === 'classification') {
-        if (skipHive) {
+        if (selectedType !== 'personal' && selectedType !== 'shared') {
+          setClassificationErrors(['Select personal or shared before continuing.'])
+          return
+        }
+        setClassificationErrors([])
+
+        if (selectedType === 'personal' || skipHive) {
           setSkippedHive(true)
           setStep('complete')
           return
         }
+
         setSkippedHive(false)
         setStep('hive')
         return
@@ -212,7 +224,7 @@ function ReceiptWizard() {
       if (!canGoNext) return
       setStep(nextLinearStep(step))
     },
-    [canGoNext, editableExtracted, step],
+    [canGoNext, editableExtracted, selectedType, step],
   )
 
   const goBack = useCallback(() => {
@@ -228,6 +240,10 @@ function ReceiptWizard() {
       setReviewErrors([])
     }
 
+    if (step === 'classification') {
+      setClassificationErrors([])
+    }
+
     setStep(previousLinearStep(step))
   }, [canGoBack, skippedHive, step])
 
@@ -239,14 +255,25 @@ function ReceiptWizard() {
     setSelectedFile(null)
   }, [])
 
+  const handleSelectType = useCallback((type) => {
+    setSelectedType(type)
+    setClassificationErrors([])
+  }, [])
+
   const handleScanReceipt = useCallback(async () => {
     if (!selectedFile || receiptApi.isScanning) return
 
     const result = await receiptApi.scan(selectedFile)
     if (result.ok && result.draft) {
+      const nextClassification = result.draft.classification || null
       setEditableExtracted(createEditableExtracted(result.draft))
       setFieldConfidence(result.draft.fieldConfidence || {})
       setReviewErrors([])
+      setAiClassification(nextClassification)
+      setSelectedType(nextClassification?.type === 'personal' || nextClassification?.type === 'shared'
+        ? nextClassification.type
+        : null)
+      setClassificationErrors([])
       setStep('review')
     }
   }, [receiptApi, selectedFile])
@@ -258,6 +285,9 @@ function ReceiptWizard() {
     setEditableExtracted(null)
     setFieldConfidence({})
     setReviewErrors([])
+    setAiClassification(null)
+    setSelectedType(null)
+    setClassificationErrors([])
     receiptApi.reset()
   }, [receiptApi])
 
@@ -297,9 +327,11 @@ function ReceiptWizard() {
     )
   } else if (step === 'classification') {
     stepPanel = (
-      <PlaceholderPanel
-        title="Classification step"
-        description="Personal vs shared classification will appear here. Later: goNext({ skipHive: true }) for personal."
+      <ClassificationStep
+        classification={aiClassification}
+        selectedType={selectedType}
+        onSelectType={handleSelectType}
+        errors={classificationErrors}
       />
     )
   } else if (step === 'hive') {
@@ -361,8 +393,18 @@ function ReceiptWizard() {
           <button
             type="button"
             onClick={() => goNext()}
-            disabled={!canGoNext || isBusy || (isReviewStep && !editableExtracted)}
+            disabled={
+              !canGoNext ||
+              isBusy ||
+              (isReviewStep && !editableExtracted) ||
+              (isClassificationStep && selectedType !== 'personal' && selectedType !== 'shared')
+            }
             className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={
+              isClassificationStep
+                ? `Continue as ${selectedType || 'unselected'} expense`
+                : 'Continue'
+            }
           >
             Continue
           </button>
