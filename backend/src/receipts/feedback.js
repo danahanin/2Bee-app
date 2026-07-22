@@ -119,8 +119,16 @@ async function confirmReceiptDraft(user, payload) {
       metadata.expenseGroupId = String(expenseGroup._id)
       metadata.groupName = expenseGroup.name
     }
-    await upsertExample({ text, metadata })
-    feedbackStored = true
+    try {
+      await upsertExample({ text, metadata })
+      feedbackStored = true
+    } catch (err) {
+      console.warn(
+        `[receipts.confirm] RAG feedback skipped for expense ${expense._id}:`,
+        err?.message || 'upsertExample failed',
+      )
+      feedbackStored = false
+    }
   }
 
   return { expense, feedbackStored, expenseGroup }

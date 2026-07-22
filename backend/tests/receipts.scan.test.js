@@ -298,6 +298,54 @@ describe('Receipt scan + personal expense API', () => {
       expect(String(updatedReceipt.expenseId)).toBe(String(stored._id))
     })
 
+    it('still confirms when RAG feedback fails after expense creation', async () => {
+      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
+      tokenContexts['token-bar'].hiveId = String(hive._id)
+      const expenseGroup = await ExpenseGroup.create({
+        hiveId: hive._id,
+        name: 'Work',
+        userIds: ['user_bar', 'user_partner'],
+      })
+      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      mockUpsertExample.mockRejectedValueOnce(new Error('fetch failed'))
+
+      const response = await request(app)
+        .post('/receipts/confirm')
+        .set('Authorization', 'Bearer token-bar')
+        .send(
+          sharedConfirmBody({
+            receiptId: String(receipt._id),
+            expenseGroupId: String(expenseGroup._id),
+          }),
+        )
+
+      expect(response.status).toBe(201)
+      expect(response.body.data.feedbackStored).toBe(false)
+      expect(response.body.data.expense).toEqual(
+        expect.objectContaining({
+          type: 'shared',
+          source: 'receipt',
+          amount: 68,
+        }),
+      )
+      expect(mockUpsertExample).toHaveBeenCalledTimes(1)
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining(String(response.body.data.expense._id)),
+        'fetch failed',
+      )
+
+      const expenses = await Expense.find({ receiptId: receipt._id }).lean()
+      expect(expenses).toHaveLength(1)
+      expect(String(expenses[0]._id)).toBe(String(response.body.data.expense._id))
+
+      const updatedReceipt = await Receipt.findById(receipt._id).lean()
+      expect(updatedReceipt.status).toBe('confirmed')
+      expect(String(updatedReceipt.expenseId)).toBe(String(expenses[0]._id))
+
+      warnSpy.mockRestore()
+    })
+
     it('creates a shared expense on the general Hive when expenseGroupId is null', async () => {
       const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
       tokenContexts['token-bar'].hiveId = String(hive._id)
