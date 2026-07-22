@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useState } from 'react'
 import { EXPENSE_CATEGORIES } from '../../constants/categories.js'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useHive } from '../../hooks/useHive.js'
 import { useReceiptScan } from '../../hooks/useReceiptScan.js'
 import ClassificationStep from './ClassificationStep.jsx'
+import HiveSuggestionStep from './HiveSuggestionStep.jsx'
 import ReviewExtractedStep from './ReviewExtractedStep.jsx'
 import UploadStep from './UploadStep.jsx'
 
@@ -76,6 +79,30 @@ function validateExtracted(extracted) {
   return errors
 }
 
+function createExpenseGroupSelection(expenseGroupId) {
+  if (!expenseGroupId) return null
+  return { kind: 'expenseGroup', expenseGroupId: String(expenseGroupId) }
+}
+
+function createDefaultHiveSelection(hiveId) {
+  if (!hiveId) return null
+  return { kind: 'defaultHive', hiveId: String(hiveId) }
+}
+
+function initialHiveSelection(suggestion, hiveId) {
+  if (suggestion?.expenseGroupId) {
+    return createExpenseGroupSelection(suggestion.expenseGroupId)
+  }
+  return createDefaultHiveSelection(hiveId)
+}
+
+function isHiveSelectionReady(selection) {
+  if (!selection) return false
+  if (selection.kind === 'expenseGroup') return Boolean(selection.expenseGroupId)
+  if (selection.kind === 'defaultHive') return Boolean(selection.hiveId)
+  return false
+}
+
 function Stepper({ currentStep, skippedHive }) {
   return (
     <div className="grid gap-2 sm:grid-cols-5">
@@ -119,6 +146,9 @@ function PlaceholderPanel({ title, description }) {
 }
 
 function ReceiptWizard() {
+  const { pairingStatus } = useAuth()
+  const hiveId = pairingStatus?.hiveId || ''
+  const { hive, isLoading: hiveLoading, error: hiveLoadError } = useHive(hiveId)
   const { draft, isScanning, isConfirming, error, scan, confirm, reset } = useReceiptScan()
   const [step, setStep] = useState('upload')
   const [skippedHive, setSkippedHive] = useState(false)
@@ -129,6 +159,9 @@ function ReceiptWizard() {
   const [aiClassification, setAiClassification] = useState(null)
   const [selectedType, setSelectedType] = useState(null)
   const [classificationErrors, setClassificationErrors] = useState([])
+  const [aiHiveSuggestion, setAiHiveSuggestion] = useState(null)
+  const [hiveSelection, setHiveSelection] = useState(null)
+  const [hiveErrors, setHiveErrors] = useState([])
 
   const receiptApi = useMemo(
     () => ({ draft, isScanning, isConfirming, error, scan, confirm, reset }),
@@ -138,10 +171,12 @@ function ReceiptWizard() {
   const isUploadStep = step === 'upload'
   const isReviewStep = step === 'review'
   const isClassificationStep = step === 'classification'
+  const isHiveStep = step === 'hive'
   const canGoBack = stepIndex(step) > 0
   const canGoNext = !isUploadStep && stepIndex(step) < RECEIPT_STEPS.length - 1
   const isBusy = receiptApi.isScanning || receiptApi.isConfirming
   const canScan = Boolean(selectedFile) && !receiptApi.isScanning
+  const canContinueFromHive = isHiveSelectionReady(hiveSelection)
 
   const updateExtractedField = useCallback((field, value) => {
     setEditableExtracted((prev) => {
@@ -206,6 +241,8 @@ function ReceiptWizard() {
 
         if (selectedType === 'personal' || skipHive) {
           setSkippedHive(true)
+          setHiveSelection(null)
+          setHiveErrors([])
           setStep('complete')
           return
         }
@@ -216,6 +253,11 @@ function ReceiptWizard() {
       }
 
       if (step === 'hive') {
+        if (!isHiveSelectionReady(hiveSelection)) {
+          setHiveErrors(['Select a shared destination before continuing.'])
+          return
+        }
+        setHiveErrors([])
         setSkippedHive(false)
         setStep('complete')
         return
@@ -224,7 +266,7 @@ function ReceiptWizard() {
       if (!canGoNext) return
       setStep(nextLinearStep(step))
     },
-    [canGoNext, editableExtracted, selectedType, step],
+    [canGoNext, editableExtracted, hiveSelection, selectedType, step],
   )
 
   const goBack = useCallback(() => {
@@ -244,6 +286,10 @@ function ReceiptWizard() {
       setClassificationErrors([])
     }
 
+    if (step === 'hive') {
+      setHiveErrors([])
+    }
+
     setStep(previousLinearStep(step))
   }, [canGoBack, skippedHive, step])
 
@@ -258,6 +304,17 @@ function ReceiptWizard() {
   const handleSelectType = useCallback((type) => {
     setSelectedType(type)
     setClassificationErrors([])
+    if (type === 'personal') {
+      setHiveSelection(null)
+      setHiveErrors([])
+    } else if (type === 'shared') {
+      setHiveSelection(initialHiveSelection(aiHiveSuggestion, hiveId))
+    }
+  }, [aiHiveSuggestion, hiveId])
+
+  const handleSelectHiveDestination = useCallback((nextSelection) => {
+    setHiveSelection(nextSelection)
+    setHiveErrors([])
   }, [])
 
   const handleScanReceipt = useCallback(async () => {
@@ -266,6 +323,7 @@ function ReceiptWizard() {
     const result = await receiptApi.scan(selectedFile)
     if (result.ok && result.draft) {
       const nextClassification = result.draft.classification || null
+      const nextHiveSuggestion = result.draft.hiveSuggestion || null
       setEditableExtracted(createEditableExtracted(result.draft))
       setFieldConfidence(result.draft.fieldConfidence || {})
       setReviewErrors([])
@@ -274,9 +332,12 @@ function ReceiptWizard() {
         ? nextClassification.type
         : null)
       setClassificationErrors([])
+      setAiHiveSuggestion(nextHiveSuggestion)
+      setHiveSelection(initialHiveSelection(nextHiveSuggestion, hiveId))
+      setHiveErrors([])
       setStep('review')
     }
-  }, [receiptApi, selectedFile])
+  }, [hiveId, receiptApi, selectedFile])
 
   const resetWizard = useCallback(() => {
     setStep('upload')
@@ -288,6 +349,9 @@ function ReceiptWizard() {
     setAiClassification(null)
     setSelectedType(null)
     setClassificationErrors([])
+    setAiHiveSuggestion(null)
+    setHiveSelection(null)
+    setHiveErrors([])
     receiptApi.reset()
   }, [receiptApi])
 
@@ -336,9 +400,15 @@ function ReceiptWizard() {
     )
   } else if (step === 'hive') {
     stepPanel = (
-      <PlaceholderPanel
-        title="Hive suggestion step"
-        description="Shared-expense hive suggestions will appear here. Personal expenses skip this step."
+      <HiveSuggestionStep
+        suggestion={aiHiveSuggestion}
+        selection={hiveSelection}
+        onSelect={handleSelectHiveDestination}
+        hive={hive}
+        hiveId={hiveId}
+        hiveLoading={hiveLoading}
+        hiveError={hiveLoadError}
+        errors={hiveErrors}
       />
     )
   } else if (step === 'complete') {
@@ -397,13 +467,16 @@ function ReceiptWizard() {
               !canGoNext ||
               isBusy ||
               (isReviewStep && !editableExtracted) ||
-              (isClassificationStep && selectedType !== 'personal' && selectedType !== 'shared')
+              (isClassificationStep && selectedType !== 'personal' && selectedType !== 'shared') ||
+              (isHiveStep && !canContinueFromHive)
             }
             className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={
               isClassificationStep
                 ? `Continue as ${selectedType || 'unselected'} expense`
-                : 'Continue'
+                : isHiveStep
+                  ? 'Continue with selected shared destination'
+                  : 'Continue'
             }
           >
             Continue
