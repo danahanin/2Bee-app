@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useHive } from '../../hooks/useHive.js'
 import { useReceiptScan } from '../../hooks/useReceiptScan.js'
 import ClassificationStep from './ClassificationStep.jsx'
+import ConfirmReceiptStep from './ConfirmReceiptStep.jsx'
 import HiveSuggestionStep from './HiveSuggestionStep.jsx'
 import ReviewExtractedStep from './ReviewExtractedStep.jsx'
 import UploadStep from './UploadStep.jsx'
@@ -103,6 +104,52 @@ function isHiveSelectionReady(selection) {
   return false
 }
 
+function resolveExpenseGroupName(selection, suggestion) {
+  if (selection?.kind !== 'expenseGroup' || !selection.expenseGroupId) return null
+  const selectedId = String(selection.expenseGroupId)
+  if (suggestion?.expenseGroupId && String(suggestion.expenseGroupId) === selectedId) {
+    return suggestion.groupName || null
+  }
+  const alternative = (suggestion?.alternatives || []).find(
+    (item) => item?.groupId && String(item.groupId) === selectedId,
+  )
+  return alternative?.name || null
+}
+
+function getDestinationSummary(selectedType, hiveSelection, aiHiveSuggestion) {
+  if (selectedType === 'personal') {
+    return { kind: 'personal', label: 'Personal', message: 'Saved as a personal expense.' }
+  }
+  if (selectedType !== 'shared') {
+    return { kind: null, label: null, message: null }
+  }
+  if (hiveSelection?.kind === 'defaultHive') {
+    return {
+      kind: 'defaultHive',
+      label: 'General Hive',
+      message: 'Saved as a shared expense in General Hive.',
+    }
+  }
+  if (hiveSelection?.kind === 'expenseGroup') {
+    const groupName = resolveExpenseGroupName(hiveSelection, aiHiveSuggestion)
+    return {
+      kind: 'expenseGroup',
+      label: groupName || 'Expense group',
+      message: groupName
+        ? `Saved as a shared expense in ${groupName}.`
+        : 'Saved as a shared expense in an ExpenseGroup.',
+    }
+  }
+  return { kind: null, label: null, message: null }
+}
+
+function formatAmountLabel(amount, currency) {
+  if (amount == null || amount === '') return null
+  const value = typeof amount === 'number' ? amount : Number(amount)
+  if (Number.isNaN(value)) return String(amount)
+  return currency ? `${value} ${currency}` : String(value)
+}
+
 function Stepper({ currentStep, skippedHive }) {
   return (
     <div className="grid gap-2 sm:grid-cols-5">
@@ -162,6 +209,9 @@ function ReceiptWizard() {
   const [aiHiveSuggestion, setAiHiveSuggestion] = useState(null)
   const [hiveSelection, setHiveSelection] = useState(null)
   const [hiveErrors, setHiveErrors] = useState([])
+  const [confirmSuccess, setConfirmSuccess] = useState(false)
+  const [savedExpenseSummary, setSavedExpenseSummary] = useState(null)
+  const [confirmErrors, setConfirmErrors] = useState([])
 
   const receiptApi = useMemo(
     () => ({ draft, isScanning, isConfirming, error, scan, confirm, reset }),
@@ -172,11 +222,27 @@ function ReceiptWizard() {
   const isReviewStep = step === 'review'
   const isClassificationStep = step === 'classification'
   const isHiveStep = step === 'hive'
-  const canGoBack = stepIndex(step) > 0
-  const canGoNext = !isUploadStep && stepIndex(step) < RECEIPT_STEPS.length - 1
+  const isCompleteStep = step === 'complete'
+  const canGoBack = stepIndex(step) > 0 && !confirmSuccess
+  const canGoNext = !isUploadStep && !isCompleteStep && stepIndex(step) < RECEIPT_STEPS.length - 1
   const isBusy = receiptApi.isScanning || receiptApi.isConfirming
   const canScan = Boolean(selectedFile) && !receiptApi.isScanning
   const canContinueFromHive = isHiveSelectionReady(hiveSelection)
+
+  const confirmSummary = useMemo(() => {
+    if (!editableExtracted) return null
+    const destination = getDestinationSummary(selectedType, hiveSelection, aiHiveSuggestion)
+    return {
+      vendor: editableExtracted.vendor?.trim() || '',
+      amountLabel: formatAmountLabel(editableExtracted.amount, editableExtracted.currency),
+      date: editableExtracted.date || '',
+      category: editableExtracted.category || '',
+      typeLabel:
+        selectedType === 'personal' ? 'Personal' : selectedType === 'shared' ? 'Shared' : null,
+      showDestination: selectedType === 'shared',
+      destination: destination.label,
+    }
+  }, [aiHiveSuggestion, editableExtracted, hiveSelection, selectedType])
 
   const updateExtractedField = useCallback((field, value) => {
     setEditableExtracted((prev) => {
@@ -243,6 +309,7 @@ function ReceiptWizard() {
           setSkippedHive(true)
           setHiveSelection(null)
           setHiveErrors([])
+          setConfirmErrors([])
           setStep('complete')
           return
         }
@@ -259,6 +326,7 @@ function ReceiptWizard() {
         }
         setHiveErrors([])
         setSkippedHive(false)
+        setConfirmErrors([])
         setStep('complete')
         return
       }
@@ -274,8 +342,13 @@ function ReceiptWizard() {
 
     if (step === 'complete' && skippedHive) {
       setSkippedHive(false)
+      setConfirmErrors([])
       setStep('classification')
       return
+    }
+
+    if (step === 'complete') {
+      setConfirmErrors([])
     }
 
     if (step === 'review') {
@@ -317,6 +390,128 @@ function ReceiptWizard() {
     setHiveErrors([])
   }, [])
 
+  const buildConfirmPayload = useCallback(() => {
+    if (!editableExtracted || (selectedType !== 'personal' && selectedType !== 'shared')) {
+      return null
+    }
+
+    const vendor = editableExtracted.vendor?.trim() || ''
+    const amount = Number(editableExtracted.amount)
+    const lineItems = (editableExtracted.lineItems || [])
+      .filter((item) => item?.description?.trim())
+      .map((item) => ({
+        description: item.description.trim(),
+        amount: item.amount == null || item.amount === '' ? 0 : Number(item.amount),
+      }))
+
+    const expenseGroupId =
+      selectedType === 'shared' && hiveSelection?.kind === 'expenseGroup'
+        ? hiveSelection.expenseGroupId
+        : null
+
+    const sharedHiveId =
+      selectedType === 'shared'
+        ? hiveSelection?.kind === 'defaultHive'
+          ? hiveSelection.hiveId
+          : hiveId || null
+        : null
+
+    return {
+      receiptId: receiptApi.draft?.receiptId || null,
+      type: selectedType,
+      ...(sharedHiveId ? { hiveId: sharedHiveId } : {}),
+      expenseGroupId,
+      classifiedBy: !aiClassification?.type
+        ? 'user'
+        : selectedType !== aiClassification.type
+          ? 'user'
+          : 'ai',
+      extracted: {
+        vendor,
+        amount,
+        category: editableExtracted.category,
+        date: editableExtracted.date,
+        currency: editableExtracted.currency || null,
+        lineItems,
+        rawText: editableExtracted.rawText || receiptApi.draft?.ocr?.rawText || '',
+      },
+      expense: {
+        amount,
+        category: editableExtracted.category,
+        description: vendor,
+        date: editableExtracted.date,
+      },
+    }
+  }, [aiClassification, editableExtracted, hiveId, hiveSelection, receiptApi.draft, selectedType])
+
+  const validateConfirmReady = useCallback(() => {
+    const errors = []
+
+    if (!receiptApi.draft?.receiptId) {
+      errors.push('A scanned receipt is required before saving.')
+    }
+
+    errors.push(...validateExtracted(editableExtracted))
+
+    if (selectedType !== 'personal' && selectedType !== 'shared') {
+      errors.push('Select personal or shared before saving.')
+    }
+
+    if (selectedType === 'shared') {
+      if (!hiveSelection) {
+        errors.push('Select a shared destination before saving.')
+      } else if (hiveSelection.kind === 'expenseGroup' && !hiveSelection.expenseGroupId) {
+        errors.push('Select an ExpenseGroup before saving.')
+      } else if (hiveSelection.kind === 'defaultHive' && !hiveSelection.hiveId) {
+        errors.push('A Hive is required to save to General Hive.')
+      } else if (!isHiveSelectionReady(hiveSelection)) {
+        errors.push('Select a shared destination before saving.')
+      }
+    }
+
+    return errors
+  }, [editableExtracted, hiveSelection, receiptApi.draft, selectedType])
+
+  const handleConfirmSave = useCallback(async () => {
+    if (confirmSuccess || receiptApi.isConfirming) return
+
+    const localErrors = validateConfirmReady()
+    if (localErrors.length > 0) {
+      setConfirmErrors(localErrors)
+      return
+    }
+
+    const payload = buildConfirmPayload()
+    if (!payload?.receiptId) {
+      setConfirmErrors(['A scanned receipt is required before saving.'])
+      return
+    }
+
+    setConfirmErrors([])
+    const result = await receiptApi.confirm(payload)
+    if (!result.ok) return
+
+    const destination = getDestinationSummary(selectedType, hiveSelection, aiHiveSuggestion)
+    setConfirmSuccess(true)
+    setSavedExpenseSummary({
+      type: selectedType,
+      amount: payload.expense.amount,
+      amountLabel: formatAmountLabel(payload.expense.amount, payload.extracted.currency),
+      description: payload.expense.description,
+      destination: destination.label,
+      message: destination.message,
+      response: result.data || null,
+    })
+  }, [
+    aiHiveSuggestion,
+    buildConfirmPayload,
+    confirmSuccess,
+    hiveSelection,
+    receiptApi,
+    selectedType,
+    validateConfirmReady,
+  ])
+
   const handleScanReceipt = useCallback(async () => {
     if (!selectedFile || receiptApi.isScanning) return
 
@@ -335,6 +530,9 @@ function ReceiptWizard() {
       setAiHiveSuggestion(nextHiveSuggestion)
       setHiveSelection(initialHiveSelection(nextHiveSuggestion, hiveId))
       setHiveErrors([])
+      setConfirmSuccess(false)
+      setSavedExpenseSummary(null)
+      setConfirmErrors([])
       setStep('review')
     }
   }, [hiveId, receiptApi, selectedFile])
@@ -352,6 +550,9 @@ function ReceiptWizard() {
     setAiHiveSuggestion(null)
     setHiveSelection(null)
     setHiveErrors([])
+    setConfirmSuccess(false)
+    setSavedExpenseSummary(null)
+    setConfirmErrors([])
     receiptApi.reset()
   }, [receiptApi])
 
@@ -413,9 +614,11 @@ function ReceiptWizard() {
     )
   } else if (step === 'complete') {
     stepPanel = (
-      <PlaceholderPanel
-        title="Confirm step"
-        description="Final confirm and save will use the shared confirm action. Nothing is submitted automatically."
+      <ConfirmReceiptStep
+        confirmSuccess={confirmSuccess}
+        summary={confirmSummary}
+        savedExpenseSummary={savedExpenseSummary}
+        errors={confirmErrors}
       />
     )
   }
@@ -459,6 +662,26 @@ function ReceiptWizard() {
           >
             {receiptApi.isScanning ? 'Scanning…' : 'Scan receipt'}
           </button>
+        ) : isCompleteStep ? (
+          confirmSuccess ? (
+            <button
+              type="button"
+              onClick={resetWizard}
+              disabled={isBusy}
+              className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Scan another receipt
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConfirmSave}
+              disabled={receiptApi.isConfirming}
+              className="rounded-xl bg-[var(--honey-500)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--honey-600)] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {receiptApi.isConfirming ? 'Saving…' : 'Confirm & Save'}
+            </button>
+          )
         ) : (
           <button
             type="button"
