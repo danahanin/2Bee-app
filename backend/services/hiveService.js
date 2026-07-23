@@ -48,6 +48,21 @@ async function getHiveById(hiveId, userId) {
   return hive
 }
 
+async function listUserHives(userId) {
+  const hives = await Hive.find({ userIds: userId, isActive: true }).lean()
+  const partnerIds = hives.flatMap((hive) => hive.userIds.filter((id) => id !== userId))
+  const users = await getUserMap(partnerIds)
+  return hives.map((hive) => {
+    const partnerId = hive.userIds.find((id) => id !== userId)
+    const partnerName = displayNameForUser(users.get(partnerId), partnerId)
+    return {
+      hiveId: String(hive._id),
+      label: partnerName ? `Shared with ${partnerName}` : 'Shared hive',
+      partnerName,
+    }
+  })
+}
+
 async function getHiveExpenses(hiveId, { category, from, to, page = 1, limit = 20, currentUserId }) {
   const filter = { hiveId, type: 'shared', isDeleted: false }
 
@@ -467,6 +482,7 @@ async function getHiveBalance(hiveId, currentUserId) {
 
 module.exports = {
   getHiveById,
+  listUserHives,
   getHiveExpenses,
   getHiveBalance,
   createSharedExpense,

@@ -69,6 +69,7 @@ function generateInsights(patterns, options = {}) {
       description,
       confidence: severityToConfidence(pattern.severity),
       category: pattern.category,
+      expenseId: pattern.data?.expenseId,
       createdAt: now,
     };
   });

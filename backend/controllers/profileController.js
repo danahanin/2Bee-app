@@ -172,6 +172,16 @@ async function updateSharedCategories(req, res, next) {
   }
 }
 
+async function connectBank(req, res, next) {
+  try {
+    const redirectUrl = typeof req.body?.redirectUrl === 'string' ? req.body.redirectUrl : undefined
+    const result = await profileService.connectBank(req.user.userId, userFallback(req), { redirectUrl })
+    return res.json(result)
+  } catch (error) {
+    return next(error)
+  }
+}
+
 async function disconnectPair(req, res, next) {
   try {
     const result = await profileService.disconnectPair(req.user.userId, userFallback(req))
@@ -208,6 +218,7 @@ module.exports = {
   getNotificationSettings,
   updateNotificationSettings,
   updateSharedCategories,
+  connectBank,
   disconnectPair,
   reconnectPair,
 }

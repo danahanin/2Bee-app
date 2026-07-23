@@ -206,6 +206,7 @@ async function getRecentTransactions(userId, options = {}) {
     .lean();
 
   return rows.map((tx) => ({
+    expenseId: String(tx._id),
     amount: tx.amount,
     category: tx.category,
     date: tx.date,

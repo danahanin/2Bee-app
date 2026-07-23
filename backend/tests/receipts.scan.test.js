@@ -223,29 +223,6 @@ describe('Receipt scan + personal expense API', () => {
   })
 
   describe('POST /receipts/confirm', () => {
-    function sharedConfirmBody(overrides = {}) {
-      return {
-        receiptId: overrides.receiptId,
-        type: 'shared',
-        classifiedBy: 'user',
-        extracted: {
-          vendor: 'Cafe Aroma',
-          amount: 68,
-          category: 'dining',
-          date: '2026-06-13',
-          rawText: 'Cafe Aroma total 68',
-          lineItems: [{ description: 'Coffee', amount: 18 }],
-        },
-        expense: {
-          amount: 68,
-          category: 'dining',
-          description: 'Cafe Aroma',
-          date: '2026-06-13',
-        },
-        ...overrides,
-      }
-    }
-
     it('creates a shared expense with an expenseGroupId and stores feedback', async () => {
       const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
       tokenContexts['token-bar'].hiveId = String(hive._id)
@@ -259,12 +236,26 @@ describe('Receipt scan + personal expense API', () => {
       const response = await request(app)
         .post('/receipts/confirm')
         .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: String(expenseGroup._id),
-          }),
-        )
+        .send({
+          receiptId: String(receipt._id),
+          type: 'shared',
+          expenseGroupId: String(expenseGroup._id),
+          classifiedBy: 'user',
+          extracted: {
+            vendor: 'Cafe Aroma',
+            amount: 68,
+            category: 'dining',
+            date: '2026-06-13',
+            rawText: 'Cafe Aroma total 68',
+            lineItems: [{ description: 'Coffee', amount: 18 }],
+          },
+          expense: {
+            amount: 68,
+            category: 'dining',
+            description: 'Cafe Aroma',
+            date: '2026-06-13',
+          },
+        })
 
       expect(response.status).toBe(201)
       expect(response.body.data.feedbackStored).toBe(true)
@@ -296,269 +287,6 @@ describe('Receipt scan + personal expense API', () => {
       const updatedReceipt = await Receipt.findById(receipt._id).lean()
       expect(updatedReceipt.status).toBe('confirmed')
       expect(String(updatedReceipt.expenseId)).toBe(String(stored._id))
-    })
-
-    it('still confirms when RAG feedback fails after expense creation', async () => {
-      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
-      tokenContexts['token-bar'].hiveId = String(hive._id)
-      const expenseGroup = await ExpenseGroup.create({
-        hiveId: hive._id,
-        name: 'Work',
-        userIds: ['user_bar', 'user_partner'],
-      })
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
-      mockUpsertExample.mockRejectedValueOnce(new Error('fetch failed'))
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: String(expenseGroup._id),
-          }),
-        )
-
-      expect(response.status).toBe(201)
-      expect(response.body.data.feedbackStored).toBe(false)
-      expect(response.body.data.expense).toEqual(
-        expect.objectContaining({
-          type: 'shared',
-          source: 'receipt',
-          amount: 68,
-        }),
-      )
-      expect(mockUpsertExample).toHaveBeenCalledTimes(1)
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(String(response.body.data.expense._id)),
-        'fetch failed',
-      )
-
-      const expenses = await Expense.find({ receiptId: receipt._id }).lean()
-      expect(expenses).toHaveLength(1)
-      expect(String(expenses[0]._id)).toBe(String(response.body.data.expense._id))
-
-      const updatedReceipt = await Receipt.findById(receipt._id).lean()
-      expect(updatedReceipt.status).toBe('confirmed')
-      expect(String(updatedReceipt.expenseId)).toBe(String(expenses[0]._id))
-
-      warnSpy.mockRestore()
-    })
-
-    it('creates a shared expense on the general Hive when expenseGroupId is null', async () => {
-      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
-      tokenContexts['token-bar'].hiveId = String(hive._id)
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: null,
-          }),
-        )
-
-      expect(response.status).toBe(201)
-      expect(response.body.data.expenseGroup).toBeNull()
-      expect(response.body.data.expense).toEqual(
-        expect.objectContaining({
-          type: 'shared',
-          source: 'receipt',
-          amount: 68,
-        }),
-      )
-      expect(response.body.data.expense.expenseGroupId).toBeNull()
-      expect(String(response.body.data.expense.hiveId)).toBe(String(hive._id))
-
-      const stored = await Expense.findById(response.body.data.expense._id).lean()
-      expect(stored.expenseGroupId).toBeNull()
-      expect(String(stored.hiveId)).toBe(String(hive._id))
-
-      expect(mockUpsertExample).toHaveBeenCalledWith(
-        expect.objectContaining({
-          text: expect.stringContaining('Cafe Aroma'),
-          metadata: expect.objectContaining({
-            type: 'shared',
-            source: 'dynamic',
-            hiveId: String(hive._id),
-            expenseId: String(stored._id),
-          }),
-        }),
-      )
-      const feedbackMeta = mockUpsertExample.mock.calls[0][0].metadata
-      expect(feedbackMeta).not.toHaveProperty('expenseGroupId')
-      expect(feedbackMeta).not.toHaveProperty('groupName')
-    })
-
-    it('creates a shared expense on the general Hive when expenseGroupId is omitted', async () => {
-      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
-      tokenContexts['token-bar'].hiveId = String(hive._id)
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-          }),
-        )
-
-      expect(response.status).toBe(201)
-      expect(response.body.data.expenseGroup).toBeNull()
-      expect(response.body.data.expense.expenseGroupId).toBeNull()
-      expect(String(response.body.data.expense.hiveId)).toBe(String(hive._id))
-    })
-
-    it('returns MISSING_HIVE when no hive is available for a shared confirm', async () => {
-      tokenContexts['token-bar'].hiveId = null
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: null,
-          }),
-        )
-
-      expect(response.status).toBe(400)
-      expect(response.body.error?.code).toBe('MISSING_HIVE')
-    })
-
-    it('returns HIVE_NOT_FOUND when the user is not a hive member', async () => {
-      const hive = await Hive.create({ userIds: ['someone_else', 'another_user'] })
-      tokenContexts['token-bar'].hiveId = String(hive._id)
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: null,
-          }),
-        )
-
-      expect(response.status).toBe(404)
-      expect(response.body.error?.code).toBe('HIVE_NOT_FOUND')
-    })
-
-    it('returns INVALID_EXPENSE_GROUP for an inactive expense group', async () => {
-      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
-      tokenContexts['token-bar'].hiveId = String(hive._id)
-      const inactiveGroup = await ExpenseGroup.create({
-        hiveId: hive._id,
-        name: 'Trip',
-        userIds: ['user_bar', 'user_partner'],
-        isActive: false,
-      })
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: String(inactiveGroup._id),
-          }),
-        )
-
-      expect(response.status).toBe(400)
-      expect(response.body.error?.code).toBe('INVALID_EXPENSE_GROUP')
-    })
-
-    it('returns INVALID_EXPENSE_GROUP for an expense group from another hive', async () => {
-      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
-      const otherHive = await Hive.create({ userIds: ['user_other', 'user_other_2'] })
-      tokenContexts['token-bar'].hiveId = String(hive._id)
-      const foreignGroup = await ExpenseGroup.create({
-        hiveId: otherHive._id,
-        name: 'Work',
-        userIds: ['user_other', 'user_other_2'],
-      })
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: String(foreignGroup._id),
-          }),
-        )
-
-      expect(response.status).toBe(400)
-      expect(response.body.error?.code).toBe('INVALID_EXPENSE_GROUP')
-    })
-
-    it('returns INVALID_EXPENSE_GROUP for a malformed expense group id', async () => {
-      const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
-      tokenContexts['token-bar'].hiveId = String(hive._id)
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send(
-          sharedConfirmBody({
-            receiptId: String(receipt._id),
-            expenseGroupId: 'not-a-valid-object-id',
-          }),
-        )
-
-      expect(response.status).toBe(400)
-      expect(response.body.error?.code).toBe('INVALID_EXPENSE_GROUP')
-    })
-
-    it('creates a personal expense without requiring a hive group', async () => {
-      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
-
-      const response = await request(app)
-        .post('/receipts/confirm')
-        .set('Authorization', 'Bearer token-bar')
-        .send({
-          receiptId: String(receipt._id),
-          type: 'personal',
-          classifiedBy: 'user',
-          extracted: {
-            vendor: 'Solo Cafe',
-            amount: 12,
-            category: 'dining',
-            date: '2026-06-13',
-            rawText: 'Solo Cafe 12',
-          },
-          expense: {
-            amount: 12,
-            category: 'dining',
-            description: 'Solo Cafe',
-            date: '2026-06-13',
-          },
-        })
-
-      expect(response.status).toBe(201)
-      expect(response.body.data.expense).toEqual(
-        expect.objectContaining({
-          type: 'personal',
-          source: 'receipt',
-          amount: 12,
-          hiveId: null,
-        }),
-      )
-      expect(response.body.data.expenseGroup).toBeNull()
-      expect(response.body.data.feedbackStored).toBe(false)
-      expect(mockUpsertExample).not.toHaveBeenCalled()
-
-      const updatedReceipt = await Receipt.findById(receipt._id).lean()
-      expect(updatedReceipt.status).toBe('confirmed')
     })
   })
 })

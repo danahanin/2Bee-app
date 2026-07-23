@@ -7,6 +7,7 @@ const router = Router()
 
 router.use(authMiddleware)
 
+router.get('/', hiveController.listMyHives)
 router.get('/:id', hiveController.getHive)
 router.get('/:id/balance', hiveController.getHiveBalance)
 router.get('/:id/expenses', privacyFilterMiddleware, hiveController.getHiveExpenses)

@@ -1,19 +1,17 @@
 import { useState } from 'react'
 import BuiltinAvatarGallery from './BuiltinAvatarGallery.jsx'
-import BeeSelfGenerator from './BeeSelfGenerator.jsx'
 import UserAvatar from '../design-system/UserAvatar.jsx'
 import { useAvatar } from '../../hooks/useAvatar.js'
 
 const TABS = [
   { id: 'gallery', label: 'Gallery' },
   { id: 'upload', label: 'Upload' },
-  { id: 'bee-self', label: 'Bee-self' },
 ]
 
 function AvatarPickerModal({ user, onClose, onSaved }) {
   const [tab, setTab] = useState('gallery')
   const [selected, setSelected] = useState({ avatarUrl: user?.avatarUrl, avatarType: user?.avatarType })
-  const { loading, error, previewUrl, uploadAvatar, generateBeeSelf, setAvatar } = useAvatar({
+  const { loading, error, previewUrl, uploadAvatar, setAvatar } = useAvatar({
     onSaved: (updated) => {
       onSaved?.(updated)
       onClose()
@@ -28,11 +26,6 @@ function AvatarPickerModal({ user, onClose, onSaved }) {
   async function handleUpload(file) {
     const result = await uploadAvatar(file)
     setSelected({ avatarUrl: result.avatarUrl, avatarType: 'upload' })
-  }
-
-  async function handleBeeGenerate(file) {
-    const result = await generateBeeSelf(file)
-    setSelected({ avatarUrl: result.avatarUrl, avatarType: 'bee_self' })
   }
 
   const previewUser = {
@@ -92,15 +85,6 @@ function AvatarPickerModal({ user, onClose, onSaved }) {
               className="block w-full text-sm text-[var(--brown-muted)]"
             />
           </div>
-        )}
-
-        {tab === 'bee-self' && (
-          <BeeSelfGenerator
-            user={user}
-            loading={loading}
-            previewUrl={selected.avatarType === 'bee_self' ? selected.avatarUrl : previewUrl}
-            onGenerate={handleBeeGenerate}
-          />
         )}
 
         {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
