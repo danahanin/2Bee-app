@@ -11,14 +11,14 @@
 const { embedText } = require('./embeddings')
 const { upsertExample, findAll, countBySource } = require('./exampleStore')
 const { retrieveSimilar, cosineSimilarity } = require('./retriever')
-const { fetchGenerate, fetchChatCompletions } = require('./llmClient')
+const { generate, chat } = require('../llm')
 
 async function llmGenerate(prompt, opts = {}) {
-  return fetchGenerate(prompt, opts)
+  return generate(prompt, opts)
 }
 
 async function llmChat(messages, opts = {}) {
-  return fetchChatCompletions(messages, opts)
+  return chat(messages, opts)
 }
 
 module.exports = {

@@ -129,7 +129,7 @@ async function createPersonalExpense(userId, data) {
     type: 'personal',
     source: receiptId ? 'receipt' : 'manual',
     date: data.date || new Date(),
-    classifiedBy: 'user',
+    classifiedBy: data.classifiedBy || 'user',
     receiptId,
   })
   await expense.save()

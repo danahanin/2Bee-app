@@ -3,7 +3,8 @@ const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
 const User = require('../models/User')
 const { fetchAccountTransactions, isConfigured } = require('../services/openFinanceService')
-const { classifyExpense } = require('../src/services/ai.service')
+const { classifyExpense, fromBankTransaction } = require('../src/ai/classification')
+const { classifyExpenseRuleBased } = require('../src/ai/classifier')
 
 const SYNC_INTERVAL_MS = Number(process.env.TRANSACTION_SYNC_INTERVAL_MS || 5 * 60 * 1000)
 const MAX_RETRIES = 3
@@ -60,18 +61,63 @@ async function fetchWithRetry(accountId, options, attempt = 1) {
   }
 }
 
-async function classifyAndDetermineType(transaction, userSharedCategories) {
-  const category = mapCategory(transaction.category)
+function buildAiSuggestionSnapshot(suggestion) {
+  return {
+    category: { value: suggestion.category.value, confidence: suggestion.category.confidence },
+    type: {
+      value: suggestion.personalOrShared.value,
+      confidence: suggestion.personalOrShared.confidence,
+      reasoning: suggestion.personalOrShared.reasoning,
+    },
+    hive: suggestion.hive
+      ? {
+          expenseGroupId: suggestion.hive.expenseGroupId || null,
+          groupName: suggestion.hive.groupName || null,
+          confidence: suggestion.hive.confidence,
+        }
+      : null,
+  }
+}
+
+/**
+ * Classify a raw bank transaction with the full multi-task classifier. The expense is
+ * always created (a transaction is never dropped), but an AI-derived result is stored
+ * as a pending suggestion (`needsReview: true`) rather than a finalized user decision —
+ * see the "suggest, never auto-apply" principle for bank sync.
+ * @param {object} transaction Raw transaction from the Open Finance API.
+ * @param {{ userId: string, hiveId: string, userSharedCategories?: string[] }} context
+ */
+async function classifyTransaction(transaction, { userId, hiveId, userSharedCategories }) {
+  const categoryHint = mapCategory(transaction.category)
+
   try {
-    const result = classifyExpense({
+    const signal = fromBankTransaction(transaction, { category: categoryHint })
+    const suggestion = await classifyExpense(signal, { userId, hiveId })
+
+    return {
+      category: suggestion.category.value,
+      type: suggestion.personalOrShared.value,
+      expenseGroupId: suggestion.hive?.expenseGroupId || null,
+      classifiedBy: 'ai',
+      needsReview: true,
+      aiSuggestion: buildAiSuggestionSnapshot(suggestion),
+    }
+  } catch {
+    const fallback = classifyExpenseRuleBased({
       description: transaction.description || transaction.remittanceInformation || '',
       amount: Math.abs(transaction.amount || 0),
-      category,
+      category: categoryHint,
       sharedCategories: userSharedCategories,
     })
-    return { category, type: result.label, classifiedBy: 'ai' }
-  } catch {
-    return { category, type: 'personal', classifiedBy: 'user' }
+
+    return {
+      category: categoryHint,
+      type: fallback.label,
+      expenseGroupId: null,
+      classifiedBy: 'user',
+      needsReview: false,
+      aiSuggestion: null,
+    }
   }
 }
 
@@ -97,20 +143,24 @@ async function syncTransactionsForUser(userId, accountId, hiveId) {
       if (exists) continue
     }
 
-    const { category, type, classifiedBy } = await classifyAndDetermineType(tx, userSharedCategories)
     const amount = Math.abs(tx.amount || 0)
     if (amount <= 0) continue
 
+    const classification = await classifyTransaction(tx, { userId, hiveId, userSharedCategories })
+
     await Expense.create({
-      hiveId: type === 'shared' ? hiveId : null,
+      hiveId: classification.type === 'shared' ? hiveId : null,
+      expenseGroupId: classification.type === 'shared' ? classification.expenseGroupId : null,
       userId,
       amount,
-      category,
+      category: classification.category,
       description: tx.description || tx.remittanceInformation || 'Bank transaction',
-      type,
+      type: classification.type,
       source: 'bank_sync',
       date: tx.bookingDate || tx.valueDate || new Date(),
-      classifiedBy,
+      classifiedBy: classification.classifiedBy,
+      needsReview: classification.needsReview,
+      aiSuggestion: classification.aiSuggestion,
       externalTransactionId: externalId,
     })
     created++
@@ -176,6 +226,6 @@ module.exports = {
   stopTransactionSyncLoop,
   syncAllHives,
   syncTransactionsForUser,
-  classifyAndDetermineType,
+  classifyTransaction,
   mapCategory,
 }

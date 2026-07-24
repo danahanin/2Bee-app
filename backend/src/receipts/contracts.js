@@ -58,6 +58,7 @@ const { CATEGORIES } = require('../../models/Expense')
  * @property {ExtractedReceipt} extracted
  * @property {Classification|null} [classification]
  * @property {HiveSuggestion|null} [hiveSuggestion]
+ * @property {{ value: string, confidence: number, source: 'ai'|'fallback' }|null} [categorySuggestion]
  */
 
 /**
@@ -113,11 +114,18 @@ function makeHiveSuggestion({
 
 /**
  * Build a ReceiptDraft from its parts.
- * @param {{ receiptId?: string|null, ocr: OcrResult, extracted: ExtractedReceipt, classification?: Classification|null }} input
+ * @param {{ receiptId?: string|null, ocr: OcrResult, extracted: ExtractedReceipt, classification?: Classification|null, hiveSuggestion?: HiveSuggestion|null, categorySuggestion?: { value: string, confidence: number, source: 'ai'|'fallback' }|null }} input
  * @returns {ReceiptDraft}
  */
-function makeReceiptDraft({ receiptId = null, ocr, extracted, classification = null, hiveSuggestion = null }) {
-  return { receiptId, ocr, extracted, classification, hiveSuggestion }
+function makeReceiptDraft({
+  receiptId = null,
+  ocr,
+  extracted,
+  classification = null,
+  hiveSuggestion = null,
+  categorySuggestion = null,
+}) {
+  return { receiptId, ocr, extracted, classification, hiveSuggestion, categorySuggestion }
 }
 
 module.exports = {

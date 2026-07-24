@@ -3,6 +3,7 @@ require('../loadEnv')
 const mongoose = require('mongoose')
 const ClassificationExample = require('../models/ClassificationExample')
 const { embedText } = require('../src/ai/rag/embeddings')
+const vectorStore = require('../src/ai/rag/vectorStore')
 const { CLASSIFICATION_EXAMPLES } = require('./classificationExamplesData')
 
 const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/twobee'
@@ -28,7 +29,7 @@ async function seed() {
   let inserted = 0
   for (const example of CLASSIFICATION_EXAMPLES) {
     const embedding = await embedText(example.text)
-    await ClassificationExample.create({
+    await vectorStore.upsert({
       text: example.text,
       type: example.type,
       embedding,

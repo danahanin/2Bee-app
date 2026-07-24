@@ -35,10 +35,13 @@ async function scan(req, res) {
       return res.status(400).json({ error: { code: 'NO_FILE', message: 'An image file is required' } })
     }
 
-    const { ocr, extracted, fieldConfidence, classification, hiveSuggestion } = await scanReceipt(req.file.buffer, {
-      hiveId: req.user.hiveId,
-      userId: req.user.userId,
-    })
+    const { ocr, extracted, fieldConfidence, classification, hiveSuggestion, categorySuggestion } = await scanReceipt(
+      req.file.buffer,
+      {
+        hiveId: req.user.hiveId,
+        userId: req.user.userId,
+      },
+    )
 
     const imageRef = saveImage(req.file)
     ocr.imageRef = imageRef
@@ -56,6 +59,7 @@ async function scan(req, res) {
       extracted,
       classification,
       hiveSuggestion,
+      categorySuggestion,
     })
     draft.fieldConfidence = fieldConfidence
     res.status(201).json({ data: draft })

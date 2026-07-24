@@ -114,14 +114,7 @@ function BalancePanel({ balance, isLoading, error, currentUserId }) {
 
 function HiveScreen() {
   const [searchParams] = useSearchParams()
-  const {
-    currentUser,
-    pairingStatus,
-    hives,
-    activeHiveId,
-    selectHive,
-    createHive,
-  } = useAuth()
+  const { currentUser, pairingStatus, hives, activeHiveId, selectHive } = useAuth()
   const initialView = searchParams.get('tab') === 'balance' ? 'balance' : 'shared'
   const [view, setView] = useState(initialView)
   const hiveId = activeHiveId || pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
@@ -151,8 +144,6 @@ function HiveScreen() {
   const [budgetActionMessage, setBudgetActionMessage] = useState('')
   const [isSavingBudget, setIsSavingBudget] = useState(false)
   const [budgetModal, setBudgetModal] = useState(null)
-  const [newHiveName, setNewHiveName] = useState('')
-  const [hiveActionError, setHiveActionError] = useState('')
 
   const loadSharedDashboard = useCallback(async () => {
     setSharedDashboardLoading(true)
@@ -196,19 +187,6 @@ function HiveScreen() {
   function handleAdd() {
     setEditingExpense(null)
     setModalOpen(true)
-  }
-
-  async function handleCreateHive(event) {
-    event.preventDefault()
-    if (!newHiveName.trim()) return
-
-    setHiveActionError('')
-    const result = await createHive(newHiveName.trim())
-    if (!result.ok) {
-      setHiveActionError(result.message)
-      return
-    }
-    setNewHiveName('')
   }
 
   function handleEdit(expense) {
@@ -316,19 +294,23 @@ function HiveScreen() {
           </p>
         ) : (
           <p className="mt-1 text-sm text-amber-800">
-            No Hive connected. Run seed in backend and set twobee_hive_id in localStorage.
+            No Hive connected yet.{' '}
+            <Link to="/app/pairing?mode=join" className="font-semibold underline">
+              Pair with your partner
+            </Link>{' '}
+            to create one.
           </p>
         )}
       </header>
 
-      <section className="rounded-xl border border-[rgba(61,41,20,0.1)] bg-[var(--honey-50)] p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <label className="block min-w-0 flex-1">
+      {hives.length > 1 && (
+        <section className="rounded-xl border border-[rgba(61,41,20,0.1)] bg-[var(--honey-50)] p-4">
+          <label className="block min-w-0">
             <span className="mb-1 block text-sm font-semibold text-[var(--brown-text)]">Your hives</span>
             <select
               value={activeHiveId || ''}
               onChange={(event) => selectHive(event.target.value)}
-              className="w-full rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--brown-text)] outline-none focus:border-[var(--honey-500)]"
+              className="w-full max-w-sm rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--brown-text)] outline-none focus:border-[var(--honey-500)]"
             >
               {hives.map((availableHive) => (
                 <option key={availableHive.hiveId} value={availableHive.hiveId}>
@@ -337,37 +319,8 @@ function HiveScreen() {
               ))}
             </select>
           </label>
-          <form onSubmit={handleCreateHive} className="flex gap-2 sm:w-auto">
-            <input
-              value={newHiveName}
-              onChange={(event) => setNewHiveName(event.target.value)}
-              maxLength={80}
-              placeholder="New hive name"
-              aria-label="New hive name"
-              className="min-w-0 flex-1 rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--honey-500)] sm:w-48"
-            />
-            <button
-              type="submit"
-              disabled={!newHiveName.trim()}
-              className="hive-btn-primary shrink-0 rounded-xl px-4 py-2.5 text-sm disabled:opacity-50"
-            >
-              Add hive
-            </button>
-          </form>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Link
-            to="/app/pairing?mode=join"
-            className="rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-4 py-2 text-sm font-semibold text-[var(--brown-text)] transition hover:bg-[var(--honey-100)]"
-          >
-            Join a hive
-          </Link>
-        </div>
-        <p className="mt-2 text-xs text-[var(--brown-muted)]">
-          Create a hive for each shared budget, trip, home, or group. Select one to view and add its expenses.
-        </p>
-        {hiveActionError ? <p className="mt-2 text-xs font-semibold text-rose-600">{hiveActionError}</p> : null}
-      </section>
+        </section>
+      )}
 
       <HiveBalanceHero balance={balance} isLoading={balanceLoading || hiveLoading} currentUserId={currentUser?.id} />
 

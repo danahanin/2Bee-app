@@ -99,6 +99,10 @@ export function AuthProvider({ children }) {
   const [isBootstrapping, setIsBootstrapping] = useState(true)
   const [pairingStatus, setPairingStatus] = useState(defaultPairingStatus)
   const [isPairingLoading, setIsPairingLoading] = useState(false)
+  const [hives, setHives] = useState([])
+  const [activeHiveId, setActiveHiveId] = useState(() =>
+    isBrowser() ? window.localStorage.getItem('twobee_hive_id') || '' : '',
+  )
   const refreshPromiseRef = useRef(null)
 
   const setAndPersistSession = useCallback((nextSession) => {
@@ -195,6 +199,30 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  const fetchHives = useCallback(async (tokenValue) => {
+    if (!tokenValue) {
+      setHives([])
+      return
+    }
+    try {
+      const response = await fetch(apiUrl('/hive'), {
+        headers: { Authorization: `Bearer ${tokenValue}` },
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      setHives(data.hives || [])
+    } catch (error) {
+      console.warn('Failed to load hives', error)
+    }
+  }, [])
+
+  const selectHive = useCallback((hiveId) => {
+    setActiveHiveId(hiveId)
+    if (isBrowser()) {
+      window.localStorage.setItem('twobee_hive_id', hiveId)
+    }
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     async function bootstrap() {
@@ -214,7 +242,7 @@ export function AuthProvider({ children }) {
               tokenForPairing = result.session.token
             }
           }
-          await fetchPairingStatus(tokenForPairing)
+          await Promise.all([fetchPairingStatus(tokenForPairing), fetchHives(tokenForPairing)])
         } else {
           clearStoredSession()
           setPairingStatus(defaultPairingStatus)
@@ -230,7 +258,15 @@ export function AuthProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [fetchPairingStatus, refreshWithToken, setAndPersistSession])
+  }, [fetchHives, fetchPairingStatus, refreshWithToken, setAndPersistSession])
+
+  // Pick a sensible default hive once we know what the user has access to —
+  // prefer whatever the user explicitly selected, else the paired hive, else the first one.
+  useEffect(() => {
+    if (activeHiveId && hives.some((hive) => hive.hiveId === activeHiveId)) return
+    const fallback = pairingStatus.hiveId || hives[0]?.hiveId || ''
+    if (fallback) selectHive(fallback)
+  }, [activeHiveId, hives, pairingStatus.hiveId, selectHive])
 
   useEffect(() => {
     if (!session?.refreshToken || !session?.expiresAt) {
@@ -265,7 +301,7 @@ export function AuthProvider({ children }) {
 
         const next = toSessionValue(data)
         setAndPersistSession(next)
-        const pairing = await fetchPairingStatus(next.token)
+        const [pairing] = await Promise.all([fetchPairingStatus(next.token), fetchHives(next.token)])
         return { ok: true, paired: pairing.ok ? pairing.status.paired : false }
       } catch (error) {
         return { ok: false, message: error.message }
@@ -273,7 +309,7 @@ export function AuthProvider({ children }) {
         setIsLoading(false)
       }
     },
-    [fetchPairingStatus, setAndPersistSession],
+    [fetchHives, fetchPairingStatus, setAndPersistSession],
   )
 
   const register = useCallback(async ({ firstName, lastName, email, password }) => {
@@ -353,7 +389,7 @@ export function AuthProvider({ children }) {
           throw new Error(data.error?.message || 'Unable to join pair code')
         }
 
-        await fetchPairingStatus(session.token)
+        await Promise.all([fetchPairingStatus(session.token), fetchHives(session.token)])
         return { ok: true, ...data }
       } catch (error) {
         return { ok: false, message: error.message }
@@ -361,7 +397,7 @@ export function AuthProvider({ children }) {
         setIsPairingLoading(false)
       }
     },
-    [fetchPairingStatus, session?.token],
+    [fetchHives, fetchPairingStatus, session?.token],
   )
 
   const logout = useCallback(async () => {
@@ -379,6 +415,8 @@ export function AuthProvider({ children }) {
     } finally {
       setAndPersistSession(null)
       setPairingStatus(defaultPairingStatus)
+      setHives([])
+      setActiveHiveId('')
     }
   }, [session, setAndPersistSession])
 
@@ -392,17 +430,24 @@ export function AuthProvider({ children }) {
       isPairingLoading,
       isLoading,
       isBootstrapping,
+      hives,
+      activeHiveId,
+      selectHive,
       login,
       register,
       generatePairCode,
       joinPairCode,
       refreshPairingStatus: () => fetchPairingStatus(session?.token ?? null),
+      refreshHives: () => fetchHives(session?.token ?? null),
       logout,
       refreshSession,
     }),
     [
+      activeHiveId,
+      fetchHives,
       fetchPairingStatus,
       generatePairCode,
+      hives,
       isBootstrapping,
       isLoading,
       isPairingLoading,
@@ -412,6 +457,7 @@ export function AuthProvider({ children }) {
       pairingStatus,
       refreshSession,
       register,
+      selectHive,
       session,
     ],
   )

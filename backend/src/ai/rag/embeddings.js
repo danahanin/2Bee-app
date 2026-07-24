@@ -1,4 +1,4 @@
-const { fetchEmbeddings } = require('./llmClient')
+const { embed } = require('../llm')
 
 /**
  * Embed a text string via the college all-minilm model.
@@ -10,7 +10,7 @@ async function embedText(text) {
   if (!normalized) {
     throw new Error('embedText requires non-empty text')
   }
-  return fetchEmbeddings(normalized)
+  return embed(normalized)
 }
 
 module.exports = { embedText }

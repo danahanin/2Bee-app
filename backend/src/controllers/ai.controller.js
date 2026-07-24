@@ -3,6 +3,9 @@ const aiService = require('../services/ai.service');
 const hiveService = require('../../services/hiveService');
 const { makeExtractedReceipt } = require('../receipts/contracts');
 const { classifyPersonalShared } = require('../ai/phase1/classifyPersonalShared');
+const { classifyExpense: classifyExpenseSignal, fromManualExpense } = require('../ai/classification');
+const { listNeedsReview, resolveNeedsReview } = require('../ai/classification/reviewService');
+const { CATEGORIES } = require('../../models/Expense');
 
 function isValidHiveObjectId(raw) {
   return typeof raw === 'string' && mongoose.Types.ObjectId.isValid(raw);
@@ -186,38 +189,119 @@ async function getRecommendations(req, res) {
   }
 }
 
-function classifyExpense(req, res) {
-  const { description, amount, category } = req.body || {};
+/**
+ * Preview endpoint for the manual-add form: runs the full multi-task classifier
+ * (category, personal/shared, hive) and returns suggestions only. Nothing is saved —
+ * the user reviews and accepts/edits before the expense is actually created.
+ */
+async function classifyExpense(req, res) {
+  try {
+    const { description, amount, vendor, category, currency, date, lineItems, hiveId: hiveIdOverride } =
+      req.body || {};
 
-  if (description === undefined) {
-    return res.status(400).json({ error: 'description is required' });
-  }
-  if (typeof description !== 'string') {
-    return res.status(400).json({ error: 'description must be a string' });
-  }
-  if (description.trim() === '') {
-    return res.status(400).json({ error: 'description cannot be empty' });
-  }
+    if (description === undefined || typeof description !== 'string' || description.trim() === '') {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'description is required' } });
+    }
+    if (amount === undefined || typeof amount !== 'number' || Number.isNaN(amount)) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'amount must be a number' } });
+    }
 
-  if (amount === undefined) {
-    return res.status(400).json({ error: 'amount is required' });
-  }
-  if (typeof amount !== 'number' || Number.isNaN(amount)) {
-    return res.status(400).json({ error: 'amount must be a number' });
-  }
+    let hiveId = req.user.hiveId || null;
+    if (hiveIdOverride) {
+      if (!isValidHiveObjectId(hiveIdOverride)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'hiveId must be a valid Mongo id' } });
+      }
+      const allowed = await assertUserInHive(req.user.userId, hiveIdOverride);
+      if (!allowed) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Hive not found' } });
+      }
+      hiveId = hiveIdOverride;
+    }
 
-  if (category === undefined) {
-    return res.status(400).json({ error: 'category is required' });
-  }
-  if (typeof category !== 'string') {
-    return res.status(400).json({ error: 'category must be a string' });
-  }
-  if (category.trim() === '') {
-    return res.status(400).json({ error: 'category cannot be empty' });
-  }
+    const signal = fromManualExpense({
+      description,
+      amount,
+      category: category ?? null,
+      currency: currency ?? null,
+      date: date ?? null,
+      vendor: vendor ?? null,
+      lineItems: Array.isArray(lineItems) ? lineItems : [],
+    });
 
-  const result = aiService.classifyExpense({ description, amount, category });
-  res.json({ data: result });
+    const data = await classifyExpenseSignal(signal, { userId: req.user.userId, hiveId });
+    return res.json({ data });
+  } catch (err) {
+    console.error('classifyExpense:', err);
+    return res.status(500).json({
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' },
+    });
+  }
+}
+
+/**
+ * List expenses (currently only from bank sync) whose AI-derived classification is
+ * still a pending suggestion awaiting user confirmation or correction.
+ */
+async function getNeedsReview(req, res) {
+  try {
+    const data = await listNeedsReview(req.user.userId);
+    return res.json({ data });
+  } catch (err) {
+    console.error('getNeedsReview:', err);
+    return res.status(500).json({
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' },
+    });
+  }
+}
+
+function validateReviewCorrections(body) {
+  const errors = [];
+  if (body.category !== undefined && !CATEGORIES.includes(body.category)) {
+    errors.push(`category must be one of: ${CATEGORIES.join(', ')}`);
+  }
+  if (body.type !== undefined && body.type !== 'personal' && body.type !== 'shared') {
+    errors.push('type must be personal or shared');
+  }
+  if (body.hiveId !== undefined && body.hiveId !== null && !isValidHiveObjectId(body.hiveId)) {
+    errors.push('hiveId must be a valid Mongo id');
+  }
+  if (body.expenseGroupId !== undefined && body.expenseGroupId !== null && !isValidHiveObjectId(body.expenseGroupId)) {
+    errors.push('expenseGroupId must be a valid Mongo id');
+  }
+  return errors;
+}
+
+/**
+ * Confirm (or correct) a pending AI suggestion. An empty body accepts the suggestion
+ * as-is; any provided field overrides what the AI suggested.
+ */
+async function resolveNeedsReviewItem(req, res) {
+  try {
+    const body = req.body || {};
+    const errors = validateReviewCorrections(body);
+    if (errors.length > 0) {
+      return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: errors.join('; ') } });
+    }
+
+    if (body.type === 'shared' || body.hiveId) {
+      const hiveId = body.hiveId || req.user.hiveId;
+      if (!hiveId || !(await assertUserInHive(req.user.userId, hiveId))) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Hive not found' } });
+      }
+    }
+
+    const expense = await resolveNeedsReview(req.user.userId, req.params.expenseId, body);
+    if (!expense) {
+      return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Pending suggestion not found' } });
+    }
+
+    return res.json({ data: expense });
+  } catch (err) {
+    console.error('resolveNeedsReviewItem:', err);
+    return res.status(500).json({
+      error: { code: 'SERVER_ERROR', message: 'Internal server error' },
+    });
+  }
 }
 
 async function classifyFromReceipt(req, res) {
@@ -350,6 +434,8 @@ module.exports = {
   getRecommendations,
   classifyExpense,
   classifyFromReceipt,
+  getNeedsReview,
+  resolveNeedsReviewItem,
   getImbalance,
   getGoalSuggestions,
 };

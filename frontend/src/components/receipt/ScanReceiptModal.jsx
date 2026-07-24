@@ -1,22 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { scanReceipt, classifyFromReceipt, confirmReceipt } from '../../services/receiptService.js'
+import { EXPENSE_CATEGORIES as CATEGORIES } from '../../constants/categories.js'
 import ClassificationPanel from './ClassificationPanel.jsx'
-
-const CATEGORIES = [
-  'groceries',
-  'dining',
-  'transport',
-  'utilities',
-  'rent',
-  'entertainment',
-  'health',
-  'shopping',
-  'subscriptions',
-  'travel',
-  'education',
-  'other',
-]
+import HiveSuggestionPanel from './HiveSuggestionPanel.jsx'
+import SuggestionBadge from '../ai/SuggestionBadge.jsx'
 
 const LOW_CONFIDENCE = 0.7
 
@@ -64,6 +52,9 @@ function applyDraftToForm(result, setters) {
   setters.setDate(toDateInputValue(ext.date))
   setters.setLineItems(Array.isArray(ext.lineItems) ? ext.lineItems : [])
   setters.setFieldConfidence(result?.fieldConfidence || {})
+  setters.setCategorySuggestion(result?.categorySuggestion || null)
+  setters.setHiveSuggestion(result?.hiveSuggestion || null)
+  setters.setExpenseGroupId(result?.hiveSuggestion?.expenseGroupId || '')
 }
 
 function ScanReceiptModal({ onClose, onSaved }) {
@@ -84,6 +75,9 @@ function ScanReceiptModal({ onClose, onSaved }) {
   const [classification, setClassification] = useState(null)
   const [overriddenType, setOverriddenType] = useState(null)
   const [selectedHiveId, setSelectedHiveId] = useState(activeHiveId || '')
+  const [categorySuggestion, setCategorySuggestion] = useState(null)
+  const [hiveSuggestion, setHiveSuggestion] = useState(null)
+  const [expenseGroupId, setExpenseGroupId] = useState('')
   const [isClassifying, setIsClassifying] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
 
@@ -110,6 +104,9 @@ function ScanReceiptModal({ onClose, onSaved }) {
         setDate,
         setLineItems,
         setFieldConfidence,
+        setCategorySuggestion,
+        setHiveSuggestion,
+        setExpenseGroupId,
       })
       setStep('review')
     } catch (err) {
@@ -193,6 +190,7 @@ function ScanReceiptModal({ onClose, onSaved }) {
         receiptId: draft?.receiptId || null,
         type: effectiveType,
         hiveId: effectiveType === 'shared' ? selectedHiveId : null,
+        expenseGroupId: effectiveType === 'shared' ? expenseGroupId || null : null,
         classifiedBy: overriddenType ? 'user' : 'ai',
         extracted: {
           vendor: description.trim(),
@@ -340,6 +338,15 @@ function ScanReceiptModal({ onClose, onSaved }) {
                   </option>
                 ))}
               </select>
+              {categorySuggestion && categorySuggestion.value !== category && (
+                <div className="mt-2">
+                  <SuggestionBadge
+                    label={`AI suggests: ${categorySuggestion.value}`}
+                    confidence={categorySuggestion.confidence}
+                    onApply={() => setCategory(categorySuggestion.value)}
+                  />
+                </div>
+              )}
             </label>
 
             <label className="block">
@@ -457,26 +464,36 @@ function ScanReceiptModal({ onClose, onSaved }) {
             />
 
             {(overriddenType ?? classification?.type) === 'shared' && (
-              <label className="block rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <span className="mb-2 block text-sm font-semibold text-slate-900">Save to hive</span>
-                <select
-                  value={selectedHiveId}
-                  onChange={(event) => setSelectedHiveId(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-                >
-                  <option value="" disabled>
-                    Choose a hive
-                  </option>
-                  {hives.map((hive) => (
-                    <option key={hive.hiveId} value={hive.hiveId}>
-                      {hive.name || hive.label}
+              <>
+                <label className="block rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <span className="mb-2 block text-sm font-semibold text-slate-900">Save to hive</span>
+                  <select
+                    value={selectedHiveId}
+                    onChange={(event) => setSelectedHiveId(event.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                  >
+                    <option value="" disabled>
+                      Choose a hive
                     </option>
-                  ))}
-                </select>
-                <span className="mt-2 block text-xs text-slate-500">
-                  This receipt will be added to the selected hive’s shared expenses.
-                </span>
-              </label>
+                    {hives.map((hive) => (
+                      <option key={hive.hiveId} value={hive.hiveId}>
+                        {hive.name || hive.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-2 block text-xs text-slate-500">
+                    This receipt will be added to the selected hive’s shared expenses.
+                  </span>
+                </label>
+
+                {(hiveSuggestion?.expenseGroupId || hiveSuggestion?.alternatives?.length > 0) && (
+                  <HiveSuggestionPanel
+                    suggestion={hiveSuggestion}
+                    selectedGroupId={expenseGroupId}
+                    onSelect={setExpenseGroupId}
+                  />
+                )}
+              </>
             )}
 
             <div className="flex gap-3 pt-2">
