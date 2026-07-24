@@ -60,6 +60,7 @@ function InsightsPanel({
   goalSuggestions,
   isLoading,
   onGoalAccept,
+  acceptingGoalId,
   onRecommendationAction,
 }) {
   return (
@@ -85,7 +86,12 @@ function InsightsPanel({
       </Section>
 
       <Section title="Goal Suggestions" subtitle="Personalized savings goals based on your spending">
-        <GoalSuggestionsPanel goals={goalSuggestions} isLoading={isLoading} onAccept={onGoalAccept} />
+        <GoalSuggestionsPanel
+          goals={goalSuggestions}
+          isLoading={isLoading}
+          onAccept={onGoalAccept}
+          acceptingGoalId={acceptingGoalId}
+        />
       </Section>
     </div>
   )
