@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import ViewToggle, { HiveBalanceHero } from '../components/hive/ViewToggle.jsx'
 import HivePanel from '../components/design-system/HivePanel.jsx'
@@ -114,10 +114,17 @@ function BalancePanel({ balance, isLoading, error, currentUserId }) {
 
 function HiveScreen() {
   const [searchParams] = useSearchParams()
-  const { currentUser, pairingStatus } = useAuth()
+  const {
+    currentUser,
+    pairingStatus,
+    hives,
+    activeHiveId,
+    selectHive,
+    createHive,
+  } = useAuth()
   const initialView = searchParams.get('tab') === 'balance' ? 'balance' : 'shared'
   const [view, setView] = useState(initialView)
-  const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
+  const hiveId = activeHiveId || pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
   const { hive, isLoading: hiveLoading } = useHive(hiveId)
   const { expenses, isLoading: expLoading, error, refetch } = useExpenses(hiveId, view)
   const { create, isSubmitting: isCreating } = useCreateExpense(hiveId)
@@ -144,18 +151,20 @@ function HiveScreen() {
   const [budgetActionMessage, setBudgetActionMessage] = useState('')
   const [isSavingBudget, setIsSavingBudget] = useState(false)
   const [budgetModal, setBudgetModal] = useState(null)
+  const [newHiveName, setNewHiveName] = useState('')
+  const [hiveActionError, setHiveActionError] = useState('')
 
   const loadSharedDashboard = useCallback(async () => {
     setSharedDashboardLoading(true)
     try {
-      const result = await fetchSharedDashboard()
+      const result = await fetchSharedDashboard(hiveId)
       setSharedDashboard(result)
     } catch {
       setSharedDashboard(null)
     } finally {
       setSharedDashboardLoading(false)
     }
-  }, [])
+  }, [hiveId])
 
   useEffect(() => {
     if (view === 'shared') {
@@ -187,6 +196,19 @@ function HiveScreen() {
   function handleAdd() {
     setEditingExpense(null)
     setModalOpen(true)
+  }
+
+  async function handleCreateHive(event) {
+    event.preventDefault()
+    if (!newHiveName.trim()) return
+
+    setHiveActionError('')
+    const result = await createHive(newHiveName.trim())
+    if (!result.ok) {
+      setHiveActionError(result.message)
+      return
+    }
+    setNewHiveName('')
   }
 
   function handleEdit(expense) {
@@ -298,6 +320,54 @@ function HiveScreen() {
           </p>
         )}
       </header>
+
+      <section className="rounded-xl border border-[rgba(61,41,20,0.1)] bg-[var(--honey-50)] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <label className="block min-w-0 flex-1">
+            <span className="mb-1 block text-sm font-semibold text-[var(--brown-text)]">Your hives</span>
+            <select
+              value={activeHiveId || ''}
+              onChange={(event) => selectHive(event.target.value)}
+              className="w-full rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--brown-text)] outline-none focus:border-[var(--honey-500)]"
+            >
+              {hives.map((availableHive) => (
+                <option key={availableHive.hiveId} value={availableHive.hiveId}>
+                  {availableHive.name || availableHive.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <form onSubmit={handleCreateHive} className="flex gap-2 sm:w-auto">
+            <input
+              value={newHiveName}
+              onChange={(event) => setNewHiveName(event.target.value)}
+              maxLength={80}
+              placeholder="New hive name"
+              aria-label="New hive name"
+              className="min-w-0 flex-1 rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-4 py-2.5 text-sm outline-none focus:border-[var(--honey-500)] sm:w-48"
+            />
+            <button
+              type="submit"
+              disabled={!newHiveName.trim()}
+              className="hive-btn-primary shrink-0 rounded-xl px-4 py-2.5 text-sm disabled:opacity-50"
+            >
+              Add hive
+            </button>
+          </form>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Link
+            to="/app/pairing?mode=join"
+            className="rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-4 py-2 text-sm font-semibold text-[var(--brown-text)] transition hover:bg-[var(--honey-100)]"
+          >
+            Join a hive
+          </Link>
+        </div>
+        <p className="mt-2 text-xs text-[var(--brown-muted)]">
+          Create a hive for each shared budget, trip, home, or group. Select one to view and add its expenses.
+        </p>
+        {hiveActionError ? <p className="mt-2 text-xs font-semibold text-rose-600">{hiveActionError}</p> : null}
+      </section>
 
       <HiveBalanceHero balance={balance} isLoading={balanceLoading || hiveLoading} currentUserId={currentUser?.id} />
 

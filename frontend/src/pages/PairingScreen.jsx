@@ -1,40 +1,43 @@
-import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function PairingScreen() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const {
     pairingStatus,
+    hives,
+    activeHiveId,
     isPairingLoading,
     generatePairCode,
     joinPairCode,
     refreshPairingStatus,
   } = useAuth()
 
-  const [mode, setMode] = useState('generate')
+  const [mode, setMode] = useState(() => (searchParams.get('mode') === 'join' ? 'join' : 'generate'))
   const [codeInput, setCodeInput] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [selectedHiveId, setSelectedHiveId] = useState(activeHiveId || '')
+  const [generatedInvite, setGeneratedInvite] = useState(null)
 
-  const isPaired = Boolean(pairingStatus?.paired)
-  const canGoApp = isPaired && Boolean(pairingStatus?.hiveId)
+  useEffect(() => {
+    if (!selectedHiveId && activeHiveId) setSelectedHiveId(activeHiveId)
+  }, [activeHiveId, selectedHiveId])
 
   const expiryDate = pairingStatus?.codeExpiresAt ? new Date(pairingStatus.codeExpiresAt) : null
   const expiryText = expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate.toLocaleTimeString() : null
 
-  if (canGoApp) {
-    return <Navigate to="/app" replace />
-  }
-
   const handleGenerate = async () => {
     setError('')
     setSuccess('')
-    const result = await generatePairCode()
+    const result = await generatePairCode(selectedHiveId || activeHiveId)
     if (!result.ok) {
       setError(result.message || 'Failed to generate code')
       return
     }
+    setGeneratedInvite(result)
     setSuccess('Code generated. Share it with your partner.')
   }
 
@@ -84,6 +87,20 @@ function PairingScreen() {
 
         {mode === 'generate' ? (
           <div className="mt-6 space-y-4">
+            <label className="block">
+              <span className="mb-1 block text-sm font-medium text-[var(--brown-text)]">Hive to share</span>
+              <select
+                value={selectedHiveId}
+                onChange={(event) => setSelectedHiveId(event.target.value)}
+                className="hive-input"
+              >
+                {hives.map((hive) => (
+                  <option key={hive.hiveId} value={hive.hiveId}>
+                    {hive.name || hive.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               onClick={handleGenerate}
@@ -92,11 +109,17 @@ function PairingScreen() {
             >
               {isPairingLoading ? 'Generating...' : 'Generate pair code'}
             </button>
-            {pairingStatus?.code ? (
+            {generatedInvite?.code || pairingStatus?.code ? (
               <div className="rounded-xl border border-[var(--honey-200)] bg-[var(--honey-50)] p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-[var(--honey-800)]">Current code</p>
-                <p className="mt-1 text-3xl font-bold tracking-[0.2em] text-[var(--brown-text)]">{pairingStatus.code}</p>
-                {expiryText ? <p className="mt-1 text-xs text-[var(--honey-700)]">Expires at {expiryText}</p> : null}
+                <p className="mt-1 text-3xl font-bold tracking-[0.2em] text-[var(--brown-text)]">
+                  {generatedInvite?.code || pairingStatus.code}
+                </p>
+                {generatedInvite?.expiresAt || expiryText ? (
+                  <p className="mt-1 text-xs text-[var(--honey-700)]">
+                    Expires at {generatedInvite?.expiresAt ? new Date(generatedInvite.expiresAt).toLocaleTimeString() : expiryText}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>

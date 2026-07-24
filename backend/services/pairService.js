@@ -1,5 +1,6 @@
 const User = require('../models/User')
 const Hive = require('../models/Hive')
+const PairInvite = require('../models/PairInvite')
 const {
   DEFAULT_PRIVACY_SETTINGS,
   DEFAULT_NOTIFICATION_SETTINGS,
@@ -54,11 +55,7 @@ function randomPairCode() {
 async function generateUniquePairCode() {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const code = randomPairCode()
-    const existing = await User.exists({
-      pairCode: code,
-      pairCodeUsedAt: null,
-      pairCodeExpiresAt: { $gt: new Date() },
-    })
+    const existing = await PairInvite.exists({ code, usedAt: null, expiresAt: { $gt: new Date() } })
     if (!existing) {
       return code
     }
@@ -72,58 +69,72 @@ async function findActiveHiveId(userId) {
   return hive?._id?.toString() || null
 }
 
-async function generatePairCode(userId, fallbackUser) {
+async function generatePairCode(userId, fallbackUser, requestedHiveId = null) {
   const user = await ensureUserRecord(userId, fallbackUser)
-  const activeHiveId = user.hiveId || (await findActiveHiveId(userId))
-  if (user.pairId || activeHiveId) {
-    throw new AppError(409, 'ALREADY_PAIRED', 'User is already paired.')
+  let hiveId = requestedHiveId || user.hiveId || null
+  if (hiveId) {
+    const hive = await Hive.findOne({ _id: hiveId, userIds: userId, isActive: true })
+    if (!hive) {
+      throw new AppError(404, 'HIVE_NOT_FOUND', 'Hive not found or not accessible.')
+    }
+  } else {
+    const hive = await Hive.create({ userIds: [userId], isActive: true })
+    hiveId = hive._id.toString()
+    if (!user.hiveId) {
+      user.hiveId = hiveId
+    }
   }
 
   const code = await generateUniquePairCode()
   const expiresAt = new Date(Date.now() + PAIR_CODE_TTL_MS)
 
+  await PairInvite.create({ code, inviterUserId: user._id, hiveId, expiresAt })
+
   user.pairCode = code
   user.pairCodeExpiresAt = expiresAt
   user.pairCodeUsedAt = null
+  user.pairCodeHiveId = hiveId
   await user.save()
 
   return {
     code,
     expiresAt: expiresAt.toISOString(),
     paired: false,
+    hiveId,
   }
 }
 
 async function joinPairCode(userId, code, fallbackUser) {
   const normalizedCode = String(code || '').trim().toUpperCase()
   const user = await ensureUserRecord(userId, fallbackUser)
-  if (user.pairId) {
-    throw new AppError(409, 'ALREADY_PAIRED', 'User is already paired.')
-  }
-
   const now = new Date()
-  const partner = await User.findOne({
-    pairCode: normalizedCode,
-    pairCodeUsedAt: null,
-    pairCodeExpiresAt: { $gt: now },
-  })
+  const invite = await PairInvite.findOne({ code: normalizedCode, usedAt: null, expiresAt: { $gt: now } })
+  const partner = invite
+    ? await User.findById(invite.inviterUserId)
+    : await User.findOne({ pairCode: normalizedCode, pairCodeUsedAt: null, pairCodeExpiresAt: { $gt: now } })
 
   if (!partner) {
+    if (user.pairId) {
+      throw new AppError(409, 'ALREADY_PAIRED', 'User is already paired.')
+    }
     throw new AppError(404, 'PAIR_CODE_NOT_FOUND', 'Pair code is invalid or expired.')
   }
   if (partner._id.toString() === user._id.toString()) {
     throw new AppError(400, 'INVALID_PARTNER', 'Cannot join your own pair code.')
   }
-  if (partner.pairId) {
-    throw new AppError(409, 'PARTNER_ALREADY_PAIRED', 'Code owner is already paired.')
-  }
-
-  let hiveId = partner.hiveId || null
+  let hiveId = invite?.hiveId?.toString() || partner.pairCodeHiveId || partner.hiveId || null
   if (!hiveId) {
     const hive = await Hive.create({ userIds: [user._id, partner._id], isActive: true })
     hiveId = hive._id.toString()
   } else {
-    await Hive.findByIdAndUpdate(hiveId, { userIds: [user._id, partner._id], isActive: true })
+    const targetHive = await Hive.findOneAndUpdate(
+      { _id: hiveId, userIds: partner._id, isActive: true },
+      { $addToSet: { userIds: user._id } },
+      { new: true },
+    )
+    if (!targetHive) {
+      throw new AppError(404, 'HIVE_NOT_FOUND', 'The hive linked to this code no longer exists.')
+    }
   }
 
   user.pairId = partner._id
@@ -133,6 +144,12 @@ async function joinPairCode(userId, code, fallbackUser) {
   partner.pairCodeUsedAt = now
   partner.pairCode = null
   partner.pairCodeExpiresAt = null
+  partner.pairCodeHiveId = null
+
+  if (invite) {
+    invite.usedAt = now
+    await invite.save()
+  }
 
   await Promise.all([user.save(), partner.save()])
 
@@ -148,8 +165,10 @@ async function getPairStatus(userId, fallbackUser) {
   const user = await ensureUserRecord(userId, fallbackUser)
   const now = new Date()
   const codeActive = Boolean(user.pairCode && user.pairCodeExpiresAt && user.pairCodeExpiresAt > now)
-  const hiveId = user.hiveId || (await findActiveHiveId(userId))
-  const paired = Boolean(hiveId)
+  const activeHives = await Hive.find({ userIds: userId, isActive: true }).select('_id userIds').lean()
+  const pairedHive = activeHives.find((hive) => hive.userIds.length >= 2)
+  const hiveId = user.hiveId || pairedHive?._id?.toString() || null
+  const paired = activeHives.some((hive) => hive.userIds.length >= 2)
 
   return {
     paired,

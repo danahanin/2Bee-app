@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { scanReceipt, classifyFromReceipt, confirmReceipt } from '../../services/receiptService.js'
 import ClassificationPanel from './ClassificationPanel.jsx'
-import HiveSuggestionPanel from './HiveSuggestionPanel.jsx'
 
 const CATEGORIES = [
   'groceries',
@@ -68,7 +67,7 @@ function applyDraftToForm(result, setters) {
 }
 
 function ScanReceiptModal({ onClose, onSaved }) {
-  const { token } = useAuth()
+  const { token, hives, activeHiveId } = useAuth()
 
   const [step, setStep] = useState('picker')
   const [error, setError] = useState(null)
@@ -84,10 +83,15 @@ function ScanReceiptModal({ onClose, onSaved }) {
   const [showRawText, setShowRawText] = useState(false)
   const [classification, setClassification] = useState(null)
   const [overriddenType, setOverriddenType] = useState(null)
-  const [hiveSuggestion, setHiveSuggestion] = useState(null)
-  const [selectedExpenseGroupId, setSelectedExpenseGroupId] = useState(null)
+  const [selectedHiveId, setSelectedHiveId] = useState(activeHiveId || '')
   const [isClassifying, setIsClassifying] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
+
+  useEffect(() => {
+    if (!selectedHiveId && hives.length > 0) {
+      setSelectedHiveId(activeHiveId || hives[0].hiveId)
+    }
+  }, [activeHiveId, hives, selectedHiveId])
 
   async function handleFile(event) {
     const file = event.target.files?.[0]
@@ -98,8 +102,6 @@ function ScanReceiptModal({ onClose, onSaved }) {
       const result = await scanReceipt(token, file)
       setDraft(result)
       setClassification(result.classification || null)
-      setHiveSuggestion(result.hiveSuggestion || null)
-      setSelectedExpenseGroupId(result.hiveSuggestion?.expenseGroupId || null)
       setOverriddenType(null)
       applyDraftToForm(result, {
         setAmount,
@@ -176,8 +178,8 @@ function ScanReceiptModal({ onClose, onSaved }) {
     const effectiveType = overriddenType ?? classification?.type ?? 'personal'
 
     const errs = validateForm({ amount, category, description, date })
-    if (effectiveType === 'shared' && !selectedExpenseGroupId) {
-      errs.push('Choose a hive group before saving this shared expense')
+    if (effectiveType === 'shared' && !selectedHiveId) {
+      errs.push('Choose a hive before saving this shared expense')
     }
     if (errs.length > 0) {
       setErrors(errs)
@@ -190,7 +192,7 @@ function ScanReceiptModal({ onClose, onSaved }) {
       await confirmReceipt(token, {
         receiptId: draft?.receiptId || null,
         type: effectiveType,
-        expenseGroupId: effectiveType === 'shared' ? selectedExpenseGroupId : null,
+        hiveId: effectiveType === 'shared' ? selectedHiveId : null,
         classifiedBy: overriddenType ? 'user' : 'ai',
         extracted: {
           vendor: description.trim(),
@@ -455,11 +457,26 @@ function ScanReceiptModal({ onClose, onSaved }) {
             />
 
             {(overriddenType ?? classification?.type) === 'shared' && (
-              <HiveSuggestionPanel
-                suggestion={hiveSuggestion}
-                selectedGroupId={selectedExpenseGroupId}
-                onSelect={setSelectedExpenseGroupId}
-              />
+              <label className="block rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <span className="mb-2 block text-sm font-semibold text-slate-900">Save to hive</span>
+                <select
+                  value={selectedHiveId}
+                  onChange={(event) => setSelectedHiveId(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                >
+                  <option value="" disabled>
+                    Choose a hive
+                  </option>
+                  {hives.map((hive) => (
+                    <option key={hive.hiveId} value={hive.hiveId}>
+                      {hive.name || hive.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-2 block text-xs text-slate-500">
+                  This receipt will be added to the selected hive’s shared expenses.
+                </span>
+              </label>
             )}
 
             <div className="flex gap-3 pt-2">
