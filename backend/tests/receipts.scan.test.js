@@ -223,6 +223,37 @@ describe('Receipt scan + personal expense API', () => {
   })
 
   describe('POST /receipts/confirm', () => {
+    it('creates a shared expense in the selected hive without an expense group', async () => {
+      const selectedHive = await Hive.create({ userIds: ['user_bar', 'user_partner'], name: 'Travel Hive' })
+      const receipt = await Receipt.create({ userId: 'user_bar', imageRef: 'x.png', status: 'scanned' })
+
+      const response = await request(app)
+        .post('/receipts/confirm')
+        .set('Authorization', 'Bearer token-bar')
+        .send({
+          receiptId: String(receipt._id),
+          type: 'shared',
+          hiveId: String(selectedHive._id),
+          classifiedBy: 'user',
+          extracted: {
+            vendor: 'Travel market',
+            amount: 55,
+            category: 'groceries',
+            date: '2026-06-13',
+          },
+          expense: {
+            amount: 55,
+            category: 'groceries',
+            description: 'Travel market',
+            date: '2026-06-13',
+          },
+        })
+
+      expect(response.status).toBe(201)
+      expect(String(response.body.data.expense.hiveId)).toBe(String(selectedHive._id))
+      expect(response.body.data.expense.expenseGroupId).toBeNull()
+    })
+
     it('creates a shared expense with an expenseGroupId and stores feedback', async () => {
       const hive = await Hive.create({ userIds: ['user_bar', 'user_partner'] })
       tokenContexts['token-bar'].hiveId = String(hive._id)

@@ -48,6 +48,7 @@ jest.mock('../middleware/auth', () => {
 const { createApp } = require('../app')
 const User = require('../models/User')
 const Hive = require('../models/Hive')
+const PairInvite = require('../models/PairInvite')
 
 describe('Pairing API', () => {
   let mongoServer
@@ -90,7 +91,7 @@ describe('Pairing API', () => {
   })
 
   beforeEach(async () => {
-    await Promise.all([User.deleteMany({}), Hive.deleteMany({})])
+    await Promise.all([User.deleteMany({}), Hive.deleteMany({}), PairInvite.deleteMany({})])
     await createBaseUsers()
 
     tokenContexts['token-user-1'].pairId = null
@@ -108,6 +109,28 @@ describe('Pairing API', () => {
     expect(response.body.code).toMatch(/^[A-Z0-9]{6}$/)
     expect(response.body.expiresAt).toBeTruthy()
     expect(response.body.paired).toBe(false)
+  })
+
+  it('keeps separate active codes for different hives', async () => {
+    const firstHive = await Hive.create({ userIds: ['user_demo_1'], name: 'Home' })
+    const secondHive = await Hive.create({ userIds: ['user_demo_1'], name: 'Trip' })
+
+    const [firstResponse, secondResponse] = await Promise.all([
+      request(app).post('/api/pair/generate').set('Authorization', 'Bearer token-user-1').send({ hiveId: String(firstHive._id) }),
+      request(app).post('/api/pair/generate').set('Authorization', 'Bearer token-user-1').send({ hiveId: String(secondHive._id) }),
+    ])
+
+    expect(firstResponse.status).toBe(201)
+    expect(secondResponse.status).toBe(201)
+    expect(firstResponse.body.code).not.toBe(secondResponse.body.code)
+
+    const invites = await PairInvite.find({ inviterUserId: 'user_demo_1', usedAt: null }).lean()
+    expect(invites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ hiveId: firstHive._id }),
+        expect.objectContaining({ hiveId: secondHive._id }),
+      ]),
+    )
   })
 
   it('POST /api/pair/join joins users and makes code one-time', async () => {

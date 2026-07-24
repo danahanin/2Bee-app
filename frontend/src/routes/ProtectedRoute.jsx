@@ -4,9 +4,9 @@ import SessionGate from '../components/SessionGate.jsx'
 
 function ProtectedRoute({ children, pairingMode = 'any' }) {
   const location = useLocation()
-  const { isAuthenticated, isBootstrapping, pairingStatus, isPairingLoading } = useAuth()
+  const { isAuthenticated, isBootstrapping, pairingStatus } = useAuth()
 
-  if (isBootstrapping || isPairingLoading) {
+  if (isBootstrapping) {
     return <SessionGate isBootstrapping message="Checking session..." />
   }
 

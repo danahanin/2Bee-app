@@ -73,18 +73,22 @@ async function confirmReceiptDraft(user, payload) {
     throw new AppError(404, 'HIVE_NOT_FOUND', 'Hive not found')
   }
 
-  const expenseGroup = await ExpenseGroup.findOne({
-    _id: payload.expenseGroupId || expenseData.expenseGroupId,
-    hiveId,
-    isActive: true,
-  }).lean()
-  if (!expenseGroup) {
-    throw new AppError(400, 'INVALID_EXPENSE_GROUP', 'Choose an active hive group for this expense')
+  let expenseGroup = null
+  const expenseGroupId = payload.expenseGroupId || expenseData.expenseGroupId
+  if (expenseGroupId) {
+    expenseGroup = await ExpenseGroup.findOne({
+      _id: expenseGroupId,
+      hiveId,
+      isActive: true,
+    }).lean()
+    if (!expenseGroup) {
+      throw new AppError(400, 'INVALID_EXPENSE_GROUP', 'Choose an active hive group for this expense')
+    }
   }
 
   const expense = await createSharedExpense(hiveId, user.userId, {
     ...expenseData,
-    expenseGroupId: expenseGroup._id,
+    expenseGroupId: expenseGroup?._id || null,
   })
 
   const text = buildFeedbackText(expenseData, payload.extracted || {})
@@ -95,8 +99,9 @@ async function confirmReceiptDraft(user, payload) {
         type: 'shared',
         source: 'dynamic',
         hiveId: String(hiveId),
-        expenseGroupId: String(expenseGroup._id),
-        groupName: expenseGroup.name,
+        ...(expenseGroup
+          ? { expenseGroupId: String(expenseGroup._id), groupName: expenseGroup.name }
+          : {}),
         expenseId: String(expense._id),
       },
     })

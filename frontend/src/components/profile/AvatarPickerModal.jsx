@@ -1,16 +1,18 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import BuiltinAvatarGallery from './BuiltinAvatarGallery.jsx'
 import UserAvatar from '../design-system/UserAvatar.jsx'
 import { useAvatar } from '../../hooks/useAvatar.js'
 
 const TABS = [
-  { id: 'gallery', label: 'Gallery' },
-  { id: 'upload', label: 'Upload' },
+  { id: 'gallery', label: 'Choose a bee' },
+  { id: 'upload', label: 'Choose a file' },
 ]
 
-function AvatarPickerModal({ user, onClose, onSaved }) {
-  const [tab, setTab] = useState('gallery')
+function AvatarPickerModal({ user, onClose, onSaved, initialTab = 'gallery' }) {
+  const [tab, setTab] = useState(initialTab)
   const [selected, setSelected] = useState({ avatarUrl: user?.avatarUrl, avatarType: user?.avatarType })
+  const [selectedFileName, setSelectedFileName] = useState('No file selected')
+  const fileInputId = useId()
   const { loading, error, previewUrl, uploadAvatar, setAvatar } = useAvatar({
     onSaved: (updated) => {
       onSaved?.(updated)
@@ -76,14 +78,25 @@ function AvatarPickerModal({ user, onClose, onSaved }) {
           <div className="space-y-3">
             <p className="text-sm text-[var(--brown-muted)]">Upload a personal photo from your device.</p>
             <input
+              id={fileInputId}
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={(e) => {
                 const file = e.target.files?.[0]
+                setSelectedFileName(file?.name || 'No file selected')
                 if (file) handleUpload(file)
               }}
-              className="block w-full text-sm text-[var(--brown-muted)]"
+              className="sr-only"
             />
+            <div className="flex flex-wrap items-center gap-3">
+              <label
+                htmlFor={fileInputId}
+                className="hive-btn-primary cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold"
+              >
+                Choose file
+              </label>
+              <span className="max-w-full truncate text-sm text-[var(--brown-muted)]">{selectedFileName}</span>
+            </div>
           </div>
         )}
 
