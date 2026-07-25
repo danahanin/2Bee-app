@@ -69,7 +69,19 @@ async function fetchWithBackoff(url, options) {
   let lastError
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
-    const response = await fetch(url, options)
+    let response
+    try {
+      response = await fetch(url, options)
+    } catch (err) {
+      // Network-level failure (DNS, connection reset, timeout) — no HTTP response to
+      // inspect, but still worth retrying the same way as a 5xx.
+      lastError = err
+      if (attempt < MAX_RETRIES) {
+        await sleep(BACKOFF_MS[attempt])
+        continue
+      }
+      throw lastError
+    }
 
     if (response.status === 429) {
       if (attempt === MAX_RETRIES) {

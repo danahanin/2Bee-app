@@ -165,5 +165,32 @@ describe('llmClient', () => {
       await expect(fetchGenerate('say hi')).rejects.toThrow(/HTTP 400/)
       expect(global.fetch).toHaveBeenCalledTimes(1)
     })
+
+    it('retries a network-level failure (no HTTP response) then succeeds', async () => {
+      jest.useFakeTimers()
+      global.fetch
+        .mockRejectedValueOnce(new TypeError('fetch failed'))
+        .mockResolvedValueOnce(jsonResponse({ response: 'ok after network retry' }))
+
+      const promise = fetchGenerate('say hi')
+      await jest.advanceTimersByTimeAsync(1000)
+      const result = await promise
+
+      expect(result).toBe('ok after network retry')
+      expect(global.fetch).toHaveBeenCalledTimes(2)
+    })
+
+    it('gives up after exhausting retries on repeated network failures', async () => {
+      jest.useFakeTimers()
+      global.fetch.mockRejectedValue(new TypeError('fetch failed'))
+
+      const promise = fetchGenerate('say hi')
+      await jest.advanceTimersByTimeAsync(1000)
+      await jest.advanceTimersByTimeAsync(2000)
+      await jest.advanceTimersByTimeAsync(4000)
+
+      await expect(promise).rejects.toThrow('fetch failed')
+      expect(global.fetch).toHaveBeenCalledTimes(4)
+    })
   })
 })
