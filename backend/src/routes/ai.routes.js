@@ -8,8 +8,10 @@ const router = express.Router();
 router.get('/insights', authMiddleware, privacyFilterMiddleware, aiController.getInsights);
 router.get('/forecast', authMiddleware, aiController.getForecast);
 router.get('/recommendations', authMiddleware, aiController.getRecommendations);
-router.post('/classify-expense', aiController.classifyExpense);
+router.post('/classify-expense', authMiddleware, aiController.classifyExpense);
 router.post('/classify-from-receipt', authMiddleware, aiController.classifyFromReceipt);
+router.get('/needs-review', authMiddleware, aiController.getNeedsReview);
+router.post('/needs-review/:expenseId/resolve', authMiddleware, aiController.resolveNeedsReviewItem);
 router.get('/imbalance', authMiddleware, aiController.getImbalance);
 router.get('/goal-suggestions', authMiddleware, aiController.getGoalSuggestions);
 

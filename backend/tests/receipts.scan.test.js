@@ -61,6 +61,10 @@ jest.mock('../src/ai/phase1/classifyPersonalShared', () => ({
   })),
 }))
 
+jest.mock('../src/ai/classification/classifyCategory', () => ({
+  classifyCategory: jest.fn(async () => ({ value: 'groceries', confidence: 0.75, source: 'ai' })),
+}))
+
 jest.mock('../src/ai/rag', () => ({
   upsertExample: mockUpsertExample,
 }))
@@ -151,6 +155,7 @@ describe('Receipt scan + personal expense API', () => {
           retrieved: expect.any(Array),
         }),
       )
+      expect(draft.categorySuggestion).toEqual({ value: 'groceries', confidence: 0.75, source: 'ai' })
 
       const stored = await Receipt.findById(draft.receiptId).lean()
       expect(stored).not.toBeNull()

@@ -2,12 +2,12 @@ jest.mock('../embeddings', () => ({
   embedText: jest.fn(),
 }))
 
-jest.mock('../exampleStore', () => ({
-  findAll: jest.fn(),
+jest.mock('../vectorStore', () => ({
+  query: jest.fn(),
 }))
 
 const { embedText } = require('../embeddings')
-const { findAll } = require('../exampleStore')
+const vectorStore = require('../vectorStore')
 const { retrieveSimilar } = require('../retriever')
 
 describe('retrieveSimilar', () => {
@@ -15,41 +15,32 @@ describe('retrieveSimilar', () => {
     jest.clearAllMocks()
   })
 
-  it('returns top-k examples sorted by cosine score', async () => {
+  it('embeds the query text and delegates scoring to the vector store', async () => {
     embedText.mockResolvedValue([1, 0, 0])
-    findAll.mockResolvedValue([
-      { text: 'grocery run', type: 'shared', embedding: [1, 0, 0] },
-      { text: 'coffee shop', type: 'personal', embedding: [0, 1, 0] },
-      { text: 'supermarket bill', type: 'shared', embedding: [0.9, 0.1, 0] },
-    ])
+    vectorStore.query.mockResolvedValue([{ text: 'grocery run', type: 'shared', score: 1 }])
 
     const results = await retrieveSimilar('supermarket groceries', { k: 2 })
 
-    expect(results).toHaveLength(2)
-    expect(results[0].text).toBe('grocery run')
-    expect(results[0].type).toBe('shared')
-    expect(results[0].score).toBeCloseTo(1)
-    expect(results[1].text).toBe('supermarket bill')
+    expect(embedText).toHaveBeenCalledWith('supermarket groceries')
+    expect(vectorStore.query).toHaveBeenCalledWith([1, 0, 0], { k: 2, filter: {} })
+    expect(results).toEqual([{ text: 'grocery run', type: 'shared', score: 1 }])
   })
 
-  it('passes filter to findAll', async () => {
+  it('passes the filter through to the vector store', async () => {
     embedText.mockResolvedValue([1])
-    findAll.mockResolvedValue([])
+    vectorStore.query.mockResolvedValue([])
 
     await retrieveSimilar('test', { k: 3, filter: { type: 'personal' } })
 
-    expect(findAll).toHaveBeenCalledWith({ type: 'personal' })
+    expect(vectorStore.query).toHaveBeenCalledWith([1], { k: 3, filter: { type: 'personal' } })
   })
 
-  it('skips candidates without embeddings', async () => {
-    embedText.mockResolvedValue([1, 0])
-    findAll.mockResolvedValue([
-      { text: 'no vector', type: 'personal', embedding: [] },
-      { text: 'valid', type: 'shared', embedding: [1, 0] },
-    ])
+  it('defaults k and filter when not provided', async () => {
+    embedText.mockResolvedValue([1])
+    vectorStore.query.mockResolvedValue([])
 
-    const results = await retrieveSimilar('test', { k: 5 })
-    expect(results).toHaveLength(1)
-    expect(results[0].text).toBe('valid')
+    await retrieveSimilar('test')
+
+    expect(vectorStore.query).toHaveBeenCalledWith([1], { k: 5, filter: {} })
   })
 })

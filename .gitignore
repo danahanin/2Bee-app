@@ -61,3 +61,6 @@ backend/uploads/*
 
 # Tesseract OCR language data (downloaded at runtime / redistributable asset)
 *.traineddata
+
+# Model evaluation harness output (see backend/scripts/evalClassifier.js)
+backend/eval/results/

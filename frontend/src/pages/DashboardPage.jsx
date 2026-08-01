@@ -14,6 +14,7 @@ import { useHiveParticipants } from '../hooks/useHiveParticipants.js'
 import { useProfile } from '../hooks/useProfile.js'
 import { useInsights } from '../hooks/useAI.js'
 import InsightCard from '../components/ai/InsightCard.jsx'
+import NeedsReviewPanel from '../components/dashboard/NeedsReviewPanel.jsx'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
 import { formatCurrency } from '../utils/formatCurrency.js'
 
@@ -126,6 +127,8 @@ function DashboardPage() {
           subtitle={balance?.remainingImbalance > 0.01 ? 'Outstanding' : 'All settled'}
         />
       </section>
+
+      <NeedsReviewPanel />
 
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <HivePanel

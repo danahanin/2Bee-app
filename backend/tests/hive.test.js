@@ -4,6 +4,10 @@ const { MongoMemoryServer } = require('mongodb-memory-server')
 
 jest.setTimeout(60000)
 
+jest.mock('../src/ai/rag', () => ({
+  upsertExample: jest.fn(async () => ({})),
+}))
+
 const tokenContexts = {
   'token-user-1': {
     userId: 'user_demo_1',

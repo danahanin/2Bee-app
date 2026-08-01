@@ -1,6 +1,8 @@
 const hiveService = require('../services/hiveService')
 const { CATEGORIES } = require('../models/Expense')
+const ExpenseGroup = require('../models/ExpenseGroup')
 const { sendError } = require('../utils/appError')
+const { recordExpenseConfirmationFeedback } = require('../src/ai/classification/feedback')
 
 async function requireHiveAccess(hiveId, userId) {
   return hiveService.getHiveById(hiveId, userId)
@@ -82,6 +84,12 @@ async function createHiveExpense(req, res) {
     }
 
     const expense = await hiveService.createSharedExpense(req.params.id, req.user.userId, req.body)
+
+    const expenseGroup = expense.expenseGroupId
+      ? await ExpenseGroup.findById(expense.expenseGroupId).lean()
+      : null
+    await recordExpenseConfirmationFeedback(expense, { expenseGroup })
+
     res.status(201).json(expense)
   } catch (err) {
     sendError(res, err, err.message)
@@ -96,6 +104,7 @@ async function createPersonalExpense(req, res) {
     }
 
     const expense = await hiveService.createPersonalExpense(req.user.userId, req.body)
+    await recordExpenseConfirmationFeedback(expense)
     res.status(201).json(expense)
   } catch (err) {
     sendError(res, err, err.message)

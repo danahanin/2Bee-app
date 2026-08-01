@@ -26,6 +26,7 @@ function AssistantPage() {
   const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
   const [goalActionError, setGoalActionError] = useState('')
   const [goalActionMessage, setGoalActionMessage] = useState('')
+  const [acceptingGoalId, setAcceptingGoalId] = useState(null)
 
   const {
     balance,
@@ -55,13 +56,17 @@ function AssistantPage() {
   }
 
   async function handleGoalAccept(goal) {
+    if (acceptingGoalId) return
     setGoalActionError('')
     setGoalActionMessage('')
+    setAcceptingGoalId(goal.id)
     try {
       await createGoal(goalFromSuggestion(goal))
       setGoalActionMessage(`Goal "${goal.title}" was added. View it under Expenses → Overview.`)
     } catch (err) {
       setGoalActionError(err.message || 'Failed to accept goal')
+    } finally {
+      setAcceptingGoalId(null)
     }
   }
 
@@ -127,6 +132,7 @@ function AssistantPage() {
         goalSuggestions={goalSuggestions}
         isLoading={loading}
         onGoalAccept={handleGoalAccept}
+        acceptingGoalId={acceptingGoalId}
         onRecommendationAction={handleRecommendationAction}
       />
 

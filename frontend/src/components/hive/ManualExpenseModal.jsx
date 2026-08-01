@@ -1,21 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
-import { classifyFromReceipt } from '../../services/receiptService.js'
-
-const CATEGORIES = [
-  'groceries',
-  'dining',
-  'transport',
-  'utilities',
-  'rent',
-  'entertainment',
-  'health',
-  'shopping',
-  'subscriptions',
-  'travel',
-  'education',
-  'other',
-]
+import { classifyExpense } from '../../services/aiService.js'
+import SuggestionBadge from '../ai/SuggestionBadge.jsx'
+import { EXPENSE_CATEGORIES as CATEGORIES } from '../../constants/categories.js'
 
 function toDateInputValue(date) {
   const d = date ? new Date(date) : new Date()
@@ -31,6 +18,7 @@ function ManualExpenseModal({ onClose, onSaved }) {
   const [destination, setDestination] = useState('personal')
   const [hives, setHives] = useState([])
   const [suggestion, setSuggestion] = useState(null)
+  const [appliedFromAi, setAppliedFromAi] = useState(false)
   const [isSuggesting, setIsSuggesting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState([])
@@ -67,24 +55,39 @@ function ManualExpenseModal({ onClose, onSaved }) {
     setErrors([])
     setIsSuggesting(true)
     try {
-      const result = await classifyFromReceipt(token, {
-        vendor: description.trim(),
+      const hiveId = destination !== 'personal' ? destination : undefined
+      const result = await classifyExpense({
+        description: description.trim(),
         amount: parseFloat(amount),
         category,
         date,
-        rawText: description.trim(),
+        hiveId,
       })
       setSuggestion(result)
-      if (result.type === 'shared' && hives.length > 0) {
-        setDestination(hives[0].hiveId)
-      } else {
-        setDestination('personal')
-      }
+      setAppliedFromAi(false)
     } catch (err) {
       setErrors([err.message || 'AI classification failed'])
     } finally {
       setIsSuggesting(false)
     }
+  }
+
+  function applyCategorySuggestion() {
+    if (!suggestion?.category?.value) return
+    setCategory(suggestion.category.value)
+    setAppliedFromAi(true)
+  }
+
+  function applyTypeSuggestion() {
+    if (!suggestion?.personalOrShared) return
+    setAppliedFromAi(true)
+    if (suggestion.personalOrShared.value === 'personal') {
+      setDestination('personal')
+      return
+    }
+    // "Shared" only tells us it belongs to a hive, not which one when the user has
+    // several — keep the current hive selection if there is one, else default to the first.
+    setDestination((current) => (current !== 'personal' ? current : hives[0]?.hiveId || 'personal'))
   }
 
   async function handleSubmit(e) {
@@ -102,7 +105,7 @@ function ManualExpenseModal({ onClose, onSaved }) {
         category,
         description: description.trim(),
         date,
-        classifiedBy: suggestion ? 'ai' : 'user',
+        classifiedBy: appliedFromAi ? 'ai' : 'user',
       }
       const url = destination === 'personal' ? '/expenses' : `/hive/${destination}/expenses`
       const res = await fetch(url, {
@@ -175,6 +178,15 @@ function ManualExpenseModal({ onClose, onSaved }) {
                 </option>
               ))}
             </select>
+            {suggestion?.category && suggestion.category.value !== category && (
+              <div className="mt-2">
+                <SuggestionBadge
+                  label={`AI suggests: ${suggestion.category.value}`}
+                  confidence={suggestion.category.confidence}
+                  onApply={applyCategorySuggestion}
+                />
+              </div>
+            )}
           </label>
 
           <label className="block">
@@ -201,18 +213,22 @@ function ManualExpenseModal({ onClose, onSaved }) {
             />
           </label>
 
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-[var(--honey-300)] bg-[var(--honey-50)] px-3 py-2.5">
+            <p className="text-xs text-[var(--brown-muted)]">
+              ✨ Let AI suggest a category and whether this is personal or shared, based on what you entered above.
+            </p>
+            <button
+              type="button"
+              onClick={handleSuggest}
+              disabled={isSuggesting}
+              className="shrink-0 rounded-lg bg-[var(--honey-400)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+            >
+              {isSuggesting ? 'Asking AI...' : 'Suggest with AI'}
+            </button>
+          </div>
+
           <div className="rounded-xl border border-[rgba(61,41,20,0.1)] bg-[var(--honey-50)] p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-[var(--brown-text)]">Assign to</span>
-              <button
-                type="button"
-                onClick={handleSuggest}
-                disabled={isSuggesting}
-                className="rounded-lg bg-[var(--honey-400)] px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
-              >
-                {isSuggesting ? 'Asking AI...' : 'Suggest with AI'}
-              </button>
-            </div>
+            <span className="mb-2 block text-sm font-medium text-[var(--brown-text)]">Assign to</span>
             <select
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
@@ -225,11 +241,24 @@ function ManualExpenseModal({ onClose, onSaved }) {
                 </option>
               ))}
             </select>
-            {suggestion ? (
-              <p className="mt-2 text-xs text-[var(--brown-muted)]">
-                AI suggests: <span className="font-semibold">{suggestion.type}</span>
-                {suggestion.confidence != null ? ` (${Math.round(suggestion.confidence * 100)}% confident)` : ''}
-              </p>
+            {suggestion?.personalOrShared ? (
+              <div className="mt-2 space-y-2">
+                <SuggestionBadge
+                  label={`AI suggests: ${suggestion.personalOrShared.value}`}
+                  confidence={suggestion.personalOrShared.confidence}
+                  tone={suggestion.personalOrShared.value}
+                  onApply={applyTypeSuggestion}
+                />
+                {suggestion.personalOrShared.reasoning && (
+                  <p className="text-xs text-[var(--brown-muted)]">{suggestion.personalOrShared.reasoning}</p>
+                )}
+                {suggestion.hive?.groupName && (
+                  <p className="text-xs text-[var(--brown-muted)]">
+                    Likely hive group: <span className="font-semibold">{suggestion.hive.groupName}</span>
+                    {suggestion.hive.confidence != null ? ` (${Math.round(suggestion.hive.confidence * 100)}%)` : ''}
+                  </p>
+                )}
+              </div>
             ) : null}
           </div>
 

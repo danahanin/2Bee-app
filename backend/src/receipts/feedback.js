@@ -2,7 +2,7 @@ const ExpenseGroup = require('../../models/ExpenseGroup')
 const { CATEGORIES } = require('../../models/Expense')
 const { AppError } = require('../../utils/appError')
 const { createPersonalExpense, createSharedExpense, getHiveById } = require('../../services/hiveService')
-const { upsertExample } = require('../ai/rag')
+const { recordExpenseConfirmationFeedback } = require('../ai/classification/feedback')
 
 function validateConfirmedExpense(expense) {
   const errors = []
@@ -27,25 +27,6 @@ function validateConfirmedExpense(expense) {
   return errors
 }
 
-function buildFeedbackText(expense, extracted = {}) {
-  const lineItems = (extracted.lineItems || [])
-    .map((item) => `${item.description || item.name || ''} ${item.amount || item.price || ''}`.trim())
-    .filter(Boolean)
-    .join(', ')
-
-  return [
-    extracted.vendor || expense.description,
-    expense.category,
-    `amount ${expense.amount}`,
-    expense.date,
-    lineItems,
-    extracted.rawText?.slice(0, 300),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .trim()
-}
-
 async function confirmReceiptDraft(user, payload) {
   const type = payload.type === 'shared' ? 'shared' : 'personal'
   const expenseData = {
@@ -58,9 +39,13 @@ async function confirmReceiptDraft(user, payload) {
     throw new AppError(400, 'VALIDATION_ERROR', errors.join('; '))
   }
 
+  const extracted = payload.extracted || {}
+  const sourceDetails = { vendor: extracted.vendor, rawText: extracted.rawText, lineItems: extracted.lineItems }
+
   if (type === 'personal') {
     const expense = await createPersonalExpense(user.userId, expenseData)
-    return { expense, feedbackStored: false }
+    const { personalOrShared } = await recordExpenseConfirmationFeedback(expense, sourceDetails)
+    return { expense, feedbackStored: personalOrShared }
   }
 
   const hiveId = payload.hiveId || user.hiveId
@@ -91,27 +76,12 @@ async function confirmReceiptDraft(user, payload) {
     expenseGroupId: expenseGroup?._id || null,
   })
 
-  const text = buildFeedbackText(expenseData, payload.extracted || {})
-  if (text) {
-    await upsertExample({
-      text,
-      metadata: {
-        type: 'shared',
-        source: 'dynamic',
-        hiveId: String(hiveId),
-        ...(expenseGroup
-          ? { expenseGroupId: String(expenseGroup._id), groupName: expenseGroup.name }
-          : {}),
-        expenseId: String(expense._id),
-      },
-    })
-  }
+  const feedback = await recordExpenseConfirmationFeedback(expense, { ...sourceDetails, expenseGroup })
 
-  return { expense, feedbackStored: Boolean(text), expenseGroup }
+  return { expense, feedbackStored: feedback.personalOrShared || feedback.hive, expenseGroup }
 }
 
 module.exports = {
-  buildFeedbackText,
   confirmReceiptDraft,
   validateConfirmedExpense,
 }

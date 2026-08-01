@@ -69,13 +69,13 @@ export function useClassifier() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const classify = useCallback(async ({ description, amount }) => {
+  const classify = useCallback(async (payload) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await aiService.classifyExpense({ description, amount });
-      setData(result.data);
-      return result.data;
+      const result = await aiService.classifyExpense(payload);
+      setData(result);
+      return result;
     } catch (err) {
       setError(err.message);
       throw err;
@@ -85,6 +85,33 @@ export function useClassifier() {
   }, []);
 
   return { data, loading, error, classify };
+}
+
+export function useNeedsReview() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await aiService.fetchNeedsReview();
+      setItems(result || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const resolve = useCallback(async (expenseId, corrections) => {
+    const result = await aiService.resolveNeedsReview(expenseId, corrections);
+    setItems((prev) => prev.filter((item) => item._id !== expenseId));
+    return result;
+  }, []);
+
+  return { items, loading, error, fetch, resolve };
 }
 
 export function useImbalance() {

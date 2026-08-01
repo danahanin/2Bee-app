@@ -99,20 +99,24 @@ describe('makeHiveSuggestion', () => {
 })
 
 describe('makeReceiptDraft', () => {
-  it('combines receiptId, ocr, extracted, and classification', () => {
+  it('combines receiptId, ocr, extracted, classification, and categorySuggestion', () => {
     const ocr = makeOcrResult({ rawText: 'x' })
     const extracted = makeExtractedReceipt({ rawText: 'x' })
     const classification = makeClassification({ type: 'personal', confidence: 0.8 })
-    expect(makeReceiptDraft({ receiptId: 'abc', ocr, extracted, classification })).toEqual({
+    const categorySuggestion = { value: 'dining', confidence: 0.7, source: 'ai' }
+    expect(
+      makeReceiptDraft({ receiptId: 'abc', ocr, extracted, classification, categorySuggestion }),
+    ).toEqual({
       receiptId: 'abc',
       ocr,
       extracted,
       classification,
       hiveSuggestion: null,
+      categorySuggestion,
     })
   })
 
-  it('defaults receiptId, classification, and hiveSuggestion to null', () => {
+  it('defaults receiptId, classification, hiveSuggestion, and categorySuggestion to null', () => {
     const ocr = makeOcrResult()
     const extracted = makeExtractedReceipt()
     expect(makeReceiptDraft({ ocr, extracted })).toEqual({
@@ -121,6 +125,7 @@ describe('makeReceiptDraft', () => {
       extracted,
       classification: null,
       hiveSuggestion: null,
+      categorySuggestion: null,
     })
   })
 })
