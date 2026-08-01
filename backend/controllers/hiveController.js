@@ -339,7 +339,6 @@ module.exports = {
   updateHiveExpense,
   deleteHiveExpense,
   connectExpenseToHive,
-  getHiveBalance,
   getHiveTransfers,
   createHiveTransfer,
   getHiveNotifications,
