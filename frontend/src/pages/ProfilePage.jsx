@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
@@ -16,6 +16,24 @@ import { useProfile } from '../hooks/useProfile.js'
 import { AVAILABLE_CATEGORIES, useSettings } from '../hooks/useSettings.js'
 import { useHiveBalance } from '../hooks/useHive.js'
 import { useHiveParticipants } from '../hooks/useHiveParticipants.js'
+
+const SECTIONS = [
+  { id: 'account', label: 'Account' },
+  { id: 'partner', label: 'Partners' },
+  { id: 'payment', label: 'Payment' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'privacy', label: 'Privacy' },
+  { id: 'categories', label: 'Categories' },
+  { id: 'pairing', label: 'Pairing' },
+  { id: 'security', label: 'Security' },
+]
+
+const SECTION_ALIASES = { settings: 'notifications' }
+
+function resolveSection(param) {
+  const target = SECTION_ALIASES[param] || param
+  return SECTIONS.some((section) => section.id === target) ? target : 'account'
+}
 
 function StatusToast({ message }) {
   if (!message) return null
@@ -65,8 +83,8 @@ function ProfilePage() {
   const { logout, currentUser, hives } = useAuth()
   const [searchParams] = useSearchParams()
   const sectionParam = searchParams.get('section')
-  const defaultSection = sectionParam === 'settings' ? 'notifications' : sectionParam || 'account'
-  const [openSection, setOpenSection] = useState(defaultSection)
+  const [openSection, setOpenSection] = useState(() => resolveSection(sectionParam))
+  const [syncedParam, setSyncedParam] = useState(sectionParam)
   const { profile, loading, updating, error, updateProfile, refetch } = useProfile()
   const [isEditing, setIsEditing] = useState(false)
   const [statusMessage, setStatusMessage] = useState(null)
@@ -91,13 +109,11 @@ function ProfilePage() {
     disconnectingBank,
   } = useSettings()
 
-  useEffect(() => {
-    if (searchParams.get('section')) {
-      setOpenSection(searchParams.get('section'))
-    }
-  }, [searchParams])
+  if (sectionParam !== syncedParam) {
+    setSyncedParam(sectionParam)
+    if (sectionParam) setOpenSection(resolveSection(sectionParam))
+  }
 
-  const initials = `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}`.toUpperCase() || 'U'
   const paired = Boolean(profile.pairId)
 
   async function handleSaveProfile(payload) {
@@ -138,17 +154,6 @@ function ProfilePage() {
     }
     setStatusMessage({ type: 'success', text: 'Bank account disconnected.' })
   }
-
-  const sections = [
-    { id: 'account', label: 'Account' },
-    { id: 'partner', label: 'Partners' },
-    { id: 'payment', label: 'Payment' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'privacy', label: 'Privacy' },
-    { id: 'categories', label: 'Categories' },
-    { id: 'pairing', label: 'Pairing' },
-    { id: 'security', label: 'Security' },
-  ]
 
   return (
     <div className="mx-auto max-w-3xl space-y-5 sm:space-y-6">
@@ -214,7 +219,7 @@ function ProfilePage() {
       </HiveCard>
 
       <div className="hive-scroll-x gap-2 sm:flex-wrap sm:overflow-visible">
-        {sections.map((s) => (
+        {SECTIONS.map((s) => (
           <button
             key={s.id}
             type="button"
