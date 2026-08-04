@@ -185,11 +185,12 @@ describe('llmClient', () => {
       global.fetch.mockRejectedValue(new TypeError('fetch failed'))
 
       const promise = fetchGenerate('say hi')
+      const assertion = expect(promise).rejects.toThrow('fetch failed')
       await jest.advanceTimersByTimeAsync(1000)
       await jest.advanceTimersByTimeAsync(2000)
       await jest.advanceTimersByTimeAsync(4000)
 
-      await expect(promise).rejects.toThrow('fetch failed')
+      await assertion
       expect(global.fetch).toHaveBeenCalledTimes(4)
     })
   })
