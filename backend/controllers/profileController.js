@@ -1,6 +1,7 @@
 const { z } = require('zod')
 const profileService = require('../services/profileService')
 const { AVAILABLE_SHARED_CATEGORIES } = require('../models/User')
+const { CURRENCIES } = require('../models/Expense')
 const { AppError } = require('../utils/appError')
 const { avatarUrlSchema } = require('../src/controllers/avatar.controller')
 
@@ -36,6 +37,12 @@ const notificationSettingsSchema = z
 const sharedCategoriesSchema = z
   .object({
     categories: z.array(z.enum(AVAILABLE_SHARED_CATEGORIES)).min(0).max(20),
+  })
+  .strict()
+
+const currencySettingSchema = z
+  .object({
+    displayCurrency: z.enum(CURRENCIES),
   })
   .strict()
 
@@ -172,6 +179,35 @@ async function updateSharedCategories(req, res, next) {
   }
 }
 
+async function getDisplayCurrency(req, res, next) {
+  try {
+    const setting = await profileService.getDisplayCurrency(req.user.userId, userFallback(req))
+    return res.json(setting)
+  } catch (error) {
+    return next(error)
+  }
+}
+
+async function updateDisplayCurrency(req, res, next) {
+  const parsed = currencySettingSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: { code: 'VALIDATION_ERROR', message: validationErrorFromZod(parsed.error) } })
+  }
+
+  try {
+    const setting = await profileService.updateDisplayCurrency(
+      req.user.userId,
+      parsed.data.displayCurrency,
+      userFallback(req)
+    )
+    return res.json({ success: true, ...setting })
+  } catch (error) {
+    return next(error)
+  }
+}
+
 async function connectBank(req, res, next) {
   try {
     const redirectUrl = typeof req.body?.redirectUrl === 'string' ? req.body.redirectUrl : undefined
@@ -218,6 +254,8 @@ module.exports = {
   getNotificationSettings,
   updateNotificationSettings,
   updateSharedCategories,
+  getDisplayCurrency,
+  updateDisplayCurrency,
   connectBank,
   disconnectPair,
   reconnectPair,

@@ -8,17 +8,13 @@ import {
   YAxis,
 } from 'recharts'
 import useChartSize from './useChartSize.js'
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    maximumFractionDigits: 0,
-  }).format(value || 0)
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
+import { CURRENCY_SYMBOLS } from '../../constants/currencies.js'
 
 function ComparisonBarChart({ categories, currentLabel, previousLabel }) {
   const [frameRef, { width, height }] = useChartSize()
+  const { formatBase, convertToDisplay, displayCurrency } = useCurrency()
+  const symbol = CURRENCY_SYMBOLS[displayCurrency] || CURRENCY_SYMBOLS.ILS
   const topCategories = (categories ?? []).slice(0, 8)
 
   if (!topCategories.length) {
@@ -46,8 +42,12 @@ function ComparisonBarChart({ categories, currentLabel, previousLabel }) {
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey="category" tick={{ fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={56} />
-          <YAxis width={48} tickFormatter={(value) => `₪${value}`} tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(value) => formatCurrency(value)} />
+          <YAxis
+            width={48}
+            tickFormatter={(value) => `${symbol}${Math.round(convertToDisplay(value))}`}
+            tick={{ fontSize: 11 }}
+          />
+          <Tooltip formatter={(value) => formatBase(value)} />
           <Legend wrapperStyle={{ fontSize: 12 }} />
           <Bar dataKey="current" name={currentLabel} fill="#4f46e5" radius={[4, 4, 0, 0]} />
           <Bar dataKey="previous" name={previousLabel} fill="#94a3b8" radius={[4, 4, 0, 0]} />

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import UserAvatar from '../design-system/UserAvatar.jsx'
-import { CURRENCY_SYMBOLS } from '../../constants/currencies.js'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 const CATEGORY_EMOJI = {
   groceries: '\u{1F6D2}',
@@ -25,18 +25,9 @@ function HiveIcon({ className }) {
   )
 }
 
-function formatAmount(amount, currency = 'ILS') {
-  const value = Number(amount) || 0
-  const digits = Number.isInteger(value) ? 0 : 2
-  const symbol = CURRENCY_SYMBOLS[currency] || CURRENCY_SYMBOLS.ILS
-  return `${symbol}${value.toLocaleString('en-IL', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: 2,
-  })}`
-}
-
 function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, isHighlighted = false, showHiveBadge = true }) {
   const cardRef = useRef(null)
+  const { formatNative, formatConverted, displayCurrency } = useCurrency()
   useEffect(() => {
     if (isHighlighted && cardRef.current) {
       cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -97,8 +88,15 @@ function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, isHighlighted
           </p>
         </div>
 
-        <span className="pt-0.5 text-right text-sm font-bold tabular-nums whitespace-nowrap text-[var(--brown-text)]">
-          {formatAmount(expense.amount, expense.currency)}
+        <span className="pt-0.5 text-right whitespace-nowrap">
+          <span className="block text-sm font-bold tabular-nums text-[var(--brown-text)]">
+            {formatNative(expense.amount, expense.currency)}
+          </span>
+          {(expense.currency || 'ILS') !== displayCurrency ? (
+            <span className="block text-xs tabular-nums text-[var(--brown-muted)]">
+              ≈ {formatConverted(expense.amount, expense.currency)}
+            </span>
+          ) : null}
         </span>
       </div>
 

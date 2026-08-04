@@ -1,15 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 import { fetchSharedDashboard } from '../services/dashboardService.js'
-
-function formatCurrency(value) {
-  const amount = Number(value) || 0
-  return new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount)
-}
 
 function SharedDashboard() {
   const { logout } = useAuth()
+  const { formatBase } = useCurrency()
   const [data, setData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -44,8 +41,8 @@ function SharedDashboard() {
 
   const topShared = useMemo(() => {
     if (!data?.topSharedCategory) return 'No shared spending yet'
-    return `${data.topSharedCategory.category} • ${formatCurrency(data.topSharedCategory.amount)}`
-  }, [data])
+    return `${data.topSharedCategory.category} • ${formatBase(data.topSharedCategory.amount)}`
+  }, [data, formatBase])
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -107,7 +104,7 @@ function SharedDashboard() {
                 <section className="grid gap-4 md:grid-cols-3">
                   <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Joint Spend</h3>
-                    <p className="mt-2 text-2xl font-bold text-slate-900">{formatCurrency(data.totalJointSpendThisMonth)}</p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">{formatBase(data.totalJointSpendThisMonth)}</p>
                     <p className="mt-2 text-sm text-slate-600">Current month</p>
                   </article>
 
@@ -131,7 +128,7 @@ function SharedDashboard() {
                       {data.contributions.map((row) => (
                         <div key={row.userId} className="rounded-xl border border-slate-200 p-3">
                           <p className="text-sm text-slate-500">{row.userId}</p>
-                          <p className="text-lg font-semibold text-slate-900">{formatCurrency(row.total)}</p>
+                          <p className="text-lg font-semibold text-slate-900">{formatBase(row.total)}</p>
                         </div>
                       ))}
                     </div>

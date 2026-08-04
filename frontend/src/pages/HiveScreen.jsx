@@ -28,10 +28,11 @@ import {
 import { useHiveParticipants } from '../hooks/useHiveParticipants.js'
 import { createBudget, deleteBudget, updateBudget } from '../services/budgetService.js'
 import { fetchSharedDashboard } from '../services/dashboardService.js'
-import { formatCurrency } from '../utils/formatCurrency.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 
 function BalancePanel({ balance, isLoading, error, currentUserId }) {
   const { participants } = useHiveParticipants(balance, currentUserId)
+  const { formatBase } = useCurrency()
 
   if (isLoading) {
     return (
@@ -68,10 +69,10 @@ function BalancePanel({ balance, isLoading, error, currentUserId }) {
         <article className="hive-card p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brown-muted)]">Shared spend</p>
           <p className="mt-2 text-2xl font-bold text-[var(--brown-text)]">
-            {formatCurrency(balance.totalSharedSpend)}
+            {formatBase(balance.totalSharedSpend)}
           </p>
           <p className="mt-1 text-sm text-[var(--brown-muted)]">
-            Split equally: {formatCurrency(balance.equalShare)} each
+            Split equally: {formatBase(balance.equalShare)} each
           </p>
         </article>
         <article className="hive-card p-4">
@@ -80,7 +81,7 @@ function BalancePanel({ balance, isLoading, error, currentUserId }) {
             <p className="mt-2 text-sm font-semibold text-[var(--brown-text)]">
               {fromUser?.isCurrentUser ? 'You' : fromUser?.firstName || 'Partner'} owe{' '}
               {toUser?.isCurrentUser ? 'you' : toUser?.firstName || 'partner'}{' '}
-              {formatCurrency(balance.remainingImbalance)}
+              {formatBase(balance.remainingImbalance)}
             </p>
           ) : (
             <p className="mt-2 text-sm font-semibold text-emerald-700">Everyone is settled up.</p>
@@ -97,12 +98,12 @@ function BalancePanel({ balance, isLoading, error, currentUserId }) {
                   {participant.isCurrentUser ? 'You' : `${participant.firstName} ${participant.lastName}`.trim()}
                 </p>
                 <p className="text-xs text-[var(--brown-muted)]">
-                  Paid {formatCurrency(participant.paid)} · share {formatCurrency(balance.equalShare)}
+                  Paid {formatBase(participant.paid)} · share {formatBase(balance.equalShare)}
                 </p>
               </div>
               <span className={`text-sm font-bold ${(participant.balance ?? 0) >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                 {(participant.balance ?? 0) >= 0 ? '+' : '-'}
-                {formatCurrency(Math.abs(participant.balance ?? 0))}
+                {formatBase(Math.abs(participant.balance ?? 0))}
               </span>
             </div>
           </div>
@@ -115,6 +116,7 @@ function BalancePanel({ balance, isLoading, error, currentUserId }) {
 function HiveScreen() {
   const [searchParams] = useSearchParams()
   const { currentUser, pairingStatus, hives, activeHiveId, selectHive } = useAuth()
+  const { formatBase } = useCurrency()
   const initialView = searchParams.get('tab') === 'balance' ? 'balance' : 'shared'
   const [view, setView] = useState(initialView)
   const hiveId = activeHiveId || pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
@@ -462,7 +464,7 @@ function HiveScreen() {
                       </div>
                     </div>
                     <p className="mt-1 text-sm text-[var(--brown-muted)]">
-                      {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
+                      {formatBase(item.spent)} / {formatBase(item.limit)} ({item.period})
                     </p>
                     <div className="mt-3">
                       <BudgetProgressBar percentUsed={item.percentUsed} />

@@ -27,7 +27,7 @@ import {
   fetchSpendingBreakdown,
   fetchTrends,
 } from '../services/analyticsService.js'
-import { formatCurrency } from '../utils/formatCurrency.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -37,6 +37,7 @@ const TABS = [
 
 function PersonalExpensesPage() {
   const { pairingStatus } = useAuth()
+  const { formatBase } = useCurrency()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || 'overview'
   const highlightTxId = searchParams.get('tx') || ''
@@ -269,7 +270,7 @@ function PersonalExpensesPage() {
               value={
                 dashboardLoading
                   ? '...'
-                  : formatCurrency(dashboardData?.totalSpendThisMonth ?? 0, { maximumFractionDigits: 0 })
+                  : formatBase(dashboardData?.totalSpendThisMonth ?? 0, { maximumFractionDigits: 0 })
               }
               subtitle="Personal expenses"
             />
@@ -278,7 +279,7 @@ function PersonalExpensesPage() {
               value={dashboardData?.topCategory?.category || 'N/A'}
               subtitle={
                 dashboardData?.topCategory
-                  ? formatCurrency(dashboardData.topCategory.amount)
+                  ? formatBase(dashboardData.topCategory.amount)
                   : 'No spending yet'
               }
             />
@@ -379,7 +380,7 @@ function PersonalExpensesPage() {
                         </div>
                       </div>
                       <p className="mt-1 text-sm text-[var(--brown-muted)]">
-                        {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
+                        {formatBase(item.spent)} / {formatBase(item.limit)} ({item.period})
                       </p>
                       <div className="mt-3">
                         <BudgetProgressBar percentUsed={item.percentUsed} />

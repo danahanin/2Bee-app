@@ -26,7 +26,7 @@ function buildExpenseMatch({ type, userId, hiveId, from, to }) {
 async function aggregateByCategory(match) {
   const rows = await Expense.aggregate([
     { $match: match },
-    { $group: { _id: '$category', total: { $sum: '$amount' } } },
+    { $group: { _id: '$category', total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
     { $sort: { total: -1 } },
   ])
 
@@ -99,7 +99,7 @@ async function aggregateCategoryTotalsByMonth(match, monthKeys) {
     {
       $group: {
         _id: { category: '$category', ym: '$ymKey' },
-        total: { $sum: '$amount' },
+        total: { $sum: { $ifNull: ['$amountBase', '$amount'] } },
       },
     },
   ])

@@ -1,8 +1,4 @@
-const CURRENCY_SYMBOLS = {
-  ILS: '₪',
-  USD: '$',
-  EUR: '€',
-}
+import { CURRENCY_SYMBOLS } from '../constants/currencies.js'
 
 export function formatCurrency(value, options = {}) {
   const amount = Number(value) || 0

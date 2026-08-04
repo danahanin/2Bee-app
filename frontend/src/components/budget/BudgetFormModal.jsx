@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { BUDGET_PERIODS, EXPENSE_CATEGORIES } from '../../constants/categories.js'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function BudgetFormModal({ budget, budgetType, onSubmit, onClose, isSubmitting }) {
   const isEditing = Boolean(budget)
+  const { displayCurrency, convertToDisplay, convertFromDisplay } = useCurrency()
 
   const [category, setCategory] = useState(() => budget?.category || EXPENSE_CATEGORIES[0])
-  const [limit, setLimit] = useState(() => (budget ? String(budget.limit) : ''))
+  const [limit, setLimit] = useState(() =>
+    budget ? String(Math.round(convertToDisplay(budget.limit) * 100) / 100) : '',
+  )
   const [period, setPeriod] = useState(() => budget?.period || 'monthly')
   const [errors, setErrors] = useState([])
 
@@ -34,7 +38,7 @@ function BudgetFormModal({ budget, budgetType, onSubmit, onClose, isSubmitting }
     setErrors([])
     onSubmit({
       category,
-      limit: parseFloat(limit),
+      limit: convertFromDisplay(parseFloat(limit)),
       period,
       type: budgetType,
     })
@@ -87,7 +91,7 @@ function BudgetFormModal({ budget, budgetType, onSubmit, onClose, isSubmitting }
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Limit (ILS)</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">Limit ({displayCurrency})</span>
             <input
               type="number"
               step="0.01"

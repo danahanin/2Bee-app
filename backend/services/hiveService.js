@@ -12,6 +12,10 @@ function roundAmount(value) {
   return Number((value || 0).toFixed(2))
 }
 
+function expenseAmountInBase(expense) {
+  return expense.amountBase ?? expense.amount
+}
+
 function displayNameForUser(user, userId) {
   if (!user) return userId
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim()
@@ -225,10 +229,12 @@ async function calculateHiveBalance(hiveId) {
     if (paidByUser[expense.userId] === undefined) {
       paidByUser[expense.userId] = 0
     }
-    paidByUser[expense.userId] += expense.amount
+    paidByUser[expense.userId] += expenseAmountInBase(expense)
   }
 
-  const totalSharedSpend = roundAmount(sharedExpenses.reduce((sum, expense) => sum + expense.amount, 0))
+  const totalSharedSpend = roundAmount(
+    sharedExpenses.reduce((sum, expense) => sum + expenseAmountInBase(expense), 0),
+  )
   const equalShare = memberIds.length > 0 ? roundAmount(totalSharedSpend / memberIds.length) : 0
 
   const settledByUser = Object.fromEntries(memberIds.map((userId) => [userId, 0]))

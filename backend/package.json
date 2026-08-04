@@ -13,6 +13,7 @@
     "seed:bank-mock": "node scripts/seedBankMockForHive.js",
     "seed:examples": "node scripts/seedClassificationExamples.js",
     "seed:expense-groups": "node scripts/seedExpenseGroups.js",
+    "migrate:amount-base": "node scripts/backfillAmountBase.js",
     "test:llm": "node scripts/testLlmConnection.js",
     "eval:classifier": "node scripts/evalClassifier.js",
     "test": "jest",

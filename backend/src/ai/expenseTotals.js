@@ -71,7 +71,7 @@ async function aggregateCategoryTotalsByMonthKey(matchFilter) {
           category: '$category',
           ym: '$ymKey',
         },
-        total: { $sum: '$amount' },
+        total: { $sum: { $ifNull: ['$amountBase', '$amount'] } },
       },
     },
   ]);
@@ -122,7 +122,7 @@ async function aggregateSharedSpendByUser(hiveObjectId, rangeStart, rangeEnd) {
     {
       $group: {
         _id: '$userId',
-        total: { $sum: '$amount' },
+        total: { $sum: { $ifNull: ['$amountBase', '$amount'] } },
       },
     },
   ]);
@@ -228,7 +228,7 @@ async function getCategorySpendCurrentMonth(id, scope = 'personal', options = {}
 
   const rows = await Expense.aggregate([
     { $match: matchFilter },
-    { $group: { _id: '$category', total: { $sum: '$amount' } } },
+    { $group: { _id: '$category', total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
   ]);
 
   return rows.reduce((acc, row) => {

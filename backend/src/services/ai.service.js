@@ -62,7 +62,7 @@ async function getBudgetStatusForUser(userId, hiveId, scope = 'personal') {
     
     const [row] = await Expense.aggregate([
       { $match: matchFilter },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
+      { $group: { _id: null, total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
     ]);
     
     const spent = row?.total || 0;

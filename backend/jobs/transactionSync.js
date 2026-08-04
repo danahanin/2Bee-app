@@ -153,6 +153,7 @@ async function syncTransactionsForUser(userId, accountId, hiveId) {
       expenseGroupId: classification.type === 'shared' ? classification.expenseGroupId : null,
       userId,
       amount,
+      currency: tx.currency || 'ILS',
       category: classification.category,
       description: tx.description || tx.remittanceInformation || 'Bank transaction',
       type: classification.type,

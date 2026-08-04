@@ -1,7 +1,7 @@
 import Hexagon from '../design-system/Hexagon.jsx'
 import UserAvatar from '../design-system/UserAvatar.jsx'
 import { splitParticipantName } from '../../hooks/useHiveParticipants.js'
-import { formatCurrency } from '../../utils/formatCurrency.js'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 const TABS = [
   { key: 'shared', label: 'Our Hive', shortLabel: 'Hive' },
@@ -32,6 +32,8 @@ function ViewToggle({ active, onChange }) {
 }
 
 export function HiveBalanceHero({ balance, isLoading, currentUserId }) {
+  const { formatBase } = useCurrency()
+
   if (isLoading) {
     return (
       <div className="flex animate-pulse items-center justify-center gap-3 py-6 sm:gap-4 sm:py-8">
@@ -65,7 +67,7 @@ export function HiveBalanceHero({ balance, isLoading, currentUserId }) {
   const centerLabel = settlement
     ? `${settlement.from.isCurrentUser ? 'You owe' : `${settlement.from.name || 'Partner'} owes`}`
     : 'Settled up'
-  const centerAmount = settlement ? formatCurrency(settlement.amount) : '₪0'
+  const centerAmount = settlement ? formatBase(settlement.amount) : formatBase(0)
 
   return (
     <div className="hive-card bg-gradient-to-br from-[var(--honey-100)] to-[var(--honey-200)] p-4 sm:p-6 md:p-8">
@@ -78,7 +80,7 @@ export function HiveBalanceHero({ balance, isLoading, currentUserId }) {
               <UserAvatar user={currentUser} size="lg" />
             </span>
             <p className="text-sm font-bold text-[var(--honey-800)] sm:text-lg">
-              {formatCurrency(current.paid, { maximumFractionDigits: 0 })}
+              {formatBase(current.paid, { maximumFractionDigits: 0 })}
             </p>
             <p className="text-[10px] font-semibold text-[var(--brown-muted)] sm:text-xs">You paid</p>
           </div>
@@ -102,7 +104,7 @@ export function HiveBalanceHero({ balance, isLoading, currentUserId }) {
             </Hexagon>
           </span>
           <p className="text-[10px] text-[var(--brown-muted)] sm:text-xs">
-            Shared: {formatCurrency(balance?.totalSharedSpend ?? 0, { maximumFractionDigits: 0 })}
+            Shared: {formatBase(balance?.totalSharedSpend ?? 0, { maximumFractionDigits: 0 })}
           </p>
         </div>
 
@@ -113,7 +115,7 @@ export function HiveBalanceHero({ balance, isLoading, currentUserId }) {
               <UserAvatar user={partnerUser} size="lg" />
             </span>
             <p className="max-w-full truncate text-sm font-bold text-[var(--honey-800)] sm:text-lg">
-              {formatCurrency(partner.paid, { maximumFractionDigits: 0 })}
+              {formatBase(partner.paid, { maximumFractionDigits: 0 })}
             </p>
             <p className="max-w-full truncate text-[10px] font-semibold text-[var(--brown-muted)] sm:text-xs">
               {partner.name} paid

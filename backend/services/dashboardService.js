@@ -46,7 +46,7 @@ async function sumPersonalCategorySpend(userId, category, start, end) {
   }
   const [row] = await Expense.aggregate([
     { $match: filter },
-    { $group: { _id: null, total: { $sum: '$amount' } } },
+    { $group: { _id: null, total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
   ])
   return row?.total || 0
 }
@@ -61,7 +61,7 @@ async function sumSharedCategorySpend(hiveId, category, start, end) {
   }
   const [row] = await Expense.aggregate([
     { $match: filter },
-    { $group: { _id: null, total: { $sum: '$amount' } } },
+    { $group: { _id: null, total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
   ])
   return row?.total || 0
 }
@@ -99,7 +99,7 @@ async function getPersonalDashboard(userId, hiveId) {
 
   const byCategory = await Expense.aggregate([
     { $match: personalMatch },
-    { $group: { _id: '$category', total: { $sum: '$amount' } } },
+    { $group: { _id: '$category', total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
     { $sort: { total: -1 } },
   ])
 
@@ -163,7 +163,7 @@ async function getSharedDashboard(userId, hiveId) {
 
   const byCategory = await Expense.aggregate([
     { $match: sharedMatch },
-    { $group: { _id: '$category', total: { $sum: '$amount' } } },
+    { $group: { _id: '$category', total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
     { $sort: { total: -1 } },
   ])
 
@@ -175,7 +175,7 @@ async function getSharedDashboard(userId, hiveId) {
 
   const byUser = await Expense.aggregate([
     { $match: sharedMatch },
-    { $group: { _id: '$userId', total: { $sum: '$amount' } } },
+    { $group: { _id: '$userId', total: { $sum: { $ifNull: ['$amountBase', '$amount'] } } } },
   ])
 
   const contributions = byUser.map((row) => ({
