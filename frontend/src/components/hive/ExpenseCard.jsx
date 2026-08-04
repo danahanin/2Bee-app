@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import UserAvatar from '../design-system/UserAvatar.jsx'
+import { CURRENCY_SYMBOLS } from '../../constants/currencies.js'
 
 const CATEGORY_EMOJI = {
   groceries: '\u{1F6D2}',
@@ -24,10 +25,11 @@ function HiveIcon({ className }) {
   )
 }
 
-function formatAmount(amount) {
+function formatAmount(amount, currency = 'ILS') {
   const value = Number(amount) || 0
   const digits = Number.isInteger(value) ? 0 : 2
-  return `\u20AA${value.toLocaleString('en-IL', {
+  const symbol = CURRENCY_SYMBOLS[currency] || CURRENCY_SYMBOLS.ILS
+  return `${symbol}${value.toLocaleString('en-IL', {
     minimumFractionDigits: digits,
     maximumFractionDigits: 2,
   })}`
@@ -96,7 +98,7 @@ function ExpenseCard({ expense, onEdit, onDelete, onConnectToHive, isHighlighted
         </div>
 
         <span className="pt-0.5 text-right text-sm font-bold tabular-nums whitespace-nowrap text-[var(--brown-text)]">
-          {formatAmount(expense.amount)}
+          {formatAmount(expense.amount, expense.currency)}
         </span>
       </div>
 

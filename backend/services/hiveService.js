@@ -97,6 +97,7 @@ async function createSharedExpense(hiveId, userId, data) {
     expenseGroupId: data.expenseGroupId || null,
     userId,
     amount: data.amount,
+    currency: data.currency || 'ILS',
     category: data.category,
     description: data.description,
     type: 'shared',
@@ -124,6 +125,7 @@ async function createPersonalExpense(userId, data) {
     hiveId: null,
     userId,
     amount: data.amount,
+    currency: data.currency || 'ILS',
     category: data.category,
     description: data.description,
     type: 'personal',
@@ -153,7 +155,7 @@ async function updateSharedExpense(hiveId, expenseId, userId, data) {
   })
   if (!expense) return null
 
-  const allowedFields = ['amount', 'category', 'description', 'date']
+  const allowedFields = ['amount', 'currency', 'category', 'description', 'date']
   for (const field of allowedFields) {
     if (data[field] !== undefined) {
       expense[field] = field === 'date' ? new Date(data[field]) : data[field]

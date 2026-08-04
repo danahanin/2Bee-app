@@ -1,3 +1,6 @@
+import { cleanReasoning } from '../../utils/aiSource.js'
+import SourceBadge from '../ai/SourceBadge.jsx'
+
 function percent(value) {
   return `${Math.round((value || 0) * 100)}%`
 }
@@ -20,7 +23,10 @@ function HiveSuggestionPanel({ suggestion, selectedGroupId, onSelect }) {
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-slate-900">Suggested hive</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-slate-900">Suggested hive</p>
+            <SourceBadge source={suggestion.source} />
+          </div>
           <p className="mt-1 text-sm text-slate-600">
             {suggestion.groupName || 'Choose a hive group'}
             {suggestion.confidence != null && (
@@ -31,7 +37,9 @@ function HiveSuggestionPanel({ suggestion, selectedGroupId, onSelect }) {
       </div>
 
       {suggestion.reasoning && (
-        <p className="mb-3 rounded-lg bg-white px-3 py-2 text-xs text-slate-600">{suggestion.reasoning}</p>
+        <p className="mb-3 rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+          {cleanReasoning(suggestion.reasoning)}
+        </p>
       )}
 
       <div className="flex flex-wrap gap-2">

@@ -191,7 +191,7 @@ function DashboardPage() {
                   </div>
 
                   <span className="pt-0.5 text-right text-sm font-bold tabular-nums whitespace-nowrap text-[var(--brown-text)]">
-                    {formatCurrency(expense.amount)}
+                    {formatCurrency(expense.amount, { currency: expense.currency })}
                   </span>
                 </li>
               ))}

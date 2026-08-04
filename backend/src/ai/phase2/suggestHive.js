@@ -40,6 +40,7 @@ function buildFallbackSuggestion(groups, reasoning = 'Fallback to the default sh
       name: group.name,
       score: index === 0 ? 0.55 : 0.35,
     })),
+    source: 'fallback',
   })
 }
 
@@ -133,12 +134,12 @@ async function findActiveGroups(hiveId) {
 
 async function suggestHive(extractedReceipt, { hiveId, userId, k = 5 } = {}) {
   if (!hiveId) {
-    return makeHiveSuggestion({ reasoning: 'No active hive is available for this user.' })
+    return makeHiveSuggestion({ reasoning: 'No active hive is available for this user.', source: 'fallback' })
   }
 
   const groups = await findActiveGroups(hiveId)
   if (groups.length === 0) {
-    return makeHiveSuggestion({ reasoning: 'No expense groups exist for this hive yet.' })
+    return makeHiveSuggestion({ reasoning: 'No expense groups exist for this hive yet.', source: 'fallback' })
   }
 
   const queryText = buildHiveQueryText(extractedReceipt)
@@ -181,6 +182,7 @@ async function suggestHive(extractedReceipt, { hiveId, userId, k = 5 } = {}) {
             name: item.name,
             score: String(item._id) === String(group._id) ? 0.6 : 0.35,
           })),
+          source: 'fallback',
         })
       }
     }

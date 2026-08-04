@@ -27,6 +27,7 @@ describe('parseClassification', () => {
       confidence: 0.88,
       reasoning: 'Solo coffee purchase',
       retrieved: [{ text: 'coffee solo', type: 'personal', score: 0.9 }],
+      source: 'ai',
     })
   })
 
@@ -60,6 +61,7 @@ describe('classifyPersonalShared', () => {
     expect(result.confidence).toBe(0.91)
     expect(result.reasoning).toBe('Individual coffee purchase')
     expect(result.retrieved).toHaveLength(1)
+    expect(result.source).toBe('ai')
   })
 
   it('falls back to rule-based classifier when LLM fails', async () => {
@@ -75,6 +77,7 @@ describe('classifyPersonalShared', () => {
     expect(result.type).toBe('shared')
     expect(result.reasoning).toMatch(/^\[fallback\]/)
     expect(result.confidence).toBeGreaterThan(0)
+    expect(result.source).toBe('fallback')
   })
 
   it('maps fallback label to type for groceries', async () => {
@@ -93,5 +96,6 @@ describe('classifyPersonalShared', () => {
 
     expect(result.type).toBe('shared')
     expect(result.reasoning).toContain('[fallback]')
+    expect(result.source).toBe('fallback')
   })
 })

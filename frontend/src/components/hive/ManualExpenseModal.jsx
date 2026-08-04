@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { classifyExpense } from '../../services/aiService.js'
 import SuggestionBadge from '../ai/SuggestionBadge.jsx'
+import { cleanReasoning, isFallback, suggestionIcon, suggestionLabel, suggestionTone } from '../../utils/aiSource.js'
 import { EXPENSE_CATEGORIES as CATEGORIES } from '../../constants/categories.js'
+import { CURRENCIES, DEFAULT_CURRENCY } from '../../constants/currencies.js'
 
 function toDateInputValue(date) {
   const d = date ? new Date(date) : new Date()
@@ -12,6 +14,7 @@ function toDateInputValue(date) {
 function ManualExpenseModal({ onClose, onSaved }) {
   const { token } = useAuth()
   const [amount, setAmount] = useState('')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [category, setCategory] = useState(CATEGORIES[0])
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(() => toDateInputValue())
@@ -90,6 +93,10 @@ function ManualExpenseModal({ onClose, onSaved }) {
     setDestination((current) => (current !== 'personal' ? current : hives[0]?.hiveId || 'personal'))
   }
 
+  const aiUnavailable =
+    Boolean(suggestion) &&
+    (isFallback(suggestion.category?.source) || isFallback(suggestion.personalOrShared?.source))
+
   async function handleSubmit(e) {
     e.preventDefault()
     const errs = validate()
@@ -102,6 +109,7 @@ function ManualExpenseModal({ onClose, onSaved }) {
     try {
       const payload = {
         amount: parseFloat(amount),
+        currency,
         category,
         description: description.trim(),
         date,
@@ -153,16 +161,30 @@ function ManualExpenseModal({ onClose, onSaved }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-[var(--brown-text)]">Amount</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-xl border border-[rgba(61,41,20,0.15)] px-4 py-2.5 outline-none focus:border-[var(--honey-500)]"
-              placeholder="0.00"
-              required
-            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full rounded-xl border border-[rgba(61,41,20,0.15)] px-4 py-2.5 outline-none focus:border-[var(--honey-500)]"
+                placeholder="0.00"
+                required
+              />
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                aria-label="Currency"
+                className="w-24 shrink-0 rounded-xl border border-[rgba(61,41,20,0.15)] bg-white px-2 py-2.5 outline-none focus:border-[var(--honey-500)]"
+              >
+                {CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </div>
           </label>
 
           <label className="block">
@@ -181,8 +203,10 @@ function ManualExpenseModal({ onClose, onSaved }) {
             {suggestion?.category && suggestion.category.value !== category && (
               <div className="mt-2">
                 <SuggestionBadge
-                  label={`AI suggests: ${suggestion.category.value}`}
+                  label={suggestionLabel(suggestion.category.source, suggestion.category.value)}
                   confidence={suggestion.category.confidence}
+                  icon={suggestionIcon(suggestion.category.source)}
+                  tone={suggestionTone(suggestion.category.source)}
                   onApply={applyCategorySuggestion}
                 />
               </div>
@@ -227,6 +251,12 @@ function ManualExpenseModal({ onClose, onSaved }) {
             </button>
           </div>
 
+          {aiUnavailable && (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              The AI model was unavailable, so these suggestions come from simple rules instead.
+            </p>
+          )}
+
           <div className="rounded-xl border border-[rgba(61,41,20,0.1)] bg-[var(--honey-50)] p-3">
             <span className="mb-2 block text-sm font-medium text-[var(--brown-text)]">Assign to</span>
             <select
@@ -244,13 +274,16 @@ function ManualExpenseModal({ onClose, onSaved }) {
             {suggestion?.personalOrShared ? (
               <div className="mt-2 space-y-2">
                 <SuggestionBadge
-                  label={`AI suggests: ${suggestion.personalOrShared.value}`}
+                  label={suggestionLabel(suggestion.personalOrShared.source, suggestion.personalOrShared.value)}
                   confidence={suggestion.personalOrShared.confidence}
-                  tone={suggestion.personalOrShared.value}
+                  icon={suggestionIcon(suggestion.personalOrShared.source)}
+                  tone={suggestionTone(suggestion.personalOrShared.source)}
                   onApply={applyTypeSuggestion}
                 />
                 {suggestion.personalOrShared.reasoning && (
-                  <p className="text-xs text-[var(--brown-muted)]">{suggestion.personalOrShared.reasoning}</p>
+                  <p className="text-xs text-[var(--brown-muted)]">
+                    {cleanReasoning(suggestion.personalOrShared.reasoning)}
+                  </p>
                 )}
                 {suggestion.hive?.groupName && (
                   <p className="text-xs text-[var(--brown-muted)]">

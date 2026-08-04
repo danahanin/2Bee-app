@@ -15,6 +15,8 @@ const CATEGORIES = [
   'other',
 ]
 
+const CURRENCIES = ['ILS', 'USD', 'EUR']
+
 // Snapshot of what the AI suggested at creation time, kept even after the user
 // reviews the expense — lets the review UI show "AI thought X" alongside "you said Y",
 // and gives the Step 6 feedback loop something to compare corrections against.
@@ -44,6 +46,7 @@ const expenseSchema = new mongoose.Schema(
     expenseGroupId: { type: mongoose.Schema.Types.ObjectId, ref: 'ExpenseGroup', default: null },
     userId: { type: String, required: true },
     amount: { type: Number, required: true, min: 0.01 },
+    currency: { type: String, default: 'ILS', enum: CURRENCIES },
     category: { type: String, required: true, enum: CATEGORIES },
     description: { type: String, required: true, maxlength: 200 },
     type: { type: String, required: true, enum: ['personal', 'shared'] },
@@ -51,8 +54,6 @@ const expenseSchema = new mongoose.Schema(
     date: { type: Date, required: true },
     isDeleted: { type: Boolean, default: false },
     classifiedBy: { type: String, enum: ['user', 'ai'], default: 'user' },
-    // True when an AI-derived classification (typically from bank sync) has not yet
-    // been confirmed or corrected by the user — the app never treats it as final.
     needsReview: { type: Boolean, default: false },
     aiSuggestion: { type: aiSuggestionSchema, default: null },
     externalTransactionId: { type: String, default: null },
@@ -72,3 +73,4 @@ expenseSchema.index({ userId: 1, source: 1, externalTransactionId: 1 }, { sparse
 
 module.exports = mongoose.model('Expense', expenseSchema)
 module.exports.CATEGORIES = CATEGORIES
+module.exports.CURRENCIES = CURRENCIES

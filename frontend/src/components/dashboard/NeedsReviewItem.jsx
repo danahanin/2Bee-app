@@ -35,7 +35,8 @@ function NeedsReviewItem({ expense, onResolve }) {
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--brown-text)]">{expense.description}</p>
           <p className="mt-0.5 text-xs text-[var(--brown-muted)]">
-            {formatCurrency(expense.amount)} · {new Date(expense.date).toLocaleDateString()}
+            {formatCurrency(expense.amount, { currency: expense.currency })} ·{' '}
+            {new Date(expense.date).toLocaleDateString()}
           </p>
         </div>
         <SuggestionBadge

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CURRENCIES, DEFAULT_CURRENCY } from '../../constants/currencies.js'
 
 const CATEGORIES = [
   'groceries',
@@ -24,6 +25,7 @@ function ExpenseFormModal({ expense, onSubmit, onClose, isSubmitting }) {
   const isEditing = Boolean(expense)
 
   const [amount, setAmount] = useState(() => (expense ? String(expense.amount) : ''))
+  const [currency, setCurrency] = useState(() => expense?.currency || DEFAULT_CURRENCY)
   const [category, setCategory] = useState(() => expense?.category || CATEGORIES[0])
   const [description, setDescription] = useState(() => expense?.description || '')
   const [date, setDate] = useState(() => toDateInputValue(expense?.date))
@@ -59,6 +61,7 @@ function ExpenseFormModal({ expense, onSubmit, onClose, isSubmitting }) {
     setErrors([])
     onSubmit({
       amount: parseFloat(amount),
+      currency,
       category,
       description: description.trim(),
       date,
@@ -97,16 +100,30 @@ function ExpenseFormModal({ expense, onSubmit, onClose, isSubmitting }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Amount</span>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
-              placeholder="0.00"
-              required
-            />
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                placeholder="0.00"
+                required
+              />
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                aria-label="Currency"
+                className="w-24 shrink-0 rounded-xl border border-slate-300 bg-white px-2 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              >
+                {CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </div>
           </label>
 
           <label className="block">
