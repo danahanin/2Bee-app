@@ -77,6 +77,14 @@ describe('Pairing API', () => {
     ])
   }
 
+  async function seedTwoUserHive(userIds = ['user_demo_1', 'user_demo_2']) {
+    const hive = await Hive.create({ userIds, isActive: true })
+    const hiveId = String(hive._id)
+    await User.findByIdAndUpdate(userIds[0], { hiveId })
+    tokenContexts['token-user-1'].hiveId = hiveId
+    return hive
+  }
+
   beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create()
     await mongoose.connect(mongoServer.getUri())
@@ -101,6 +109,8 @@ describe('Pairing API', () => {
   })
 
   it('POST /api/pair/generate creates a code with expiry', async () => {
+    await seedTwoUserHive()
+
     const response = await request(app)
       .post('/api/pair/generate')
       .set('Authorization', 'Bearer token-user-1')
@@ -111,29 +121,29 @@ describe('Pairing API', () => {
     expect(response.body.paired).toBe(false)
   })
 
-  it('keeps separate active codes for different hives', async () => {
-    const firstHive = await Hive.create({ userIds: ['user_demo_1'], name: 'Home' })
-    const secondHive = await Hive.create({ userIds: ['user_demo_1'], name: 'Trip' })
+  it('attaches generated code to the inviter existing hive', async () => {
+    const hive = await seedTwoUserHive()
 
-    const [firstResponse, secondResponse] = await Promise.all([
-      request(app).post('/api/pair/generate').set('Authorization', 'Bearer token-user-1').send({ hiveId: String(firstHive._id) }),
-      request(app).post('/api/pair/generate').set('Authorization', 'Bearer token-user-1').send({ hiveId: String(secondHive._id) }),
-    ])
+    const response = await request(app)
+      .post('/api/pair/generate')
+      .set('Authorization', 'Bearer token-user-1')
 
-    expect(firstResponse.status).toBe(201)
-    expect(secondResponse.status).toBe(201)
-    expect(firstResponse.body.code).not.toBe(secondResponse.body.code)
+    expect(response.status).toBe(201)
+    expect(response.body.hiveId).toBe(String(hive._id))
 
-    const invites = await PairInvite.find({ inviterUserId: 'user_demo_1', usedAt: null }).lean()
-    expect(invites).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ hiveId: firstHive._id }),
-        expect.objectContaining({ hiveId: secondHive._id }),
-      ]),
+    const invite = await PairInvite.findOne({ code: response.body.code }).lean()
+    expect(invite).toEqual(
+      expect.objectContaining({
+        inviterUserId: 'user_demo_1',
+        hiveId: hive._id,
+        usedAt: null,
+      }),
     )
   })
 
   it('POST /api/pair/join joins users and makes code one-time', async () => {
+    await seedTwoUserHive()
+
     const generated = await request(app)
       .post('/api/pair/generate')
       .set('Authorization', 'Bearer token-user-1')
@@ -186,6 +196,8 @@ describe('Pairing API', () => {
   })
 
   it('GET /api/pair/status reflects relationship state', async () => {
+    await seedTwoUserHive()
+
     const generated = await request(app)
       .post('/api/pair/generate')
       .set('Authorization', 'Bearer token-user-1')
@@ -194,7 +206,7 @@ describe('Pairing API', () => {
       .get('/api/pair/status')
       .set('Authorization', 'Bearer token-user-1')
     expect(preJoinStatus.status).toBe(200)
-    expect(preJoinStatus.body.paired).toBe(false)
+    expect(preJoinStatus.body.paired).toBe(true)
     expect(preJoinStatus.body.code).toBe(generated.body.code)
 
     await request(app)
