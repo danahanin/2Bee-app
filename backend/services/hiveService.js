@@ -409,82 +409,10 @@ async function getPersonalExpenses(userId, { category, from, to, page = 1, limit
   }
 }
 
-async function getHiveBalance(hiveId, currentUserId) {
-  const hive = await getHiveById(hiveId, currentUserId)
-  if (!hive) return null
-
-  const expenses = await Expense.find({ hiveId, type: 'shared', isDeleted: false }).lean()
-  const userIds = hive.userIds
-  const users = await getUserMap(userIds)
-  const total = expenses.reduce((sum, expense) => sum + expense.amount, 0)
-  const share = userIds.length > 0 ? total / userIds.length : 0
-  const paidByUser = new Map(userIds.map((userId) => [userId, 0]))
-
-  for (const expense of expenses) {
-    paidByUser.set(expense.userId, (paidByUser.get(expense.userId) || 0) + expense.amount)
-  }
-
-  const participants = userIds.map((userId) => {
-    const paid = paidByUser.get(userId) || 0
-    const user = users.get(userId)
-    return {
-      id: userId,
-      name: displayNameForUser(user, userId),
-      avatarUrl: user?.avatarUrl || null,
-      paid,
-      share,
-      balance: paid - share,
-      isCurrentUser: userId === currentUserId,
-    }
-  })
-
-  const creditors = participants
-    .filter((participant) => participant.balance > 0.005)
-    .map((participant) => ({ ...participant }))
-  const debtors = participants
-    .filter((participant) => participant.balance < -0.005)
-    .map((participant) => ({ ...participant, balance: Math.abs(participant.balance) }))
-  const settlements = []
-
-  for (const debtor of debtors) {
-    for (const creditor of creditors) {
-      if (debtor.balance <= 0.005) break
-      if (creditor.balance <= 0.005) continue
-
-      const amount = Math.min(debtor.balance, creditor.balance)
-      settlements.push({
-        from: {
-          id: debtor.id,
-          name: debtor.name,
-          avatarUrl: users.get(debtor.id)?.avatarUrl || null,
-          isCurrentUser: debtor.isCurrentUser,
-        },
-        to: {
-          id: creditor.id,
-          name: creditor.name,
-          avatarUrl: users.get(creditor.id)?.avatarUrl || null,
-          isCurrentUser: creditor.isCurrentUser,
-        },
-        amount,
-      })
-      debtor.balance -= amount
-      creditor.balance -= amount
-    }
-  }
-
-  return {
-    totalSharedSpend: total,
-    splitAmount: share,
-    participants,
-    settlements,
-  }
-}
-
 module.exports = {
   getHiveById,
   listUserHives,
   getHiveExpenses,
-  getHiveBalance,
   createSharedExpense,
   createPersonalExpense,
   updateSharedExpense,

@@ -15,6 +15,7 @@ import AvatarPickerModal from '../components/profile/AvatarPickerModal.jsx'
 import { useProfile } from '../hooks/useProfile.js'
 import { AVAILABLE_CATEGORIES, useSettings } from '../hooks/useSettings.js'
 import { useHiveBalance } from '../hooks/useHive.js'
+import { useHiveParticipants } from '../hooks/useHiveParticipants.js'
 
 function StatusToast({ message }) {
   if (!message) return null
@@ -31,8 +32,37 @@ function StatusToast({ message }) {
   )
 }
 
+function PartnerHiveCard({ hive, currentUserId }) {
+  const { balance, isLoading } = useHiveBalance(hive.hiveId)
+  const { partner } = useHiveParticipants(balance, currentUserId)
+  const partnerName = partner?.name || hive.partnerName || 'Partner'
+
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-[rgba(61,41,20,0.08)] p-3">
+      <UserAvatar
+        user={{
+          firstName: partner?.firstName || partnerName.split(' ')[0],
+          lastName: partner?.lastName || partnerName.split(' ').slice(1).join(' '),
+          name: partnerName,
+          avatarUrl: partner?.avatarUrl,
+        }}
+        size="lg"
+      />
+      <div className="min-w-0">
+        <p className="font-semibold text-[var(--brown-text)]">{partnerName}</p>
+        <p className="truncate text-xs text-[var(--brown-muted)]">{hive.label}</p>
+        <p className="text-sm text-[var(--brown-muted)]">
+          {isLoading
+            ? 'Loading…'
+            : `Paid ${partner?.paid != null ? `₪${partner.paid}` : '—'} in shared expenses`}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function ProfilePage() {
-  const { logout, pairingStatus } = useAuth()
+  const { logout, currentUser, hives } = useAuth()
   const [searchParams] = useSearchParams()
   const sectionParam = searchParams.get('section')
   const defaultSection = sectionParam === 'settings' ? 'notifications' : sectionParam || 'account'
@@ -41,9 +71,6 @@ function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [statusMessage, setStatusMessage] = useState(null)
   const [avatarModalOpen, setAvatarModalOpen] = useState(false)
-
-  const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
-  const { balance } = useHiveBalance(hiveId)
 
   const {
     privacySettings,
@@ -72,7 +99,6 @@ function ProfilePage() {
 
   const initials = `${profile.firstName?.[0] || ''}${profile.lastName?.[0] || ''}`.toUpperCase() || 'U'
   const paired = Boolean(profile.pairId)
-  const partner = balance?.participants?.find((p) => !p.isCurrentUser)
 
   async function handleSaveProfile(payload) {
     const result = await updateProfile(payload)
@@ -115,7 +141,7 @@ function ProfilePage() {
 
   const sections = [
     { id: 'account', label: 'Account' },
-    { id: 'partner', label: 'Partner' },
+    { id: 'partner', label: 'Partners' },
     { id: 'payment', label: 'Payment' },
     { id: 'notifications', label: 'Notifications' },
     { id: 'privacy', label: 'Privacy' },
@@ -205,24 +231,12 @@ function ProfilePage() {
       </div>
 
       {openSection === 'partner' && (
-        <HivePanel title="Connected partner" subtitle="Your hive partner">
-          {partner ? (
-            <div className="flex items-center gap-4">
-              <UserAvatar
-                user={{
-                  firstName: partner.name?.split(' ')[0],
-                  lastName: partner.name?.split(' ').slice(1).join(' '),
-                  name: partner.name,
-                  avatarUrl: partner.avatarUrl,
-                }}
-                size="lg"
-              />
-              <div>
-                <p className="font-semibold text-[var(--brown-text)]">{partner.name}</p>
-                <p className="text-sm text-[var(--brown-muted)]">
-                  Paid {partner.paid != null ? `₪${partner.paid}` : '—'} in shared expenses
-                </p>
-              </div>
+        <HivePanel title="Connected partners" subtitle="People you share hives with">
+          {hives.length > 0 ? (
+            <div className="space-y-3">
+              {hives.map((hive) => (
+                <PartnerHiveCard key={hive.hiveId} hive={hive} currentUserId={currentUser?.id} />
+              ))}
             </div>
           ) : (
             <p className="text-sm text-[var(--brown-muted)]">No partner connected yet.</p>
