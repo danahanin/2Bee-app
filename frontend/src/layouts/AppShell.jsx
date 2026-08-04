@@ -2,7 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import HoneycombBackground from '../components/design-system/HoneycombBackground.jsx'
 import HoneycombNav from '../components/design-system/HoneycombNav.jsx'
-import Hexagon from '../components/design-system/Hexagon.jsx'
+import BrandMark from '../components/design-system/BrandMark.jsx'
 import UserAvatar from '../components/design-system/UserAvatar.jsx'
 import { useProfile } from '../hooks/useProfile.js'
 
@@ -12,32 +12,27 @@ function AppShell() {
   const displayName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}`.trim() : 'User'
 
   return (
-    <div className="relative min-h-screen min-h-dvh">
+    <div className="relative min-h-screen min-h-dvh lg:h-dvh lg:overflow-hidden">
       <HoneycombBackground />
 
-      <div className="mx-auto flex min-h-screen min-h-dvh w-full max-w-7xl flex-col lg:flex-row">
+      <div className="mx-auto flex min-h-screen min-h-dvh w-full max-w-7xl flex-col lg:h-full lg:flex-row lg:overflow-hidden">
         <aside className="hidden w-28 shrink-0 border-r border-[rgba(61,41,20,0.08)] bg-[var(--wax-surface)] lg:flex lg:flex-col lg:items-center">
-          <div className="flex flex-col items-center gap-2 px-3 py-6">
-            <Hexagon size={40} variant="filled" className="text-white">
-              <span className="text-xs font-bold text-white">2B</span>
-            </Hexagon>
-            <span className="hive-eyebrow text-[10px]">2bee</span>
+          <div className="flex flex-col items-center px-3 py-5">
+            <BrandMark size={80} />
           </div>
           <HoneycombNav layout="sidebar" />
         </aside>
 
-        <div className="flex min-h-screen min-h-dvh min-w-0 w-full flex-1 flex-col">
+        <div className="flex min-h-screen min-h-dvh min-w-0 w-full flex-1 flex-col lg:min-h-0 lg:overflow-y-auto">
           <header
             className="sticky top-0 z-20 border-b border-[rgba(61,41,20,0.08)] bg-[var(--wax-surface)] px-3 py-2.5 sm:px-4 md:px-6 md:py-3"
             style={{ paddingTop: 'max(0.625rem, env(safe-area-inset-top))' }}
           >
             <div className="flex items-center justify-between gap-2 sm:gap-4">
               <div className="flex min-w-0 items-center gap-2 sm:gap-3 lg:hidden">
-                <Hexagon size={28} variant="filled">
-                  <span className="text-[9px] font-bold text-white">2B</span>
-                </Hexagon>
+                <BrandMark size={40} />
                 <div className="min-w-0">
-                  <p className="hive-eyebrow text-[10px]">2bee</p>
+                  <p className="hive-eyebrow text-[10px]">2Bee</p>
                   <p className="hive-title truncate text-sm">Shared finance</p>
                 </div>
               </div>

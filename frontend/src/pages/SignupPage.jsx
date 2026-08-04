@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import HoneycombBackground from '../components/design-system/HoneycombBackground.jsx'
-import Hexagon from '../components/design-system/Hexagon.jsx'
+import BrandMark from '../components/design-system/BrandMark.jsx'
 
 function SignupPage() {
   const navigate = useNavigate()
@@ -44,10 +44,8 @@ function SignupPage() {
       <HoneycombBackground />
       <section className="relative w-full max-w-md hive-card p-8 shadow-lg">
         <div className="mb-6 flex items-center gap-3">
-          <Hexagon size={40} variant="filled">
-            <span className="text-xs font-bold text-white">2B</span>
-          </Hexagon>
-          <p className="hive-eyebrow">2bee</p>
+          <BrandMark size={56} />
+          <p className="hive-eyebrow">2Bee</p>
         </div>
         <h1 className="hive-title text-3xl">Create account</h1>
         <p className="mt-2 text-sm text-[var(--brown-muted)]">Sign up to start managing shared finances.</p>
