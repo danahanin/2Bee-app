@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { apiUrl } from '../lib/api.js'
+import {
+  confirmBankConnection as confirmBankConnectionRequest,
+  connectBank as connectBankRequest,
+  disconnectBank as disconnectBankRequest,
+} from '../services/profileService.js'
 
 const DEFAULT_PRIVACY = {
   hidePersonalIncome: false,
@@ -45,6 +51,8 @@ async function parseResponse(response, fallbackMessage) {
 
 export function useSettings() {
   const { token, pairingStatus, refreshPairingStatus } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const [privacySettings, setPrivacySettings] = useState(DEFAULT_PRIVACY)
   const [notificationSettings, setNotificationSettings] = useState(DEFAULT_NOTIFICATIONS)
@@ -59,6 +67,8 @@ export function useSettings() {
   const [disconnectingPair, setDisconnectingPair] = useState(false)
   const [reconnectingPair, setReconnectingPair] = useState(false)
   const [disconnectingBank, setDisconnectingBank] = useState(false)
+  const [connectingBank, setConnectingBank] = useState(false)
+  const [bankConnectMessage, setBankConnectMessage] = useState(null)
 
   const fetchSettings = useCallback(async () => {
     if (!token) return
@@ -104,6 +114,45 @@ export function useSettings() {
   useEffect(() => {
     fetchSettings()
   }, [fetchSettings])
+
+  // Open Finance redirects back here with status/connectionId query params
+  // after the user completes (or cancels) the bank connect journey.
+  useEffect(() => {
+    if (!token) return undefined
+
+    const params = new URLSearchParams(location.search)
+    const connectionId = params.get('connectionId') || params.get('connection_id')
+    const bankStatus = params.get('status') || params.get('paymentStatus')
+    if (!connectionId && !bankStatus) return undefined
+
+    let mounted = true
+
+    async function confirm() {
+      try {
+        const data = await confirmBankConnectionRequest(token, { connectionId, status: bankStatus })
+        if (!mounted) return
+        setBankAccount(data.bankAccount || null)
+        setBankConnectMessage({
+          type: data.connected ? 'success' : 'error',
+          text: data.connected
+            ? 'Bank account connected. Transactions will sync automatically.'
+            : 'Bank connection was not completed. You can try again.',
+        })
+      } catch (confirmError) {
+        if (!mounted) return
+        setBankConnectMessage({ type: 'error', text: confirmError.message || 'Unable to confirm bank connection' })
+      } finally {
+        navigate(location.pathname, { replace: true })
+      }
+    }
+
+    confirm()
+    return () => {
+      mounted = false
+    }
+    // Intentionally run once per mount to process the redirect-back only once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
 
   const updatePrivacySettings = useCallback(
     async (patch) => {
@@ -254,19 +303,41 @@ export function useSettings() {
     [refreshPairingStatus, token],
   )
 
+  const connectBankAccount = useCallback(async () => {
+    if (!token) {
+      return { ok: false, message: 'Missing access token' }
+    }
+
+    setConnectingBank(true)
+    try {
+      const result = await connectBankRequest(token, `${window.location.origin}/app/profile?section=payment`)
+      if (!result.connectUrl) {
+        throw new Error('Bank provider did not return a connect URL')
+      }
+      window.location.href = result.connectUrl
+      return { ok: true }
+    } catch (err) {
+      setConnectingBank(false)
+      return { ok: false, message: err.message }
+    }
+  }, [token])
+
   const disconnectBankAccount = useCallback(async () => {
+    if (!token) {
+      return { ok: false, message: 'Missing access token' }
+    }
+
     setDisconnectingBank(true)
     try {
-      // Bank unlink endpoint is not available yet in this backend.
-      await new Promise((resolve) => setTimeout(resolve, 700))
-      setBankAccount(null)
+      const data = await disconnectBankRequest(token)
+      setBankAccount(data.bankAccount || { connected: false, bankName: '', lastSyncedAt: null })
       return { ok: true }
     } catch (err) {
       return { ok: false, message: err.message }
     } finally {
       setDisconnectingBank(false)
     }
-  }, [])
+  }, [token])
 
   const pairing = useMemo(
     () => ({
@@ -287,7 +358,10 @@ export function useSettings() {
     disconnectPair,
     reconnectPair,
     bankAccount,
+    connectBankAccount,
     disconnectBankAccount,
+    bankConnectMessage,
+    clearBankConnectMessage: () => setBankConnectMessage(null),
     pairing,
     loading,
     error,
@@ -296,6 +370,7 @@ export function useSettings() {
     savingSharedCategories,
     disconnectingPair,
     reconnectingPair,
+    connectingBank,
     disconnectingBank,
     refetch: fetchSettings,
   }

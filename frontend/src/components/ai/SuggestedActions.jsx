@@ -24,7 +24,7 @@ const ACTIONS = [
     id: 'report',
     label: 'Monthly report',
     icon: '📋',
-    scrollTo: 'monthly-report',
+    to: '/app/expenses?tab=analytics',
   },
   {
     id: 'reminder',

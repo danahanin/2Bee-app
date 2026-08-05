@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import EditProfileForm from '../components/profile/EditProfileForm.jsx'
@@ -103,15 +103,26 @@ function ProfilePage() {
     updateSharedCategories,
     disconnectPair,
     bankAccount,
+    connectBankAccount,
     disconnectBankAccount,
+    bankConnectMessage,
+    clearBankConnectMessage,
     pairing,
     loading: settingsLoading,
     savingPrivacy,
     savingNotifications,
     savingSharedCategories,
     disconnectingPair,
+    connectingBank,
     disconnectingBank,
   } = useSettings()
+
+  useEffect(() => {
+    if (bankConnectMessage) {
+      setStatusMessage(bankConnectMessage)
+      clearBankConnectMessage()
+    }
+  }, [bankConnectMessage, clearBankConnectMessage])
 
   if (sectionParam !== syncedParam) {
     setSyncedParam(sectionParam)
@@ -157,6 +168,13 @@ function ProfilePage() {
       return
     }
     setStatusMessage({ type: 'success', text: 'Bank account disconnected.' })
+  }
+
+  async function handleConnectBank() {
+    const result = await connectBankAccount()
+    if (!result.ok) {
+      setStatusMessage({ type: 'error', text: result.message || 'Failed to connect bank account.' })
+    }
   }
 
   return (
@@ -259,6 +277,8 @@ function ProfilePage() {
             bankAccount={bankAccount}
             isDisconnecting={disconnectingBank}
             onDisconnect={handleDisconnectBank}
+            isConnecting={connectingBank}
+            onConnect={handleConnectBank}
           />
         </HivePanel>
       )}

@@ -7,10 +7,11 @@ function getAuthHeaders(token) {
   }
 }
 
-export async function generatePairCode(token) {
+export async function generatePairCode(token, hiveId = null) {
   const res = await fetch(apiUrl('/api/pair/generate'), {
     method: 'POST',
     headers: getAuthHeaders(token),
+    body: JSON.stringify(hiveId ? { hiveId } : {}),
   })
 
   const data = await res.json()

@@ -32,6 +32,8 @@ const {
   getDisplayCurrency,
   updateDisplayCurrency,
   connectBank,
+  confirmBank,
+  disconnectBank,
   disconnectPair,
   reconnectPair,
 } = require('../controllers/profileController')
@@ -72,6 +74,8 @@ router.put('/settings/currency', updateDisplayCurrency)
 
 // Bank / Open Finance connection
 router.post('/bank/connect', connectBank)
+router.post('/bank/confirm', confirmBank)
+router.delete('/bank', disconnectBank)
 
 // Pairing management
 router.delete('/pair', disconnectPair)

@@ -7,6 +7,12 @@ const joinSchema = z
   })
   .strict()
 
+const generateSchema = z
+  .object({
+    hiveId: z.string().trim().min(1).optional(),
+  })
+  .strict()
+
 function userFallback(req) {
   return {
     email: req.user.email,
@@ -22,8 +28,17 @@ function zodMessage(error) {
 }
 
 async function generatePairCode(req, res, next) {
+  const parsed = generateSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: zodMessage(parsed.error) } })
+  }
+
   try {
-    const result = await pairService.generatePairCode(req.user.userId, userFallback(req))
+    const result = await pairService.generatePairCode(
+      req.user.userId,
+      userFallback(req),
+      parsed.data.hiveId || null,
+    )
     return res.status(201).json(result)
   } catch (error) {
     return next(error)

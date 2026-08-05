@@ -1,5 +1,6 @@
 const mongoose = require('mongoose')
 const Transfer = require('../models/Transfer')
+const User = require('../models/User')
 const {
   OPEN_FINANCE_SYNC_INTERVAL_MS,
   getPaymentStatus,
@@ -21,7 +22,15 @@ async function syncPendingTransfers() {
     const pendingTransfers = await Transfer.find({ status: 'pending' }).sort({ createdAt: 1 }).limit(20)
     for (const transfer of pendingTransfers) {
       try {
-        const statusResult = await getPaymentStatus(transfer.providerTransferId)
+        const ownerId = transfer.initiatedByUserId || transfer.fromUserId
+        const owner = ownerId ? await User.findById(ownerId).select('email').lean() : null
+        if (!owner?.email) {
+          console.warn(`Failed to sync transfer ${transfer.id}: missing owner email`)
+          continue
+        }
+        const statusResult = await getPaymentStatus(transfer.providerTransferId, {
+          openFinanceUserId: owner.email,
+        })
         const nextStatus = normalizeTransferStatus(statusResult.providerStatus)
         if (nextStatus === transfer.status && transfer.providerStatus === statusResult.providerStatus) {
           continue

@@ -1,10 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { fetchPairStatus, generatePairCode, joinPairCode } from '../services/pairService.js'
-import { connectBank, updateProfile } from '../services/profileService.js'
+import { confirmBankConnection, connectBank, getProfile, updateProfile } from '../services/profileService.js'
 
 const steps = ['Profile', 'Bank', 'Pair']
+const PAIR_POLL_MS = 3000
+const STEP_STORAGE_KEY = 'twobee_onboarding_step'
+
+function readStoredStep(userId) {
+  if (!userId || typeof window === 'undefined') return 0
+  const raw = window.localStorage.getItem(`${STEP_STORAGE_KEY}_${userId}`)
+  const parsed = Number(raw)
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 2 ? parsed : 0
+}
+
+function writeStoredStep(userId, step) {
+  if (!userId || typeof window === 'undefined') return
+  window.localStorage.setItem(`${STEP_STORAGE_KEY}_${userId}`, String(step))
+}
 
 function Stepper({ currentStep }) {
   return (
@@ -37,8 +50,16 @@ function Stepper({ currentStep }) {
 function OnboardingWizard() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { currentUser, token, logout } = useAuth()
-  const [step, setStep] = useState(0)
+  const {
+    currentUser,
+    token,
+    logout,
+    pairingStatus,
+    generatePairCode,
+    joinPairCode,
+    refreshPairingStatus,
+  } = useAuth()
+  const [step, setStep] = useState(() => readStoredStep(currentUser?.id))
   const [firstName, setFirstName] = useState(currentUser?.firstName || '')
   const [lastName, setLastName] = useState(currentUser?.lastName || '')
   const [bio, setBio] = useState('')
@@ -50,30 +71,101 @@ function OnboardingWizard() {
   const [error, setError] = useState('')
   const [bankConnected, setBankConnected] = useState(false)
 
+  // Keep the wizard step durable across full-page redirects (e.g. returning
+  // from the Open Finance bank connect flow), which remount the whole app.
+  useEffect(() => {
+    writeStoredStep(currentUser?.id, step)
+  }, [currentUser?.id, step])
+
+  // Hydrate bank connection state from the server, and handle the redirect
+  // back from Open Finance's connect journey (it appends status/connection
+  // query params to our redirectUrl instead of preserving in-memory state).
+  useEffect(() => {
+    let mounted = true
+
+    async function hydrate() {
+      const params = new URLSearchParams(location.search)
+      const connectionId = params.get('connectionId') || params.get('connection_id')
+      const bankStatus = params.get('status') || params.get('paymentStatus')
+      const isReturningFromBank = Boolean(connectionId || bankStatus)
+
+      if (isReturningFromBank) {
+        try {
+          const result = await confirmBankConnection(token, { connectionId, status: bankStatus })
+          if (!mounted) return
+          setBankConnected(Boolean(result.connected))
+          setStep(result.connected ? 2 : 1)
+          setMessage(
+            result.connected
+              ? 'Bank account connected. Transactions will sync automatically.'
+              : 'Bank connection was not completed. You can try again or skip for now.',
+          )
+        } catch (confirmError) {
+          if (!mounted) return
+          setError(confirmError.message || 'Unable to confirm bank connection')
+          setStep(1)
+        } finally {
+          navigate('/onboarding', { replace: true })
+        }
+        return
+      }
+
+      try {
+        const profile = await getProfile(token)
+        if (!mounted) return
+        if (profile.bankAccount?.connected) {
+          setBankConnected(true)
+        }
+      } catch {
+        // Non-fatal — onboarding can proceed without a hydrated profile.
+      }
+    }
+
+    hydrate()
+    return () => {
+      mounted = false
+    }
+    // Intentionally run once on mount to process the redirect-back only once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const displayName = useMemo(() => {
     const name = `${firstName} ${lastName}`.trim()
     return name || currentUser?.email || 'there'
   }, [currentUser?.email, firstName, lastName])
 
+  // Keep local invite UI in sync with Auth pairing state.
+  useEffect(() => {
+    if (pairingStatus?.code) {
+      setGeneratedCode(pairingStatus.code)
+      setGeneratedExpiresAt(pairingStatus.codeExpiresAt)
+    }
+  }, [pairingStatus?.code, pairingStatus?.codeExpiresAt])
+
+  // Once Auth knows we are paired, leave onboarding (ProtectedRoute also enforces this).
+  useEffect(() => {
+    if (pairingStatus?.paired) {
+      if (currentUser?.id) {
+        window.localStorage.removeItem(`${STEP_STORAGE_KEY}_${currentUser.id}`)
+      }
+      navigate('/app', { replace: true })
+    }
+  }, [currentUser?.id, navigate, pairingStatus?.paired])
+
   useEffect(() => {
     let mounted = true
 
     async function loadStatus() {
-      try {
-        const status = await fetchPairStatus(token)
-        if (!mounted) return
-        if (status.hiveId) {
-          window.localStorage.setItem('twobee_hive_id', status.hiveId)
-        }
-        if (status.paired) {
-          navigate('/app', { replace: true })
-        } else if (status.code) {
-          setGeneratedCode(status.code)
-          setGeneratedExpiresAt(status.codeExpiresAt)
-        }
-      } catch (loadError) {
-        if (!mounted) return
-        setMessage(loadError.message || 'Pairing status is not available yet.')
+      const result = await refreshPairingStatus()
+      if (!mounted) return
+      if (!result.ok) {
+        setMessage(result.message || 'Pairing status is not available yet.')
+        return
+      }
+      if (result.status?.code) {
+        setGeneratedCode(result.status.code)
+        setGeneratedExpiresAt(result.status.codeExpiresAt)
+        setStep(2)
       }
     }
 
@@ -81,7 +173,18 @@ function OnboardingWizard() {
     return () => {
       mounted = false
     }
-  }, [navigate, token])
+  }, [refreshPairingStatus])
+
+  // Poll while waiting for a partner after generating a code.
+  useEffect(() => {
+    if (step !== 2 || !generatedCode || pairingStatus?.paired) return undefined
+
+    const handle = window.setInterval(() => {
+      refreshPairingStatus()
+    }, PAIR_POLL_MS)
+
+    return () => window.clearInterval(handle)
+  }, [generatedCode, pairingStatus?.paired, refreshPairingStatus, step])
 
   async function handleProfileSubmit(event) {
     event.preventDefault()
@@ -103,16 +206,13 @@ function OnboardingWizard() {
     setMessage('')
     setIsLoading(true)
     try {
-      const result = await connectBank(token, window.location.origin)
-      if (result.configured && result.connectUrl) {
-        window.location.href = result.connectUrl
-        return
+      const result = await connectBank(token, `${window.location.origin}/onboarding`)
+      if (!result.connectUrl) {
+        throw new Error('Bank provider did not return a connect URL')
       }
-      setBankConnected(true)
-      setMessage('Bank account connected in sandbox mode. You can continue.')
+      window.location.href = result.connectUrl
     } catch (connectError) {
       setError(connectError.message || 'Unable to connect bank account')
-    } finally {
       setIsLoading(false)
     }
   }
@@ -122,10 +222,13 @@ function OnboardingWizard() {
     setMessage('')
     setIsLoading(true)
     try {
-      const result = await generatePairCode(token)
+      const result = await generatePairCode()
+      if (!result.ok) {
+        throw new Error(result.message || 'Unable to generate pair code')
+      }
       setGeneratedCode(result.code)
       setGeneratedExpiresAt(result.expiresAt)
-      setMessage('Share this code with your partner. When they join, check status to continue.')
+      setMessage('Share this code with your partner. Waiting for them to join…')
     } catch (generateError) {
       setError(generateError.message || 'Unable to generate pair code')
     } finally {
@@ -139,11 +242,12 @@ function OnboardingWizard() {
     setMessage('')
     setIsLoading(true)
     try {
-      const result = await joinPairCode(token, pairCode)
-      if (result.hiveId) {
-        window.localStorage.setItem('twobee_hive_id', result.hiveId)
+      const result = await joinPairCode(pairCode)
+      if (!result.ok) {
+        throw new Error(result.message || 'Unable to join pair code')
       }
-      navigate('/app', { replace: true })
+      setMessage('Pairing successful. Redirecting…')
+      // AuthContext is now paired; effect + ProtectedRoute navigate to /app.
     } catch (joinError) {
       setError(joinError.message || 'Unable to join pair code')
     } finally {
@@ -156,12 +260,12 @@ function OnboardingWizard() {
     setMessage('')
     setIsLoading(true)
     try {
-      const status = await fetchPairStatus(token)
-      if (status.hiveId) {
-        window.localStorage.setItem('twobee_hive_id', status.hiveId)
+      const result = await refreshPairingStatus()
+      if (!result.ok) {
+        throw new Error(result.message || 'Unable to check pairing status')
       }
-      if (status.paired) {
-        navigate('/app', { replace: true })
+      if (result.status?.paired) {
+        setMessage('Partner joined. Redirecting…')
       } else {
         setMessage('Still waiting for a partner to join this Hive.')
       }
@@ -310,6 +414,7 @@ function OnboardingWizard() {
                           Expires {new Date(generatedExpiresAt).toLocaleTimeString('en-IL', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       ) : null}
+                      <p className="mt-2 text-xs text-indigo-600">Waiting for partner… status refreshes automatically.</p>
                     </div>
                   ) : null}
                   <button

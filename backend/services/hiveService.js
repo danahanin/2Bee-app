@@ -363,6 +363,7 @@ async function createHiveTransfer(hiveId, user, data) {
     creditorName: data.creditorName,
     includeFakeProviders: Boolean(data.includeFakeProviders),
     redirectUrl: data.redirectUrl || null,
+    openFinanceUserId: user.email,
   })
 
   const transfer = await Transfer.create({

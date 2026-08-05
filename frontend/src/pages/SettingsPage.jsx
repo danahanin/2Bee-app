@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import NotificationSettings from '../components/settings/NotificationSettings.jsx'
 import PairingManagement from '../components/settings/PairingManagement.jsx'
@@ -50,7 +50,10 @@ function SettingsPage() {
     updateSharedCategories,
     disconnectPair,
     bankAccount,
+    connectBankAccount,
     disconnectBankAccount,
+    bankConnectMessage,
+    clearBankConnectMessage,
     pairing,
     loading,
     error,
@@ -58,10 +61,18 @@ function SettingsPage() {
     savingNotifications,
     savingSharedCategories,
     disconnectingPair,
+    connectingBank,
     disconnectingBank,
   } = useSettings()
 
   const [statusMessage, setStatusMessage] = useState(null)
+
+  useEffect(() => {
+    if (bankConnectMessage) {
+      setStatusMessage(bankConnectMessage)
+      clearBankConnectMessage()
+    }
+  }, [bankConnectMessage, clearBankConnectMessage])
 
   async function handlePrivacyToggle(field, value) {
     const result = await updatePrivacySettings({ [field]: value })
@@ -95,6 +106,13 @@ function SettingsPage() {
       return
     }
     setStatusMessage({ type: 'success', text: 'Bank account disconnected.' })
+  }
+
+  async function handleConnectBank() {
+    const result = await connectBankAccount()
+    if (!result.ok) {
+      setStatusMessage({ type: 'error', text: result.message || 'Failed to connect bank account.' })
+    }
   }
 
   return (
@@ -169,6 +187,8 @@ function SettingsPage() {
               bankAccount={bankAccount}
               isDisconnecting={disconnectingBank}
               onDisconnect={handleDisconnectBank}
+              isConnecting={connectingBank}
+              onConnect={handleConnectBank}
             />
           </CollapsibleCard>
         </div>

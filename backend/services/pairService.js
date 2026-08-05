@@ -7,6 +7,7 @@ const {
   DEFAULT_SHARED_CATEGORIES,
 } = require('../models/User')
 const { AppError } = require('../utils/appError')
+const { syncNewConnection } = require('../jobs/transactionSync')
 
 const PAIR_CODE_TTL_MS = 10 * 60 * 1000
 const PAIR_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -152,6 +153,19 @@ async function joinPairCode(userId, code, fallbackUser) {
   }
 
   await Promise.all([user.save(), partner.save()])
+
+  // Bank accounts are usually connected during onboarding, before a hive
+  // exists — trigger a catch-up sync now that we have a real hiveId to
+  // attach shared expenses to, instead of waiting for the recurring job.
+  await Promise.all(
+    [user, partner]
+      .filter((member) => member.bankAccount?.connected && member.bankAccount?.accountId)
+      .map((member) =>
+        syncNewConnection(member._id, member.bankAccount.accountId, hiveId).catch((syncError) => {
+          console.warn(`Post-pairing transaction sync failed for ${member._id}:`, syncError.message)
+        }),
+      ),
+  )
 
   return {
     success: true,

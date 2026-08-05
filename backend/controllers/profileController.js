@@ -218,6 +218,38 @@ async function connectBank(req, res, next) {
   }
 }
 
+const confirmBankSchema = z
+  .object({
+    connectionId: z.string().trim().min(1).nullish(),
+    status: z.string().trim().min(1).nullish(),
+  })
+  .strict()
+
+async function confirmBank(req, res, next) {
+  const parsed = confirmBankSchema.safeParse(req.body || {})
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: { code: 'VALIDATION_ERROR', message: validationErrorFromZod(parsed.error) } })
+  }
+
+  try {
+    const result = await profileService.confirmBankConnection(req.user.userId, userFallback(req), parsed.data)
+    return res.json(result)
+  } catch (error) {
+    return next(error)
+  }
+}
+
+async function disconnectBank(req, res, next) {
+  try {
+    const result = await profileService.disconnectBank(req.user.userId, userFallback(req))
+    return res.json(result)
+  } catch (error) {
+    return next(error)
+  }
+}
+
 async function disconnectPair(req, res, next) {
   try {
     const result = await profileService.disconnectPair(req.user.userId, userFallback(req))
@@ -257,6 +289,8 @@ module.exports = {
   getDisplayCurrency,
   updateDisplayCurrency,
   connectBank,
+  confirmBank,
+  disconnectBank,
   disconnectPair,
   reconnectPair,
 }

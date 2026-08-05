@@ -6,8 +6,8 @@ const hiveSchema = new mongoose.Schema(
       type: [String],
       required: true,
       validate: {
-        validator: (v) => v.length === 2,
-        message: 'A Hive must have exactly 2 users',
+        validator: (v) => v.length >= 1 && v.length <= 2,
+        message: 'A Hive must have 1 or 2 users',
       },
     },
     isActive: { type: Boolean, default: true },
