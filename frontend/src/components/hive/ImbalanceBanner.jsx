@@ -1,15 +1,10 @@
 import UserAvatar from '../design-system/UserAvatar.jsx'
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount || 0)
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle }) {
+  const { formatBase } = useCurrency()
+
+
   if (isLoading) {
     return <div className="h-28 animate-pulse rounded-2xl bg-white shadow-sm" />
   }
@@ -28,17 +23,17 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
   const currentContribution = contributions.find((item) => item.userId === currentUserId) || null
   const partnerContribution = contributions.find((item) => item.userId !== currentUserId) || null
   const canSettle = balance.suggestedTransfer?.fromUserId === currentUserId
-  const remaining = formatCurrency(balance.remainingImbalance)
+  const remaining = formatBase(balance.remainingImbalance)
 
   let title = 'Your hive is balanced'
   let description = 'You and your partner are even for now.'
 
   if (balance.balanceStatus === 'imbalanced' && currentContribution) {
     if (currentContribution.remainingNet > 0) {
-      title = `You've covered ${formatCurrency(currentContribution.remainingNet)} more so far`
+      title = `You've covered ${formatBase(currentContribution.remainingNet)} more so far`
       description = `A transfer of ${remaining} would bring things back into balance.`
     } else {
-      title = `${partnerContribution?.name || 'Your partner'} has covered ${formatCurrency(Math.abs(currentContribution.remainingNet))} more so far`
+      title = `${partnerContribution?.name || 'Your partner'} has covered ${formatBase(Math.abs(currentContribution.remainingNet))} more so far`
       description = canSettle
         ? `A transfer of ${remaining} would gently even things out.`
         : 'We are waiting for the next transfer step to even things out.'
@@ -76,14 +71,14 @@ function ImbalanceBanner({ balance, currentUserId, isLoading, error, onSettle })
           <p className="max-w-2xl text-sm text-[var(--brown-muted)]">{description}</p>
           <div className="flex flex-wrap gap-2 text-xs text-[var(--brown-muted)]">
             <span className="rounded-full bg-[var(--honey-50)] px-3 py-1">
-              Shared spend: {formatCurrency(balance.totalSharedSpend)}
+              Shared spend: {formatBase(balance.totalSharedSpend)}
             </span>
             <span className="rounded-full bg-[var(--honey-50)] px-3 py-1">
-              Each share: {formatCurrency(balance.equalShare)}
+              Each share: {formatBase(balance.equalShare)}
             </span>
             {balance.completedTransfersTotal > 0 && (
               <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">
-                Transferred already: {formatCurrency(balance.completedTransfersTotal)}
+                Transferred already: {formatBase(balance.completedTransfersTotal)}
               </span>
             )}
           </div>

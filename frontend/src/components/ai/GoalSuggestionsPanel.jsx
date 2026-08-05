@@ -1,7 +1,4 @@
-function formatCurrency(value) {
-  const amount = Number(value) || 0
-  return new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount)
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function getConfidenceLabel(confidence) {
   if (confidence >= 0.8) return 'High'
@@ -10,6 +7,7 @@ function getConfidenceLabel(confidence) {
 }
 
 function GoalCard({ goal, onAccept, acceptingGoalId }) {
+  const { formatBase } = useCurrency()
   const confidenceLabel = getConfidenceLabel(goal.confidence)
   const isAccepting = acceptingGoalId === goal.id
 
@@ -30,10 +28,10 @@ function GoalCard({ goal, onAccept, acceptingGoalId }) {
         </div>
         <div className="shrink-0 text-right">
           <p className="text-xs text-slate-500">Target</p>
-          <p className="text-lg font-bold text-indigo-600">{formatCurrency(goal.targetAmount)}</p>
+          <p className="text-lg font-bold text-indigo-600">{formatBase(goal.targetAmount)}</p>
           {goal.suggestedMonthlyContribution > 0 && (
             <p className="mt-1 text-xs text-slate-500">
-              {formatCurrency(goal.suggestedMonthlyContribution)}/mo
+              {formatBase(goal.suggestedMonthlyContribution)}/mo
             </p>
           )}
         </div>

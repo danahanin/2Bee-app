@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
 
 function MetricCard({ title, value, subtitle }) {
@@ -13,13 +14,9 @@ function MetricCard({ title, value, subtitle }) {
   )
 }
 
-function formatCurrency(value) {
-  const amount = Number(value) || 0
-  return new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount)
-}
-
 function PersonalDashboard() {
   const { logout } = useAuth()
+  const { formatBase } = useCurrency()
   const [data, setData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -54,8 +51,8 @@ function PersonalDashboard() {
 
   const topCategoryLabel = useMemo(() => {
     if (!data?.topCategory) return 'No spending yet this month'
-    return `${data.topCategory.category} • ${formatCurrency(data.topCategory.amount)}`
-  }, [data])
+    return `${data.topCategory.category} • ${formatBase(data.topCategory.amount)}`
+  }, [data, formatBase])
 
   return (
     <main className="min-h-screen p-4 md:p-8">
@@ -105,7 +102,7 @@ function PersonalDashboard() {
         {!isLoading && !error && data ? (
           <>
             <section className="grid gap-4 md:grid-cols-3">
-              <MetricCard title="Monthly Spend" value={formatCurrency(data.totalSpendThisMonth)} subtitle="Personal expenses" />
+              <MetricCard title="Monthly Spend" value={formatBase(data.totalSpendThisMonth)} subtitle="Personal expenses" />
               <MetricCard title="Top Category" value={data.topCategory?.category || 'N/A'} subtitle={topCategoryLabel} />
               <MetricCard title="Budget Items" value={String(data.budgetStatus?.length || 0)} subtitle="Personal budgets tracked" />
             </section>
@@ -121,7 +118,7 @@ function PersonalDashboard() {
                         <p className="text-sm text-slate-600">{item.percentUsed}% used</p>
                       </div>
                       <p className="mt-1 text-sm text-slate-600">
-                        {formatCurrency(item.spent)} / {formatCurrency(item.limit)} ({item.period})
+                        {formatBase(item.spent)} / {formatBase(item.limit)} ({item.period})
                       </p>
                     </div>
                   ))}

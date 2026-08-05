@@ -1,7 +1,4 @@
-function formatCurrency(value) {
-  const amount = Number(value) || 0
-  return new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount)
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function ConfidenceBar({ confidence }) {
   const percent = Math.round((confidence || 0) * 100)
@@ -22,10 +19,12 @@ function ConfidenceBar({ confidence }) {
 }
 
 function ForecastCard({ forecast }) {
+  const { formatBase } = useCurrency()
+
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h4 className="text-sm font-semibold capitalize text-slate-900">{forecast.category}</h4>
-      <p className="mt-1 text-2xl font-bold text-indigo-600">{formatCurrency(forecast.predictedAmount)}</p>
+      <p className="mt-1 text-2xl font-bold text-indigo-600">{formatBase(forecast.predictedAmount)}</p>
       <p className="text-xs text-slate-500">Predicted spend</p>
       <ConfidenceBar confidence={forecast.confidence} />
     </div>

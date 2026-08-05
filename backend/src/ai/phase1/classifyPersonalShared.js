@@ -64,6 +64,7 @@ async function classifyPersonalShared(extractedReceipt, { k = 5 } = {}) {
       confidence: fallback.confidence,
       reasoning: `[fallback] ${fallback.reasoning}`,
       retrieved,
+      source: 'fallback',
     })
   }
 }

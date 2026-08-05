@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
 import * as aiService from '../services/aiService.js'
-import { formatCurrency } from '../utils/formatCurrency.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 
 const SUGGESTED_PROMPTS = [
   { id: 'spend', label: 'How much did I spend this month?', intent: 'personalSpend' },
@@ -19,11 +19,11 @@ function formatInsights(data) {
     .join('\n\n')
 }
 
-function formatForecast(data) {
+function formatForecast(data, formatBase) {
   if (!data?.length) return 'Not enough data to generate a forecast yet.'
   return data
     .slice(0, 5)
-    .map((row) => `• ${row.category}: ${formatCurrency(row.predictedAmount)} predicted`)
+    .map((row) => `• ${row.category}: ${formatBase(row.predictedAmount)} predicted`)
     .join('\n')
 }
 
@@ -35,14 +35,15 @@ function formatRecommendations(data) {
     .join('\n\n')
 }
 
-function formatBalance(data) {
+function formatBalance(data, formatBase) {
   if (!data) return 'Could not load hive balance.'
   if (data.message) return data.message
   if (!data.isImbalanced) return 'Your hive is balanced. Everyone is settled up.'
-  return `There is an imbalance of ${formatCurrency(Math.abs(data.delta || 0))}. Trend: ${data.trend || 'stable'}.`
+  return `There is an imbalance of ${formatBase(Math.abs(data.delta || 0))}. Trend: ${data.trend || 'stable'}.`
 }
 
 export function useAssistantChat({ hiveId } = {}) {
+  const { formatBase } = useCurrency()
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
@@ -77,19 +78,19 @@ export function useAssistantChat({ hiveId } = {}) {
       switch (resolvedIntent) {
         case 'personalSpend': {
           const data = await fetchPersonalDashboard()
-          return `You've spent **${formatCurrency(data.totalSpendThisMonth, { maximumFractionDigits: 0 })}** on personal expenses this month.${
+          return `You've spent **${formatBase(data.totalSpendThisMonth, { maximumFractionDigits: 0 })}** on personal expenses this month.${
             data.topCategory
-              ? ` Your top category is **${data.topCategory.category}** at ${formatCurrency(data.topCategory.amount)}.`
+              ? ` Your top category is **${data.topCategory.category}** at ${formatBase(data.topCategory.amount)}.`
               : ''
           }`
         }
         case 'hiveBalance': {
           const result = await aiService.fetchImbalance(hiveId ? { hiveId } : {})
-          return formatBalance(result.data)
+          return formatBalance(result.data, formatBase)
         }
         case 'forecast': {
           const result = await aiService.fetchForecast({ scope: 'personal' })
-          return `Here's your spending forecast:\n\n${formatForecast(result.data)}`
+          return `Here's your spending forecast:\n\n${formatForecast(result.data, formatBase)}`
         }
         case 'recommendations': {
           const result = await aiService.fetchRecommendations()
@@ -102,7 +103,7 @@ export function useAssistantChat({ hiveId } = {}) {
         }
       }
     },
-    [hiveId],
+    [formatBase, hiveId],
   )
 
   const sendMessage = useCallback(

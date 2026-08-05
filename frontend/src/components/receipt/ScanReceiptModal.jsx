@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { scanReceipt, classifyFromReceipt, confirmReceipt } from '../../services/receiptService.js'
 import { EXPENSE_CATEGORIES as CATEGORIES } from '../../constants/categories.js'
+import { CURRENCIES, DEFAULT_CURRENCY } from '../../constants/currencies.js'
 import ClassificationPanel from './ClassificationPanel.jsx'
 import HiveSuggestionPanel from './HiveSuggestionPanel.jsx'
 import SuggestionBadge from '../ai/SuggestionBadge.jsx'
+import { isFallback, suggestionIcon, suggestionLabel, suggestionTone } from '../../utils/aiSource.js'
 
 const LOW_CONFIDENCE = 0.7
 
@@ -47,6 +49,7 @@ function validateForm({ amount, category, description, date }) {
 function applyDraftToForm(result, setters) {
   const ext = result?.extracted || {}
   setters.setAmount(ext.amount != null ? String(ext.amount) : '')
+  setters.setCurrency(CURRENCIES.includes(ext.currency) ? ext.currency : DEFAULT_CURRENCY)
   setters.setCategory(ext.category || '')
   setters.setDescription(ext.vendor || '')
   setters.setDate(toDateInputValue(ext.date))
@@ -65,6 +68,7 @@ function ScanReceiptModal({ onClose, onSaved }) {
   const [draft, setDraft] = useState(null)
 
   const [amount, setAmount] = useState('')
+  const [currency, setCurrency] = useState(DEFAULT_CURRENCY)
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(todayInputValue)
@@ -99,6 +103,7 @@ function ScanReceiptModal({ onClose, onSaved }) {
       setOverriddenType(null)
       applyDraftToForm(result, {
         setAmount,
+        setCurrency,
         setCategory,
         setDescription,
         setDate,
@@ -153,7 +158,7 @@ function ScanReceiptModal({ onClose, onSaved }) {
         amount: parseFloat(amount),
         category,
         date,
-        currency: draft?.extracted?.currency || null,
+        currency,
         lineItems: parsedLineItems,
         rawText: draft?.ocr?.rawText || draft?.extracted?.rawText || '',
       })
@@ -197,12 +202,13 @@ function ScanReceiptModal({ onClose, onSaved }) {
           amount: parseFloat(amount),
           category,
           date,
-          currency: draft?.extracted?.currency || null,
+          currency,
           lineItems,
           rawText: draft?.ocr?.rawText || draft?.extracted?.rawText || '',
         },
         expense: {
           amount: parseFloat(amount),
+          currency,
           category,
           description: description.trim(),
           date,
@@ -299,22 +305,33 @@ function ScanReceiptModal({ onClose, onSaved }) {
             <label className="block">
               <span className="mb-1 flex items-center gap-2 text-sm font-medium text-slate-700">
                 Amount
-                {draft?.extracted?.currency && (
-                  <span className="text-xs font-normal text-slate-400">{draft.extracted.currency}</span>
-                )}
                 {fieldConfidence.amount != null && fieldConfidence.amount < LOW_CONFIDENCE && (
                   <span className="text-xs font-normal text-amber-600">low confidence</span>
                 )}
               </span>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className={inputClass('amount')}
-                placeholder="0.00"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className={inputClass('amount')}
+                  placeholder="0.00"
+                />
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  aria-label="Currency"
+                  className="w-24 shrink-0 rounded-xl border border-slate-300 bg-white px-2 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                >
+                  {CURRENCIES.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </label>
 
             <label className="block">
@@ -339,12 +356,19 @@ function ScanReceiptModal({ onClose, onSaved }) {
                 ))}
               </select>
               {categorySuggestion && categorySuggestion.value !== category && (
-                <div className="mt-2">
+                <div className="mt-2 space-y-1.5">
                   <SuggestionBadge
-                    label={`AI suggests: ${categorySuggestion.value}`}
+                    label={suggestionLabel(categorySuggestion.source, categorySuggestion.value)}
                     confidence={categorySuggestion.confidence}
+                    icon={suggestionIcon(categorySuggestion.source)}
+                    tone={suggestionTone(categorySuggestion.source)}
                     onApply={() => setCategory(categorySuggestion.value)}
                   />
+                  {isFallback(categorySuggestion.source) && (
+                    <p className="text-xs text-amber-700">
+                      The AI model was unavailable, so this suggestion comes from simple rules instead.
+                    </p>
+                  )}
                 </div>
               )}
             </label>

@@ -9,17 +9,13 @@ import {
 } from 'recharts'
 import { colorForCategory } from '../../utils/categoryColors.js'
 import useChartSize from './useChartSize.js'
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('en-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    maximumFractionDigits: 0,
-  }).format(value || 0)
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
+import { CURRENCY_SYMBOLS } from '../../constants/currencies.js'
 
 function TrendLineChart({ months, series }) {
   const [frameRef, { width, height }] = useChartSize()
+  const { formatBase, convertToDisplay, displayCurrency } = useCurrency()
+  const symbol = CURRENCY_SYMBOLS[displayCurrency] || CURRENCY_SYMBOLS.ILS
 
   if (!series?.length || !months?.length) {
     return (
@@ -49,8 +45,12 @@ function TrendLineChart({ months, series }) {
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
           <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-          <YAxis width={48} tickFormatter={(value) => `₪${value}`} tick={{ fontSize: 11 }} />
-          <Tooltip formatter={(value) => formatCurrency(value)} />
+          <YAxis
+            width={48}
+            tickFormatter={(value) => `${symbol}${Math.round(convertToDisplay(value))}`}
+            tick={{ fontSize: 11 }}
+          />
+          <Tooltip formatter={(value) => formatBase(value)} />
           <Legend wrapperStyle={{ fontSize: 12 }} />
           {topSeries.map((entry, index) => (
             <Line

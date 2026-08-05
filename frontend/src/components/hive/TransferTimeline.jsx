@@ -1,19 +1,11 @@
 import UserAvatar from '../design-system/UserAvatar.jsx'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 const STATUS_STYLES = {
   pending: 'bg-amber-50 text-amber-700 ring-amber-100',
   completed: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
   failed: 'bg-rose-50 text-rose-700 ring-rose-100',
   cancelled: 'bg-slate-100 text-slate-700 ring-slate-200',
-}
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount || 0)
 }
 
 function directionLabel(transfer, currentUserId) {
@@ -24,6 +16,8 @@ function directionLabel(transfer, currentUserId) {
 }
 
 function TransferTimeline({ transfers, isLoading, error, currentUserId }) {
+  const { formatBase } = useCurrency()
+
   if (isLoading) {
     return <div className="h-44 animate-pulse rounded-2xl bg-[var(--honey-50)]" />
   }
@@ -76,7 +70,7 @@ function TransferTimeline({ transfers, isLoading, error, currentUserId }) {
                 </div>
 
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-[var(--brown-text)]">{formatCurrency(transfer.amount)}</p>
+                  <p className="text-sm font-semibold text-[var(--brown-text)]">{formatBase(transfer.amount)}</p>
                   <span
                     className={`mt-1 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
                       STATUS_STYLES[transfer.status] || STATUS_STYLES.pending

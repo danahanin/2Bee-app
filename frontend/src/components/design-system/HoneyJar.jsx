@@ -1,4 +1,7 @@
+import { useCurrency } from '../../context/CurrencyContext.jsx'
+
 function HoneyJar({ balance, label = 'Shared balance', status = 'settled', isLoading }) {
+  const { formatBase } = useCurrency()
   const amount = Number(balance) || 0
   const fillPercent = Math.min(100, Math.max(15, (amount / 10000) * 100 || 30))
   const statusColors = {
@@ -49,7 +52,7 @@ function HoneyJar({ balance, label = 'Shared balance', status = 'settled', isLoa
         </div>
         <div>
           <p className={`text-2xl font-bold whitespace-nowrap bg-gradient-to-r sm:text-3xl ${statusColors[status] || statusColors.settled} bg-clip-text text-transparent`}>
-            {`₪${amount.toLocaleString('en-IL', { maximumFractionDigits: 0 })}`}
+            {formatBase(amount, { maximumFractionDigits: 0 })}
           </p>
           <p className="mt-1 text-sm text-[var(--brown-muted)]">
             {status === 'settled' ? 'All balanced' : status === 'owed' ? 'Partner owes you' : 'You owe partner'}

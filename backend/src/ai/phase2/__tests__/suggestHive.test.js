@@ -50,6 +50,7 @@ describe('suggestHive helpers', () => {
         groupName: 'Work',
         confidence: 1,
         reasoning: 'Looks like a work meal',
+        source: 'ai',
       }),
     )
     expect(suggestion.alternatives).toEqual(

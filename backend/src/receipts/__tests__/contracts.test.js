@@ -49,21 +49,24 @@ describe('makeClassification', () => {
         confidence: 0.85,
         reasoning: 'Grocery receipt',
         retrieved: [{ text: 'supermarket run', type: 'shared', score: 0.9 }],
+        source: 'fallback',
       }),
     ).toEqual({
       type: 'shared',
       confidence: 0.85,
       reasoning: 'Grocery receipt',
       retrieved: [{ text: 'supermarket run', type: 'shared', score: 0.9 }],
+      source: 'fallback',
     })
   })
 
-  it('defaults reasoning and retrieved', () => {
+  it('defaults reasoning, retrieved, and source', () => {
     expect(makeClassification({ type: 'personal', confidence: 0.5 })).toEqual({
       type: 'personal',
       confidence: 0.5,
       reasoning: '',
       retrieved: [],
+      source: 'ai',
     })
   })
 })
@@ -77,6 +80,7 @@ describe('makeHiveSuggestion', () => {
         confidence: 0.82,
         reasoning: 'Looks like a client meal',
         alternatives: [{ groupId: 'group-2', name: 'Partner', score: 0.4 }],
+        source: 'fallback',
       }),
     ).toEqual({
       expenseGroupId: 'group-1',
@@ -84,16 +88,18 @@ describe('makeHiveSuggestion', () => {
       confidence: 0.82,
       reasoning: 'Looks like a client meal',
       alternatives: [{ groupId: 'group-2', name: 'Partner', score: 0.4 }],
+      source: 'fallback',
     })
   })
 
-  it('defaults to an empty unresolved suggestion', () => {
+  it('defaults to an empty unresolved suggestion with source ai', () => {
     expect(makeHiveSuggestion()).toEqual({
       expenseGroupId: null,
       groupName: null,
       confidence: 0,
       reasoning: '',
       alternatives: [],
+      source: 'ai',
     })
   })
 })

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { EXPENSE_CATEGORIES } from '../../constants/categories.js'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function defaultDeadline() {
   const date = new Date()
@@ -8,12 +9,17 @@ function defaultDeadline() {
 }
 
 function GoalFormModal({ initialValues, onSubmit, onClose, isSubmitting }) {
+  const { displayCurrency, convertToDisplay, convertFromDisplay } = useCurrency()
   const [title, setTitle] = useState(() => initialValues?.title || '')
   const [targetAmount, setTargetAmount] = useState(() =>
-    initialValues?.targetAmount != null ? String(initialValues.targetAmount) : '',
+    initialValues?.targetAmount != null
+      ? String(Math.round(convertToDisplay(initialValues.targetAmount) * 100) / 100)
+      : '',
   )
   const [currentAmount, setCurrentAmount] = useState(() =>
-    initialValues?.currentAmount != null ? String(initialValues.currentAmount) : '0',
+    initialValues?.currentAmount != null
+      ? String(Math.round(convertToDisplay(initialValues.currentAmount) * 100) / 100)
+      : '0',
   )
   const [deadline, setDeadline] = useState(() => {
     if (initialValues?.deadline) {
@@ -51,8 +57,8 @@ function GoalFormModal({ initialValues, onSubmit, onClose, isSubmitting }) {
     setErrors([])
     onSubmit({
       title: title.trim(),
-      targetAmount: parseFloat(targetAmount),
-      currentAmount: parseFloat(currentAmount) || 0,
+      targetAmount: convertFromDisplay(parseFloat(targetAmount)),
+      currentAmount: convertFromDisplay(parseFloat(currentAmount) || 0),
       deadline: new Date(`${deadline}T12:00:00.000Z`).toISOString(),
       category: category || undefined,
     })
@@ -99,7 +105,7 @@ function GoalFormModal({ initialValues, onSubmit, onClose, isSubmitting }) {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Target amount (ILS)</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">Target amount ({displayCurrency})</span>
             <input
               type="number"
               step="0.01"
@@ -112,7 +118,7 @@ function GoalFormModal({ initialValues, onSubmit, onClose, isSubmitting }) {
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Saved so far (ILS)</span>
+            <span className="mb-1 block text-sm font-medium text-slate-700">Saved so far ({displayCurrency})</span>
             <input
               type="number"
               step="0.01"
