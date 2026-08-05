@@ -30,6 +30,11 @@ const MAX_RETRIES = 3
 const BACKOFF_MS = [1000, 2000, 4000]
 const HEALTH_TIMEOUT_MS = 10000
 const TAGS_TIMEOUT_MS = 15000
+// Plain `fetch` has no timeout of its own — if the LLM host is unreachable (e.g. VPN is
+// down), each attempt can hang for the OS's TCP connect timeout (often 60s+) before
+// failing, and with MAX_RETRIES that turns one classification call into minutes. Bound
+// every attempt so callers reliably fall back to rule-based classification within seconds.
+const REQUEST_TIMEOUT_MS = Number(process.env.LLM_REQUEST_TIMEOUT_MS || 8000)
 
 const embedCache = new Map()
 const EMBED_CACHE_TTL_MS = 24 * 60 * 60 * 1000
@@ -71,7 +76,7 @@ async function fetchWithBackoff(url, options) {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
     let response
     try {
-      response = await fetch(url, options)
+      response = await fetch(url, { ...options, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) })
     } catch (err) {
       // Network-level failure (DNS, connection reset, timeout) — no HTTP response to
       // inspect, but still worth retrying the same way as a 5xx.

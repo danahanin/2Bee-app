@@ -23,6 +23,26 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function daysAgoISO(days) {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().slice(0, 10)
+}
+
+function daysFromNowISO(days) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+// Sandbox/real bank history can span well beyond the last couple of days —
+// Open Finance's own sandbox data is dated across several months and even
+// slightly into the future. Use a wide window the first time we sync a
+// newly connected account so existing history isn't missed; the recurring
+// loop then only needs a narrow window for incremental updates.
+const INITIAL_SYNC_LOOKBACK_DAYS = 365
+const INITIAL_SYNC_LOOKAHEAD_DAYS = 30
+
 function mapCategory(rawCategory) {
   const map = {
     food: 'groceries',
@@ -59,6 +79,13 @@ async function fetchWithRetry(accountId, options, attempt = 1) {
     await new Promise((resolve) => setTimeout(resolve, delay))
     return fetchWithRetry(accountId, options, attempt + 1)
   }
+}
+
+async function fetchTransactionsForUser(user, accountId, options) {
+  if (!user?.email) {
+    throw new Error('User email is required for Open Finance transaction sync')
+  }
+  return fetchWithRetry(accountId, { ...options, openFinanceUserId: user.email })
 }
 
 function buildAiSuggestionSnapshot(suggestion) {
@@ -121,14 +148,14 @@ async function classifyTransaction(transaction, { userId, hiveId, userSharedCate
   }
 }
 
-async function syncTransactionsForUser(userId, accountId, hiveId) {
-  const from = yesterdayISO()
-  const to = todayISO()
-
-  const rawTransactions = await fetchWithRetry(accountId, { from, to })
-  if (!rawTransactions.length) return 0
+async function syncTransactionsForUser(userId, accountId, hiveId, { from, to } = {}) {
+  const rangeFrom = from || yesterdayISO()
+  const rangeTo = to || todayISO()
 
   const user = await User.findById(userId).lean()
+  const rawTransactions = await fetchTransactionsForUser(user, accountId, { from: rangeFrom, to: rangeTo })
+  if (!rawTransactions.length) return 0
+
   const userSharedCategories = user?.sharedCategories || []
 
   let created = 0
@@ -167,6 +194,18 @@ async function syncTransactionsForUser(userId, accountId, hiveId) {
   }
 
   return created
+}
+
+/**
+ * Pull the full lookback window for an account right after it's connected
+ * (or after it joins a hive), instead of waiting for the narrow recurring
+ * window to slowly catch up.
+ */
+async function syncNewConnection(userId, accountId, hiveId) {
+  return syncTransactionsForUser(userId, accountId, hiveId, {
+    from: daysAgoISO(INITIAL_SYNC_LOOKBACK_DAYS),
+    to: daysFromNowISO(INITIAL_SYNC_LOOKAHEAD_DAYS),
+  })
 }
 
 async function syncAllHives() {
@@ -226,6 +265,7 @@ module.exports = {
   stopTransactionSyncLoop,
   syncAllHives,
   syncTransactionsForUser,
+  syncNewConnection,
   classifyTransaction,
   mapCategory,
 }

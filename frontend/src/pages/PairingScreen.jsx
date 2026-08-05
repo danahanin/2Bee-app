@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
+const PAIR_POLL_MS = 3000
+
 function PairingScreen() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -26,19 +28,36 @@ function PairingScreen() {
     if (!selectedHiveId && activeHiveId) setSelectedHiveId(activeHiveId)
   }, [activeHiveId, selectedHiveId])
 
+  useEffect(() => {
+    if (pairingStatus?.paired) {
+      navigate('/app', { replace: true })
+    }
+  }, [navigate, pairingStatus?.paired])
+
+  useEffect(() => {
+    const waitingForPartner = Boolean(generatedInvite?.code || pairingStatus?.code)
+    if (mode !== 'generate' || !waitingForPartner || pairingStatus?.paired) return undefined
+
+    const handle = window.setInterval(() => {
+      refreshPairingStatus()
+    }, PAIR_POLL_MS)
+
+    return () => window.clearInterval(handle)
+  }, [generatedInvite?.code, mode, pairingStatus?.code, pairingStatus?.paired, refreshPairingStatus])
+
   const expiryDate = pairingStatus?.codeExpiresAt ? new Date(pairingStatus.codeExpiresAt) : null
   const expiryText = expiryDate && !Number.isNaN(expiryDate.getTime()) ? expiryDate.toLocaleTimeString() : null
 
   const handleGenerate = async () => {
     setError('')
     setSuccess('')
-    const result = await generatePairCode(selectedHiveId || activeHiveId)
+    const result = await generatePairCode(selectedHiveId || activeHiveId || null)
     if (!result.ok) {
       setError(result.message || 'Failed to generate code')
       return
     }
     setGeneratedInvite(result)
-    setSuccess('Code generated. Share it with your partner.')
+    setSuccess('Code generated. Share it with your partner — waiting for them to join…')
   }
 
   const handleJoin = async (event) => {
@@ -52,7 +71,6 @@ function PairingScreen() {
       return
     }
     setSuccess('Pairing successful. Redirecting...')
-    navigate('/app', { replace: true })
   }
 
   return (
@@ -94,9 +112,10 @@ function PairingScreen() {
                 onChange={(event) => setSelectedHiveId(event.target.value)}
                 className="hive-input"
               >
+                {!hives.length ? <option value="">New hive</option> : null}
                 {hives.map((hive) => (
                   <option key={hive.hiveId} value={hive.hiveId}>
-                    {hive.name || hive.label}
+                    {hive.name || hive.label || hive.hiveId}
                   </option>
                 ))}
               </select>
@@ -120,6 +139,7 @@ function PairingScreen() {
                     Expires at {generatedInvite?.expiresAt ? new Date(generatedInvite.expiresAt).toLocaleTimeString() : expiryText}
                   </p>
                 ) : null}
+                <p className="mt-2 text-xs text-[var(--honey-700)]">Waiting for partner… status refreshes automatically.</p>
               </div>
             ) : null}
           </div>

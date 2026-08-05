@@ -277,7 +277,8 @@ export function AuthProvider({ children }) {
       return undefined
     }
 
-    const delay = Math.max(expiresAtMs - Date.now() - REFRESH_MARGIN_MS, 0)
+    // Avoid a tight refresh loop when the token is already inside the margin.
+    const delay = Math.max(expiresAtMs - Date.now() - REFRESH_MARGIN_MS, 5_000)
     const handle = setTimeout(() => {
       refreshSession()
     }, delay)
@@ -334,7 +335,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   const generatePairCode = useCallback(
-    async () => {
+    async (hiveId = null) => {
       if (!session?.token) {
         return { ok: false, message: 'Missing access token' }
       }
@@ -347,17 +348,25 @@ export function AuthProvider({ children }) {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${session.token}`,
           },
+          body: JSON.stringify(hiveId ? { hiveId } : {}),
         })
         const data = await response.json()
         if (!response.ok) {
           throw new Error(data.error?.message || 'Unable to generate code')
         }
 
+        if (data.hiveId && isBrowser()) {
+          window.localStorage.setItem('twobee_hive_id', data.hiveId)
+          setActiveHiveId(data.hiveId)
+        }
         setPairingStatus((prev) => ({
           ...prev,
+          paired: false,
           code: data.code,
           codeExpiresAt: data.expiresAt ?? null,
+          hiveId: data.hiveId ?? prev.hiveId,
         }))
+        await fetchHives(session.token)
         return { ok: true, ...data }
       } catch (error) {
         return { ok: false, message: error.message }
@@ -365,7 +374,7 @@ export function AuthProvider({ children }) {
         setIsPairingLoading(false)
       }
     },
-    [session?.token],
+    [fetchHives, session?.token],
   )
 
   const joinPairCode = useCallback(
@@ -398,6 +407,16 @@ export function AuthProvider({ children }) {
       }
     },
     [fetchHives, fetchPairingStatus, session?.token],
+  )
+
+  const refreshPairingStatus = useCallback(
+    () => fetchPairingStatus(session?.token ?? null),
+    [fetchPairingStatus, session?.token],
+  )
+
+  const refreshHives = useCallback(
+    () => fetchHives(session?.token ?? null),
+    [fetchHives, session?.token],
   )
 
   const logout = useCallback(async () => {
@@ -437,15 +456,13 @@ export function AuthProvider({ children }) {
       register,
       generatePairCode,
       joinPairCode,
-      refreshPairingStatus: () => fetchPairingStatus(session?.token ?? null),
-      refreshHives: () => fetchHives(session?.token ?? null),
+      refreshPairingStatus,
+      refreshHives,
       logout,
       refreshSession,
     }),
     [
       activeHiveId,
-      fetchHives,
-      fetchPairingStatus,
       generatePairCode,
       hives,
       isBootstrapping,
@@ -455,6 +472,8 @@ export function AuthProvider({ children }) {
       login,
       logout,
       pairingStatus,
+      refreshHives,
+      refreshPairingStatus,
       refreshSession,
       register,
       selectHive,

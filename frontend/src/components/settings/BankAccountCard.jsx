@@ -5,7 +5,7 @@ function formatSyncTime(timestamp) {
   return parsed.toLocaleString('en-IL', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function BankAccountCard({ bankAccount, isDisconnecting, onDisconnect }) {
+function BankAccountCard({ bankAccount, isDisconnecting, onDisconnect, isConnecting, onConnect }) {
   const isConnected = Boolean(bankAccount?.connected || bankAccount?.bankName)
 
   return (
@@ -36,6 +36,16 @@ function BankAccountCard({ bankAccount, isDisconnecting, onDisconnect }) {
       ) : (
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-700">No bank account connected.</p>
+          {onConnect ? (
+            <button
+              type="button"
+              onClick={onConnect}
+              disabled={isConnecting}
+              className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isConnecting ? 'Connecting...' : 'Connect bank account'}
+            </button>
+          ) : null}
         </div>
       )}
     </section>

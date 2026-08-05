@@ -8,6 +8,7 @@ const {
 } = require('../models/User')
 const { AppError } = require('../utils/appError')
 const openFinance = require('./openFinanceService')
+const { syncNewConnection } = require('../jobs/transactionSync')
 
 function normalizeEmail(email = '') {
   return String(email).trim().toLowerCase()
@@ -221,26 +222,129 @@ async function reconnectPair(userId, { partnerId, partnerCode }, fallbackUser) {
 
 async function connectBank(userId, fallbackUser, { redirectUrl } = {}) {
   const user = await ensureUserRecord(userId, fallbackUser)
+  const openFinanceUserId = user.email || fallbackUser?.email || ''
 
-  if (openFinance.isConfigured()) {
-    const connection = await openFinance.createBankConnection({ redirectUrl })
-    return { configured: true, connected: false, connectUrl: connection.connectUrl }
+  if (!openFinance.isConfigured()) {
+    throw new AppError(
+      503,
+      'OPEN_FINANCE_NOT_CONFIGURED',
+      'Open Finance is not configured. Set OPEN_FINANCE_CLIENT_ID and OPEN_FINANCE_CLIENT_SECRET to connect a bank account.',
+    )
+  }
+
+  if (!openFinanceUserId) {
+    throw new AppError(400, 'USER_EMAIL_REQUIRED', 'Your account email is required to connect a bank account.')
+  }
+
+  const connection = await openFinance.createBankConnection({
+    redirectUrl,
+    openFinanceUserId,
+  })
+  if (!connection.connectUrl) {
+    throw new AppError(
+      502,
+      'OPEN_FINANCE_CONNECT_URL_MISSING',
+      'Open Finance did not return a connect URL. Check provider credentials and try again.',
+    )
+  }
+
+  return {
+    configured: true,
+    connected: false,
+    connectUrl: connection.connectUrl,
+    connectionId: connection.connectionId || null,
+  }
+}
+
+// A connected PSU can expose several accounts (checking, savings, loans,
+// securities, cards...) — sandbox providers can even return multiple accounts
+// of the same type where only one actually has transaction history. We only
+// track one balance today, so narrow down to accounts with real activity
+// first, then prefer the everyday checking/savings account over loans,
+// securities, and cards.
+const ACCOUNT_TYPE_PRIORITY = ['CHECKING', 'SAVINGS', 'CARD', 'LOAN', 'SECURITIES']
+
+function pickPrimaryAccount(accounts) {
+  const withActivity = accounts.filter((account) => Number(account.raw?.transactions) > 0)
+  const pool = withActivity.length ? withActivity : accounts
+
+  for (const type of ACCOUNT_TYPE_PRIORITY) {
+    const match = pool.find((account) => (account.accountType || '').toUpperCase() === type)
+    if (match) return match
+  }
+  return pool[0] || accounts[0] || null
+}
+
+async function confirmBankConnection(userId, fallbackUser, { connectionId, status } = {}) {
+  const user = await ensureUserRecord(userId, fallbackUser)
+  const normalizedStatus = String(status || '').toLowerCase()
+  const connected = !['error', 'cancelled', 'canceled', 'failed'].includes(normalizedStatus)
+
+  // `connectionId` identifies the consent, not a fetchable account — the real
+  // account id (needed to pull transactions) has to be looked up separately
+  // once the connection is active.
+  let accountId = user.bankAccount?.accountId || null
+  let bankName = user.bankAccount?.bankName || ''
+
+  if (connected && user.email) {
+    try {
+      const accounts = await openFinance.fetchAccounts({ openFinanceUserId: user.email })
+      const primaryAccount = pickPrimaryAccount(accounts)
+      if (primaryAccount?.accountId) {
+        accountId = primaryAccount.accountId
+        bankName = primaryAccount.bankName || bankName
+      }
+    } catch (fetchError) {
+      console.warn('Failed to fetch Open Finance accounts:', fetchError.message)
+    }
   }
 
   user.bankAccount = {
     ...(user.bankAccount?.toObject?.() || user.bankAccount || {}),
-    connected: true,
-    bankName: user.bankAccount?.bankName || 'Sandbox Bank',
-    lastSyncedAt: new Date(),
+    connected,
+    bankName: connected ? bankName || 'Open Finance' : user.bankAccount?.bankName || '',
+    lastSyncedAt: connected ? new Date() : user.bankAccount?.lastSyncedAt || null,
+    accountId: connected ? accountId : user.bankAccount?.accountId || null,
   }
   await user.save()
+
+  let syncedTransactions = 0
+  if (connected && accountId && user.hiveId) {
+    try {
+      syncedTransactions = await syncNewConnection(userId, accountId, user.hiveId)
+    } catch (syncError) {
+      console.warn('Initial transaction sync failed:', syncError.message)
+    }
+  }
+
   return {
-    configured: false,
-    connected: true,
+    connected,
+    syncedTransactions,
     bankAccount: {
-      connected: true,
+      connected: user.bankAccount.connected,
       bankName: user.bankAccount.bankName,
       lastSyncedAt: user.bankAccount.lastSyncedAt,
+    },
+  }
+}
+
+async function disconnectBank(userId, fallbackUser) {
+  const user = await ensureUserRecord(userId, fallbackUser)
+
+  user.bankAccount = {
+    connected: false,
+    bankName: '',
+    lastSyncedAt: null,
+    accountId: null,
+  }
+  await user.save()
+
+  return {
+    success: true,
+    bankAccount: {
+      connected: false,
+      bankName: '',
+      lastSyncedAt: null,
     },
   }
 }
@@ -249,6 +353,8 @@ module.exports = {
   getProfile,
   updateProfile,
   connectBank,
+  confirmBankConnection,
+  disconnectBank,
   setAvatar,
   getPrivacySettings,
   updatePrivacySettings,
