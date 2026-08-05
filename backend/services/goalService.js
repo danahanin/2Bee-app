@@ -3,6 +3,8 @@ const Goal = require('../models/Goal')
 const Hive = require('../models/Hive')
 const { CATEGORIES } = require('../models/Expense')
 const { AppError } = require('../utils/appError')
+const { calculateGoalMetrics } = require('../src/ai/goalGuidanceCalculator')
+const { generateGoalGuidance } = require('../src/ai/goalGuidancePrompt')
 
 async function assertHiveMember(hiveId, userId) {
   if (!hiveId) {
@@ -107,7 +109,51 @@ async function createGoal(userId, hiveId, payload) {
   return serializeGoal(goal.toObject())
 }
 
+async function assertGoalAccess(goal, userId) {
+  if (goal.hiveId) {
+    await assertHiveMember(goal.hiveId.toString(), userId)
+    return
+  }
+  if (goal.userId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You do not have access to this goal')
+  }
+}
+
+/**
+ * Loads a Goal, verifies the caller may view it (owner for a personal goal, any
+ * Hive member for a shared one), computes deterministic progress metrics, and asks
+ * the LLM to explain them in plain language. Nothing here is persisted — this is a
+ * read-only, on-demand explanation of numbers the app already calculated.
+ */
+async function getGoalGuidance(userId, goalId) {
+  if (!mongoose.Types.ObjectId.isValid(goalId)) {
+    throw new AppError(404, 'NOT_FOUND', 'Goal not found')
+  }
+
+  const goal = await Goal.findById(goalId)
+  if (!goal) {
+    throw new AppError(404, 'NOT_FOUND', 'Goal not found')
+  }
+
+  await assertGoalAccess(goal, userId)
+
+  const goalPlain = goal.toObject()
+  const metrics = calculateGoalMetrics(goalPlain)
+  if (!metrics.valid) {
+    throw new AppError(400, 'VALIDATION_ERROR', `Goal data is incomplete or invalid: ${metrics.errors.join('; ')}`)
+  }
+
+  try {
+    const guidance = await generateGoalGuidance({ goal: goalPlain, metrics })
+    return { metrics, guidance }
+  } catch (err) {
+    console.warn('[getGoalGuidance] LLM guidance failed:', err.message)
+    throw new AppError(503, 'AI_GUIDANCE_UNAVAILABLE', 'Could not generate AI guidance right now. Please try again.')
+  }
+}
+
 module.exports = {
   listGoals,
   createGoal,
+  getGoalGuidance,
 }

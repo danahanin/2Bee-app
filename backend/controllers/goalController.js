@@ -1,4 +1,5 @@
 const { z } = require('zod')
+const mongoose = require('mongoose')
 const goalService = require('../services/goalService')
 const { sendError } = require('../utils/appError')
 
@@ -53,7 +54,26 @@ async function createGoal(req, res) {
   }
 }
 
+function isValidObjectId(value) {
+  return typeof value === 'string' && mongoose.Types.ObjectId.isValid(value)
+}
+
+async function getGoalGuidance(req, res) {
+  const { id } = req.params
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'id must be a valid goal id' } })
+  }
+
+  try {
+    const data = await goalService.getGoalGuidance(req.user.userId, id)
+    res.json(data)
+  } catch (err) {
+    return sendError(res, err, 'Could not generate AI guidance right now.')
+  }
+}
+
 module.exports = {
   listGoals,
   createGoal,
+  getGoalGuidance,
 }

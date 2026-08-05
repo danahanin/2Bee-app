@@ -8,5 +8,6 @@ router.use(authMiddleware)
 
 router.get('/', goalController.listGoals)
 router.post('/', goalController.createGoal)
+router.post('/:id/guidance', goalController.getGoalGuidance)
 
 module.exports = router
