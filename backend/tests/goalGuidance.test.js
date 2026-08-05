@@ -61,6 +61,9 @@ const { generateGoalGuidance } = require('../src/ai/goalGuidancePrompt')
 const { createApp } = require('../app')
 const Hive = require('../models/Hive')
 const Goal = require('../models/Goal')
+const User = require('../models/User')
+const Expense = require('../models/Expense')
+const fxService = require('../services/fxService')
 
 const VALID_GUIDANCE = {
   summary: 'You have already completed 25% of your goal.',
@@ -91,7 +94,7 @@ describe('Goal guidance API', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks()
-    await Promise.all([Hive.deleteMany({}), Goal.deleteMany({})])
+    await Promise.all([Hive.deleteMany({}), Goal.deleteMany({}), User.deleteMany({}), Expense.deleteMany({})])
 
     const hive = await Hive.create({ userIds: ['user_a', 'user_b'], isActive: true })
     hiveId = hive._id.toString()
@@ -140,6 +143,141 @@ describe('Goal guidance API', () => {
     expect(callArg.goal.title).toBe('Vacation fund')
     expect(callArg.goal).not.toHaveProperty('pairId')
     expect(callArg.goal).not.toHaveProperty('bankAccount')
+  })
+
+  it('defaults to ILS (the base currency) when the user has no stored display currency preference', async () => {
+    generateGoalGuidance.mockResolvedValue(VALID_GUIDANCE)
+
+    await request(app).post(`/goals/${personalGoalId}/guidance`).set('Authorization', 'Bearer token-user-a')
+
+    const callArg = generateGoalGuidance.mock.calls[0][0]
+    expect(callArg.displayCurrency).toBe('ILS')
+    expect(callArg.displayAmounts.targetAmount).toBe(8000)
+    expect(callArg.displayAmounts.remainingAmount).toBe(6000)
+  })
+
+  it("converts the amounts sent to the LLM to the user's chosen display currency", async () => {
+    await User.create({
+      _id: 'user_a',
+      email: 'a@test.app',
+      emailLower: 'a@test.app',
+      passwordHash: 'x',
+      firstName: 'User',
+      lastName: 'A',
+      displayCurrency: 'USD',
+    })
+    generateGoalGuidance.mockResolvedValue(VALID_GUIDANCE)
+
+    const response = await request(app)
+      .post(`/goals/${personalGoalId}/guidance`)
+      .set('Authorization', 'Bearer token-user-a')
+
+    expect(response.status).toBe(200)
+    const callArg = generateGoalGuidance.mock.calls[0][0]
+    expect(callArg.displayCurrency).toBe('USD')
+
+    const rate = await fxService.getRate('ILS', 'USD')
+    expect(callArg.displayAmounts.targetAmount).toBeCloseTo(8000 * rate, 2)
+    expect(callArg.displayAmounts.remainingAmount).toBeCloseTo(6000 * rate, 2)
+    expect(callArg.displayAmounts.requiredMonthlyAmount).toBeGreaterThan(0)
+    expect(callArg.displayAmounts.requiredMonthlyAmount).toBeLessThan(callArg.displayAmounts.remainingAmount)
+  })
+
+  it('never turns a null requiredMonthlyAmount into 0 when converting currency', async () => {
+    generateGoalGuidance.mockResolvedValue(VALID_GUIDANCE)
+    const completedGoal = await Goal.create({
+      userId: 'user_a',
+      hiveId: null,
+      title: 'Emergency fund',
+      targetAmount: 1000,
+      currentAmount: 1000,
+      deadline: new Date(),
+    })
+
+    await request(app)
+      .post(`/goals/${completedGoal._id.toString()}/guidance`)
+      .set('Authorization', 'Bearer token-user-a')
+
+    const callArg = generateGoalGuidance.mock.calls[0][0]
+    expect(callArg.displayAmounts.requiredMonthlyAmount).toBeNull()
+  })
+
+  it('returns an empty topSpendingCategories list when there is no recent spending history', async () => {
+    generateGoalGuidance.mockResolvedValue(VALID_GUIDANCE)
+
+    await request(app).post(`/goals/${personalGoalId}/guidance`).set('Authorization', 'Bearer token-user-a')
+
+    const callArg = generateGoalGuidance.mock.calls[0][0]
+    expect(callArg.topSpendingCategories).toEqual([])
+  })
+
+  it('includes real recent spending categories scoped to the personal goal owner only', async () => {
+    generateGoalGuidance.mockResolvedValue(VALID_GUIDANCE)
+    const now = new Date()
+
+    await Expense.insertMany([
+      { userId: 'user_a', amount: 450, category: 'dining', description: 'Restaurant', type: 'personal', source: 'manual', date: now },
+      { userId: 'user_a', amount: 100, category: 'groceries', description: 'Market', type: 'personal', source: 'manual', date: now },
+      // A partner's own personal spending must never leak into user_a's guidance.
+      { userId: 'user_b', amount: 5000, category: 'shopping', description: 'Big spend', type: 'personal', source: 'manual', date: now },
+    ])
+
+    await request(app).post(`/goals/${personalGoalId}/guidance`).set('Authorization', 'Bearer token-user-a')
+
+    const callArg = generateGoalGuidance.mock.calls[0][0]
+    const categories = callArg.topSpendingCategories.map((entry) => entry.category)
+    expect(categories).toContain('dining')
+    expect(categories).toContain('groceries')
+    expect(categories).not.toContain('shopping')
+    expect(callArg.topSpendingCategories.find((entry) => entry.category === 'dining').avgMonthlyAmount).toBe(450)
+  })
+
+  it("only uses the Hive's shared expenses (never a member's personal ones) for a shared goal", async () => {
+    generateGoalGuidance.mockResolvedValue(VALID_GUIDANCE)
+    const now = new Date()
+
+    await Expense.insertMany([
+      { userId: 'user_a', hiveId, amount: 600, category: 'rent', description: 'Rent share', type: 'shared', source: 'manual', date: now },
+      // A member's personal expense must not leak into the shared goal's spending context.
+      { userId: 'user_a', amount: 900, category: 'shopping', description: 'Personal splurge', type: 'personal', source: 'manual', date: now },
+    ])
+
+    await request(app).post(`/goals/${sharedGoalId}/guidance`).set('Authorization', 'Bearer token-user-b')
+
+    const callArg = generateGoalGuidance.mock.calls[0][0]
+    const categories = callArg.topSpendingCategories.map((entry) => entry.category)
+    expect(categories).toContain('rent')
+    expect(categories).not.toContain('shopping')
+  })
+
+  it("converts topSpendingCategories amounts to the user's chosen display currency", async () => {
+    await User.create({
+      _id: 'user_a',
+      email: 'a@test.app',
+      emailLower: 'a@test.app',
+      passwordHash: 'x',
+      firstName: 'User',
+      lastName: 'A',
+      displayCurrency: 'USD',
+    })
+    generateGoalGuidance.mockResolvedValue(VALID_GUIDANCE)
+    const now = new Date()
+    await Expense.create({
+      userId: 'user_a',
+      amount: 400,
+      category: 'dining',
+      description: 'Restaurant',
+      type: 'personal',
+      source: 'manual',
+      date: now,
+    })
+
+    await request(app).post(`/goals/${personalGoalId}/guidance`).set('Authorization', 'Bearer token-user-a')
+
+    const callArg = generateGoalGuidance.mock.calls[0][0]
+    const rate = await fxService.getRate('ILS', 'USD')
+    const dining = callArg.topSpendingCategories.find((entry) => entry.category === 'dining')
+    expect(dining.avgMonthlyAmount).toBeCloseTo(400 * rate, 2)
   })
 
   it('rejects a personal goal request from a user who does not own it', async () => {
