@@ -2,13 +2,19 @@ const mongoose = require('mongoose')
 const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
 const User = require('../models/User')
-const { fetchAccountTransactions, isConfigured } = require('../services/openFinanceService')
+const {
+  fetchAccountTransactions,
+  isConfigured,
+  resolvePrimaryAccount,
+} = require('../services/openFinanceService')
 const { classifyExpense, fromBankTransaction } = require('../src/ai/classification')
 const { classifyExpenseRuleBased } = require('../src/ai/classifier')
 
 const SYNC_INTERVAL_MS = Number(process.env.TRANSACTION_SYNC_INTERVAL_MS || 5 * 60 * 1000)
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 2000
+
+const INITIAL_SYNC_RULE_BASED = String(process.env.BANK_SYNC_INITIAL_RULE_BASED ?? 'true').toLowerCase() !== 'false'
 
 let syncHandle = null
 let syncInFlight = false
@@ -106,15 +112,37 @@ function buildAiSuggestionSnapshot(suggestion) {
   }
 }
 
+function classifyTransactionRuleBased(transaction, { userSharedCategories } = {}) {
+  const categoryHint = mapCategory(transaction.category)
+  const fallback = classifyExpenseRuleBased({
+    description: transaction.description || transaction.remittanceInformation || '',
+    amount: Math.abs(transaction.amount || 0),
+    category: categoryHint,
+    sharedCategories: userSharedCategories,
+  })
+
+  return {
+    category: categoryHint,
+    type: fallback.label,
+    expenseGroupId: null,
+    classifiedBy: 'user',
+    needsReview: false,
+    aiSuggestion: null,
+  }
+}
+
 /**
- * Classify a raw bank transaction with the full multi-task classifier. The expense is
- * always created (a transaction is never dropped), but an AI-derived result is stored
- * as a pending suggestion (`needsReview: true`) rather than a finalized user decision —
- * see the "suggest, never auto-apply" principle for bank sync.
+ * Classify a raw bank transaction. When useLlm is true, AI results are stored as a
+ * pending suggestion (`needsReview: true`) rather than a finalized decision.
+ * Initial bulk imports can skip the LLM via useLlm: false.
  * @param {object} transaction Raw transaction from the Open Finance API.
- * @param {{ userId: string, hiveId: string, userSharedCategories?: string[] }} context
+ * @param {{ userId: string, hiveId: string, userSharedCategories?: string[], useLlm?: boolean }} context
  */
-async function classifyTransaction(transaction, { userId, hiveId, userSharedCategories }) {
+async function classifyTransaction(transaction, { userId, hiveId, userSharedCategories, useLlm = true }) {
+  if (!useLlm) {
+    return classifyTransactionRuleBased(transaction, { userSharedCategories })
+  }
+
   const categoryHint = mapCategory(transaction.category)
 
   try {
@@ -130,25 +158,11 @@ async function classifyTransaction(transaction, { userId, hiveId, userSharedCate
       aiSuggestion: buildAiSuggestionSnapshot(suggestion),
     }
   } catch {
-    const fallback = classifyExpenseRuleBased({
-      description: transaction.description || transaction.remittanceInformation || '',
-      amount: Math.abs(transaction.amount || 0),
-      category: categoryHint,
-      sharedCategories: userSharedCategories,
-    })
-
-    return {
-      category: categoryHint,
-      type: fallback.label,
-      expenseGroupId: null,
-      classifiedBy: 'user',
-      needsReview: false,
-      aiSuggestion: null,
-    }
+    return classifyTransactionRuleBased(transaction, { userSharedCategories })
   }
 }
 
-async function syncTransactionsForUser(userId, accountId, hiveId, { from, to } = {}) {
+async function syncTransactionsForUser(userId, accountId, hiveId, { from, to, useLlm = true } = {}) {
   const rangeFrom = from || yesterdayISO()
   const rangeTo = to || todayISO()
 
@@ -173,7 +187,12 @@ async function syncTransactionsForUser(userId, accountId, hiveId, { from, to } =
     const amount = Math.abs(tx.amount || 0)
     if (amount <= 0) continue
 
-    const classification = await classifyTransaction(tx, { userId, hiveId, userSharedCategories })
+    const classification = await classifyTransaction(tx, {
+      userId,
+      hiveId,
+      userSharedCategories,
+      useLlm,
+    })
 
     await Expense.create({
       hiveId: classification.type === 'shared' ? hiveId : null,
@@ -200,13 +219,42 @@ async function syncTransactionsForUser(userId, accountId, hiveId, { from, to } =
 /**
  * Pull the full lookback window for an account right after it's connected
  * (or after it joins a hive), instead of waiting for the narrow recurring
- * window to slowly catch up.
+ * window to slowly catch up. Uses rule-based classification by default so
+ * the dashboard fills immediately; incremental syncs still go through the LLM.
  */
 async function syncNewConnection(userId, accountId, hiveId) {
   return syncTransactionsForUser(userId, accountId, hiveId, {
     from: daysAgoISO(INITIAL_SYNC_LOOKBACK_DAYS),
     to: daysFromNowISO(INITIAL_SYNC_LOOKAHEAD_DAYS),
+    useLlm: !INITIAL_SYNC_RULE_BASED,
   })
+}
+
+async function ensureAccountId(user) {
+  let accountId = user?.bankAccount?.accountId || null
+  if (accountId || !user?.bankAccount?.connected || !user?.email) {
+    return accountId
+  }
+
+  try {
+    const primaryAccount = await resolvePrimaryAccount(user.email)
+    if (!primaryAccount?.accountId) return null
+
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          'bankAccount.accountId': primaryAccount.accountId,
+          'bankAccount.bankName': primaryAccount.bankName || user.bankAccount?.bankName || 'Open Finance',
+        },
+      },
+    )
+    console.log(`[transactionSync] Recovered accountId for ${user.email}`)
+    return primaryAccount.accountId
+  } catch (err) {
+    console.warn(`[transactionSync] Could not recover accountId for ${user._id}:`, err.message)
+    return null
+  }
 }
 
 async function syncAllHives() {
@@ -220,13 +268,30 @@ async function syncAllHives() {
     for (const hive of activeHives) {
       for (const userId of hive.userIds) {
         const user = await User.findById(userId).lean()
-        const accountId = user?.bankAccount?.accountId
+        const accountId = await ensureAccountId(user)
         if (!accountId) continue
 
         try {
-          const count = await syncTransactionsForUser(userId, accountId, hive._id)
+          // Until the wide history import finishes, keep using syncNewConnection
+          // (rule-based by default). Incremental ticks after that use the LLM.
+          const initialImport = !user?.bankAccount?.initialSyncComplete
+          const count = initialImport
+            ? await syncNewConnection(userId, accountId, hive._id)
+            : await syncTransactionsForUser(userId, accountId, hive._id, { useLlm: true })
+
+          const updates = { 'bankAccount.lastSyncedAt': new Date() }
+          if (initialImport) {
+            updates['bankAccount.initialSyncComplete'] = true
+          }
+
+          if (count > 0 || initialImport) {
+            await User.updateOne({ _id: userId }, { $set: updates })
+          }
           if (count > 0) {
-            console.log(`[transactionSync] Synced ${count} transactions for user ${userId}`)
+            console.log(
+              `[transactionSync] Synced ${count} transactions for user ${userId}` +
+                (initialImport ? ' (initial/rule-based)' : ''),
+            )
           }
         } catch (err) {
           console.warn(`[transactionSync] Failed for user ${userId}:`, err.message)

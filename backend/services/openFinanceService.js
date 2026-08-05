@@ -212,6 +212,42 @@ async function fetchAccounts({ openFinanceUserId } = {}) {
   }))
 }
 
+const ACCOUNT_TYPE_PRIORITY = ['CHECKING', 'SAVINGS', 'CARD', 'LOAN', 'SECURITIES']
+
+function pickPrimaryAccount(accounts) {
+  const withActivity = accounts.filter((account) => Number(account.raw?.transactions) > 0)
+  const pool = withActivity.length ? withActivity : accounts
+
+  for (const type of ACCOUNT_TYPE_PRIORITY) {
+    const match = pool.find((account) => (account.accountType || '').toUpperCase() === type)
+    if (match) return match
+  }
+  return pool[0] || accounts[0] || null
+}
+
+async function resolvePrimaryAccount(openFinanceUserId, { attempts = 1, delayMs = 0 } = {}) {
+  let lastError = null
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const accounts = await fetchAccounts({ openFinanceUserId })
+      const primaryAccount = pickPrimaryAccount(accounts)
+      if (primaryAccount?.accountId) {
+        return primaryAccount
+      }
+    } catch (fetchError) {
+      lastError = fetchError
+    }
+
+    if (attempt < attempts && delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+  }
+
+  if (lastError) throw lastError
+  return null
+}
+
 // The provider's real schema nests everything (amount/description/date), so
 // normalize each transaction into the flat shape the rest of the app expects.
 function normalizeTransaction(tx) {
@@ -252,6 +288,8 @@ module.exports = {
   getPaymentStatus,
   fetchAccounts,
   fetchAccountTransactions,
+  pickPrimaryAccount,
+  resolvePrimaryAccount,
   isConfigured,
   normalizeTransferStatus,
 }

@@ -160,11 +160,22 @@ async function joinPairCode(userId, code, fallbackUser) {
   await Promise.all(
     [user, partner]
       .filter((member) => member.bankAccount?.connected && member.bankAccount?.accountId)
-      .map((member) =>
-        syncNewConnection(member._id, member.bankAccount.accountId, hiveId).catch((syncError) => {
+      .map(async (member) => {
+        try {
+          await syncNewConnection(member._id, member.bankAccount.accountId, hiveId)
+          await User.updateOne(
+            { _id: member._id },
+            {
+              $set: {
+                'bankAccount.lastSyncedAt': new Date(),
+                'bankAccount.initialSyncComplete': true,
+              },
+            },
+          )
+        } catch (syncError) {
           console.warn(`Post-pairing transaction sync failed for ${member._id}:`, syncError.message)
-        }),
-      ),
+        }
+      }),
   )
 
   return {

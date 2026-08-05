@@ -269,24 +269,8 @@ async function connectBank(userId, fallbackUser, { redirectUrl } = {}) {
   }
 }
 
-// A connected PSU can expose several accounts (checking, savings, loans,
-// securities, cards...) — sandbox providers can even return multiple accounts
-// of the same type where only one actually has transaction history. We only
-// track one balance today, so narrow down to accounts with real activity
-// first, then prefer the everyday checking/savings account over loans,
-// securities, and cards.
-const ACCOUNT_TYPE_PRIORITY = ['CHECKING', 'SAVINGS', 'CARD', 'LOAN', 'SECURITIES']
-
-function pickPrimaryAccount(accounts) {
-  const withActivity = accounts.filter((account) => Number(account.raw?.transactions) > 0)
-  const pool = withActivity.length ? withActivity : accounts
-
-  for (const type of ACCOUNT_TYPE_PRIORITY) {
-    const match = pool.find((account) => (account.accountType || '').toUpperCase() === type)
-    if (match) return match
-  }
-  return pool[0] || accounts[0] || null
-}
+const ACCOUNT_FETCH_ATTEMPTS = 6
+const ACCOUNT_FETCH_DELAY_MS = 1500
 
 async function confirmBankConnection(userId, fallbackUser, { connectionId, status } = {}) {
   const user = await ensureUserRecord(userId, fallbackUser)
@@ -299,10 +283,12 @@ async function confirmBankConnection(userId, fallbackUser, { connectionId, statu
   let accountId = user.bankAccount?.accountId || null
   let bankName = user.bankAccount?.bankName || ''
 
-  if (connected && user.email) {
+  if (connected && user.email && !accountId) {
     try {
-      const accounts = await openFinance.fetchAccounts({ openFinanceUserId: user.email })
-      const primaryAccount = pickPrimaryAccount(accounts)
+      const primaryAccount = await openFinance.resolvePrimaryAccount(user.email, {
+        attempts: ACCOUNT_FETCH_ATTEMPTS,
+        delayMs: ACCOUNT_FETCH_DELAY_MS,
+      })
       if (primaryAccount?.accountId) {
         accountId = primaryAccount.accountId
         bankName = primaryAccount.bankName || bankName
@@ -322,12 +308,19 @@ async function confirmBankConnection(userId, fallbackUser, { connectionId, statu
   await user.save()
 
   let syncedTransactions = 0
-  if (connected && accountId && user.hiveId) {
+  if (connected && accountId) {
     try {
-      syncedTransactions = await syncNewConnection(userId, accountId, user.hiveId)
+      syncedTransactions = await syncNewConnection(userId, accountId, user.hiveId || null)
+      user.bankAccount.lastSyncedAt = new Date()
+      user.bankAccount.initialSyncComplete = true
+      await user.save()
     } catch (syncError) {
       console.warn('Initial transaction sync failed:', syncError.message)
     }
+  } else if (connected && !accountId) {
+    console.warn(
+      `Bank connected for ${user.email || userId} but no accountId yet — sync will retry later.`,
+    )
   }
 
   return {
@@ -349,6 +342,7 @@ async function disconnectBank(userId, fallbackUser) {
     bankName: '',
     lastSyncedAt: null,
     accountId: null,
+    initialSyncComplete: false,
   }
   await user.save()
 

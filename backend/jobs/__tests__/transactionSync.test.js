@@ -90,4 +90,24 @@ describe('classifyTransaction', () => {
       aiSuggestion: null,
     })
   })
+
+  it('skips the LLM entirely when useLlm is false', async () => {
+    classifyExpenseRuleBased.mockReturnValue({ label: 'shared', confidence: 0.6, reasoning: 'category' })
+
+    const result = await classifyTransaction(
+      { description: 'SHUFERSAL', amount: -40, category: 'supermarket' },
+      { userId: 'u1', hiveId: 'hive-1', userSharedCategories: ['groceries'], useLlm: false },
+    )
+
+    expect(classifyExpense).not.toHaveBeenCalled()
+    expect(classifyExpenseRuleBased).toHaveBeenCalled()
+    expect(result).toEqual({
+      category: 'groceries',
+      type: 'shared',
+      expenseGroupId: null,
+      classifiedBy: 'user',
+      needsReview: false,
+      aiSuggestion: null,
+    })
+  })
 })
