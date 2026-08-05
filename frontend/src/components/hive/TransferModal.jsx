@@ -1,20 +1,13 @@
 import { useState } from 'react'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 const ACCOUNT_TYPES = [
   { value: 'iban', label: 'IBAN' },
   { value: 'bban', label: 'BBAN' },
 ]
 
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount || 0)
-}
-
 function TransferModal({ balance, onClose, onSubmit, isSubmitting }) {
+  const { formatBase } = useCurrency()
   const suggested = balance?.suggestedTransfer
 
   const [amount, setAmount] = useState(() => (suggested?.amount ? String(suggested.amount) : ''))
@@ -39,7 +32,7 @@ function TransferModal({ balance, onClose, onSubmit, isSubmitting }) {
       nextErrors.push('Amount must be a positive number.')
     }
     if (suggested && parsedAmount > suggested.amount) {
-      nextErrors.push(`Amount cannot be higher than ${formatCurrency(suggested.amount)}.`)
+      nextErrors.push(`Amount cannot be higher than ${formatBase(suggested.amount)}.`)
     }
     if (!providerId.trim()) nextErrors.push('Provider ID is required.')
     if (!psuId.trim()) nextErrors.push('PSU ID is required.')
@@ -99,7 +92,7 @@ function TransferModal({ balance, onClose, onSubmit, isSubmitting }) {
         </div>
 
         <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-900">
-          Suggested amount to fully even things out: <strong>{formatCurrency(suggested?.amount || 0)}</strong>.
+          Suggested amount to fully even things out: <strong>{formatBase(suggested?.amount || 0)}</strong>.
           You can enter a smaller amount if you want to settle only part of it now.
         </div>
 

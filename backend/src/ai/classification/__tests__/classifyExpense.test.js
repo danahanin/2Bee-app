@@ -55,6 +55,7 @@ describe('classifyExpense', () => {
       confidence: 0.8,
       reasoning: 'Matches household spending pattern',
       alternatives: [],
+      source: 'ai',
     })
 
     const signal = fromBankTransaction({ description: 'SHUFERSAL', amount: -152 }, { category: 'groceries' })
@@ -81,6 +82,7 @@ describe('classifyExpense', () => {
       confidence: 0.55,
       reasoning: '[fallback] The model was unavailable, so a default group was suggested.',
       alternatives: [],
+      source: 'fallback',
     })
 
     const result = await classifyExpense(

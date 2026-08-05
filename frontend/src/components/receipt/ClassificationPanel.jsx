@@ -1,3 +1,6 @@
+import { cleanReasoning, isFallback } from '../../utils/aiSource.js'
+import SourceBadge from '../ai/SourceBadge.jsx'
+
 function getConfidenceLabel(confidence) {
   if (confidence >= 0.8) return 'High'
   if (confidence >= 0.5) return 'Medium'
@@ -26,6 +29,7 @@ function ClassificationPanel({ classification, overriddenType, onOverride }) {
           <span className="text-xs text-slate-500">
             Confidence: {confidenceLabel} ({Math.round(confidence * 100)}%)
           </span>
+          <SourceBadge source={classification?.source} />
           {isOverridden && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
               Overridden
@@ -33,7 +37,12 @@ function ClassificationPanel({ classification, overriddenType, onOverride }) {
           )}
         </div>
         {classification?.reasoning && (
-          <p className="mt-2 text-sm text-slate-600">{classification.reasoning}</p>
+          <p className="mt-2 text-sm text-slate-600">{cleanReasoning(classification.reasoning)}</p>
+        )}
+        {isFallback(classification?.source) && (
+          <p className="mt-2 text-xs text-amber-700">
+            The AI model was unavailable, so this was classified with keyword rules.
+          </p>
         )}
       </div>
 

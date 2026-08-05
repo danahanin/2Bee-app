@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { EXPENSE_CATEGORIES as CATEGORIES } from '../../constants/categories.js'
-import { formatCurrency } from '../../utils/formatCurrency.js'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 import SuggestionBadge from '../ai/SuggestionBadge.jsx'
 
 function buildCorrections(expense, { category, type }) {
@@ -11,6 +11,7 @@ function buildCorrections(expense, { category, type }) {
 }
 
 function NeedsReviewItem({ expense, onResolve }) {
+  const { formatNative, formatConverted, displayCurrency } = useCurrency()
   const [category, setCategory] = useState(expense.category)
   const [type, setType] = useState(expense.type)
   const [isSaving, setIsSaving] = useState(false)
@@ -35,7 +36,12 @@ function NeedsReviewItem({ expense, onResolve }) {
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[var(--brown-text)]">{expense.description}</p>
           <p className="mt-0.5 text-xs text-[var(--brown-muted)]">
-            {formatCurrency(expense.amount)} · {new Date(expense.date).toLocaleDateString()}
+            {formatNative(expense.amount, expense.currency)}
+            {(expense.currency || 'ILS') !== displayCurrency
+              ? ` (≈ ${formatConverted(expense.amount, expense.currency)})`
+              : ''}
+            {' · '}
+            {new Date(expense.date).toLocaleDateString()}
           </p>
         </div>
         <SuggestionBadge

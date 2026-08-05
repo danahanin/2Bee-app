@@ -5,10 +5,10 @@ jest.mock('../llmClient', () => ({
   fetchListModels: jest.fn(),
   fetchHealth: jest.fn(),
   clearEmbedCache: jest.fn(),
-  TASK_MODELS: { category: 'llama3.1:8b', classify: 'llama3.1:8b', hive: 'gpt-oss-120b' },
+  TASK_MODELS: { category: 'llama3.1:8b', classify: 'llama3.1:8b', hive: 'qwen3.6:27b-capped' },
   EMBED_MODEL: 'all-minilm',
   CHAT_MODEL: 'llama3.1:8b',
-  CHAT_COMPLETIONS_MODEL: 'gpt-oss-120b',
+  CHAT_COMPLETIONS_MODEL: 'qwen3.6:27b-capped',
 }))
 
 const llmClient = require('../llmClient')
@@ -44,7 +44,11 @@ describe('llmService', () => {
   })
 
   it('exposes per-task model defaults for downstream classification code', () => {
-    expect(TASK_MODELS).toEqual({ category: 'llama3.1:8b', classify: 'llama3.1:8b', hive: 'gpt-oss-120b' })
+    expect(TASK_MODELS).toEqual({
+      category: 'llama3.1:8b',
+      classify: 'llama3.1:8b',
+      hive: 'qwen3.6:27b-capped',
+    })
   })
 
   describe('parseJsonResponse', () => {

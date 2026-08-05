@@ -5,6 +5,7 @@ import EditProfileForm from '../components/profile/EditProfileForm.jsx'
 import NotificationSettings from '../components/settings/NotificationSettings.jsx'
 import PairingManagement from '../components/settings/PairingManagement.jsx'
 import PrivacySettings from '../components/settings/PrivacySettings.jsx'
+import CurrencySettings from '../components/settings/CurrencySettings.jsx'
 import SharedCategoriesSettings from '../components/settings/SharedCategoriesSettings.jsx'
 import BankAccountCard from '../components/settings/BankAccountCard.jsx'
 import HiveCard from '../components/design-system/HiveCard.jsx'
@@ -16,12 +17,14 @@ import { useProfile } from '../hooks/useProfile.js'
 import { AVAILABLE_CATEGORIES, useSettings } from '../hooks/useSettings.js'
 import { useHiveBalance } from '../hooks/useHive.js'
 import { useHiveParticipants } from '../hooks/useHiveParticipants.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 
 const SECTIONS = [
   { id: 'account', label: 'Account' },
   { id: 'partner', label: 'Partners' },
   { id: 'payment', label: 'Payment' },
   { id: 'notifications', label: 'Notifications' },
+  { id: 'currency', label: 'Currency' },
   { id: 'privacy', label: 'Privacy' },
   { id: 'categories', label: 'Categories' },
   { id: 'pairing', label: 'Pairing' },
@@ -53,6 +56,7 @@ function StatusToast({ message }) {
 function PartnerHiveCard({ hive, currentUserId }) {
   const { balance, isLoading } = useHiveBalance(hive.hiveId)
   const { partner } = useHiveParticipants(balance, currentUserId)
+  const { formatBase } = useCurrency()
   const partnerName = partner?.name || hive.partnerName || 'Partner'
 
   return (
@@ -72,7 +76,7 @@ function PartnerHiveCard({ hive, currentUserId }) {
         <p className="text-sm text-[var(--brown-muted)]">
           {isLoading
             ? 'Loading…'
-            : `Paid ${partner?.paid != null ? `₪${partner.paid}` : '—'} in shared expenses`}
+            : `Paid ${partner?.paid != null ? formatBase(partner.paid) : '—'} in shared expenses`}
         </p>
       </div>
     </div>
@@ -287,6 +291,12 @@ function ProfilePage() {
             savingMap={savingNotifications}
             onToggle={handleNotificationToggle}
           />
+        </HivePanel>
+      )}
+
+      {openSection === 'currency' && (
+        <HivePanel title="Currency" subtitle="Choose how totals are displayed">
+          <CurrencySettings onStatusMessage={setStatusMessage} />
         </HivePanel>
       )}
 

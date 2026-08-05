@@ -1,5 +1,8 @@
 const mongoose = require('mongoose')
 
+const DISPLAY_CURRENCIES = ['ILS', 'USD', 'EUR']
+const DEFAULT_DISPLAY_CURRENCY = 'ILS'
+
 const AVAILABLE_SHARED_CATEGORIES = [
   'groceries',
   'rent',
@@ -68,6 +71,9 @@ const userSchema = new mongoose.Schema(
       enum: AVAILABLE_SHARED_CATEGORIES,
       default: DEFAULT_SHARED_CATEGORIES,
     },
+    // Presentation-only preference: totals are always stored/summed in
+    // ILS and converted to this currency at render time.
+    displayCurrency: { type: String, enum: DISPLAY_CURRENCIES, default: DEFAULT_DISPLAY_CURRENCY },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
   },
@@ -88,3 +94,5 @@ module.exports.AVAILABLE_SHARED_CATEGORIES = AVAILABLE_SHARED_CATEGORIES
 module.exports.DEFAULT_PRIVACY_SETTINGS = DEFAULT_PRIVACY_SETTINGS
 module.exports.DEFAULT_NOTIFICATION_SETTINGS = DEFAULT_NOTIFICATION_SETTINGS
 module.exports.DEFAULT_SHARED_CATEGORIES = DEFAULT_SHARED_CATEGORIES
+module.exports.DISPLAY_CURRENCIES = DISPLAY_CURRENCIES
+module.exports.DEFAULT_DISPLAY_CURRENCY = DEFAULT_DISPLAY_CURRENCY

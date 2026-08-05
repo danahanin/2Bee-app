@@ -1,7 +1,4 @@
-function formatCurrency(value) {
-  const amount = Number(value) || 0
-  return new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(amount)
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 const PRIORITY_CONFIG = {
   1: { label: 'High', classes: 'bg-rose-50 text-rose-700' },
@@ -10,6 +7,7 @@ const PRIORITY_CONFIG = {
 }
 
 function RecommendationCard({ recommendation, onAction }) {
+  const { formatBase } = useCurrency()
   const priorityConfig = PRIORITY_CONFIG[recommendation.priority] || PRIORITY_CONFIG[3]
 
   return (
@@ -30,7 +28,7 @@ function RecommendationCard({ recommendation, onAction }) {
         {recommendation.potentialSavings > 0 && (
           <div className="shrink-0 text-right">
             <p className="text-xs text-slate-500">Save up to</p>
-            <p className="font-bold text-emerald-600">{formatCurrency(recommendation.potentialSavings)}</p>
+            <p className="font-bold text-emerald-600">{formatBase(recommendation.potentialSavings)}</p>
           </div>
         )}
       </div>

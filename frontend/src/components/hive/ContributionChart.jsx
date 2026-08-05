@@ -1,13 +1,5 @@
 import UserAvatar from '../design-system/UserAvatar.jsx'
-
-function formatCurrency(amount) {
-  return new Intl.NumberFormat('en-IL', {
-    style: 'currency',
-    currency: 'ILS',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount || 0)
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function widthPercent(value, max) {
   if (!max) return '0%'
@@ -15,6 +7,8 @@ function widthPercent(value, max) {
 }
 
 function ContributionChart({ balance, currentUserId }) {
+  const { formatBase } = useCurrency()
+
   if (!balance?.contributions?.length) return null
 
   const maxPaid = Math.max(...balance.contributions.map((item) => item.paid), balance.equalShare)
@@ -40,7 +34,7 @@ function ContributionChart({ balance, currentUserId }) {
                 </span>
               </div>
               <span className="pl-10 text-xs text-[var(--brown-muted)] sm:pl-0 sm:text-sm">
-                Paid {formatCurrency(item.paid)} • Remaining {formatCurrency(Math.abs(item.remainingNet))}
+                Paid {formatBase(item.paid)} • Remaining {formatBase(Math.abs(item.remainingNet))}
               </span>
             </div>
 

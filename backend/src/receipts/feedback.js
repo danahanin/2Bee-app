@@ -1,5 +1,5 @@
 const ExpenseGroup = require('../../models/ExpenseGroup')
-const { CATEGORIES } = require('../../models/Expense')
+const { CATEGORIES, CURRENCIES } = require('../../models/Expense')
 const { AppError } = require('../../utils/appError')
 const { createPersonalExpense, createSharedExpense, getHiveById } = require('../../services/hiveService')
 const { recordExpenseConfirmationFeedback } = require('../ai/classification/feedback')
@@ -23,6 +23,9 @@ function validateConfirmedExpense(expense) {
   }
   if (expense.date && isNaN(Date.parse(expense.date))) {
     errors.push('date must be a valid date string')
+  }
+  if (expense.currency !== undefined && !CURRENCIES.includes(expense.currency)) {
+    errors.push(`currency must be one of: ${CURRENCIES.join(', ')}`)
   }
   return errors
 }

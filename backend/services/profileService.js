@@ -67,6 +67,7 @@ function toProfile(user) {
     hiveId: user.hiveId,
     sharedCategories: user.sharedCategories,
     bankAccount,
+    displayCurrency: user.displayCurrency || 'ILS',
   }
 }
 
@@ -129,6 +130,18 @@ async function updateSharedCategories(userId, categories, fallbackUser) {
   user.sharedCategories = categories
   await user.save()
   return [...user.sharedCategories]
+}
+
+async function getDisplayCurrency(userId, fallbackUser) {
+  const user = await ensureUserRecord(userId, fallbackUser)
+  return { displayCurrency: user.displayCurrency || 'ILS' }
+}
+
+async function updateDisplayCurrency(userId, displayCurrency, fallbackUser) {
+  const user = await ensureUserRecord(userId, fallbackUser)
+  user.displayCurrency = displayCurrency
+  await user.save()
+  return { displayCurrency: user.displayCurrency }
 }
 
 async function disconnectPair(userId, fallbackUser) {
@@ -361,6 +374,8 @@ module.exports = {
   getNotificationSettings,
   updateNotificationSettings,
   updateSharedCategories,
+  getDisplayCurrency,
+  updateDisplayCurrency,
   disconnectPair,
   reconnectPair,
 }

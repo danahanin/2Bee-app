@@ -1,9 +1,4 @@
-function formatCurrency(value) {
-  const amount = Number(value) || 0
-  return new Intl.NumberFormat('en-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(
-    amount,
-  )
-}
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function formatDate(value) {
   if (!value) return ''
@@ -11,6 +6,8 @@ function formatDate(value) {
 }
 
 function GoalList({ goals, isLoading, onAddGoal }) {
+  const { formatBase } = useCurrency()
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -53,7 +50,7 @@ function GoalList({ goals, isLoading, onAddGoal }) {
             <p className="text-sm font-semibold text-indigo-700">{goal.progressPercent}%</p>
           </div>
           <p className="mt-2 text-sm text-slate-600">
-            {formatCurrency(goal.currentAmount)} / {formatCurrency(goal.targetAmount)}
+            {formatBase(goal.currentAmount)} / {formatBase(goal.targetAmount)}
           </p>
           <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
             <div

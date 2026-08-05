@@ -1,5 +1,5 @@
 const hiveService = require('../services/hiveService')
-const { CATEGORIES } = require('../models/Expense')
+const { CATEGORIES, CURRENCIES } = require('../models/Expense')
 const ExpenseGroup = require('../models/ExpenseGroup')
 const { sendError } = require('../utils/appError')
 const { recordExpenseConfirmationFeedback } = require('../src/ai/classification/feedback')
@@ -68,6 +68,9 @@ function validateExpenseBody(body) {
   if (body.date && isNaN(Date.parse(body.date))) {
     errors.push('date must be a valid date string')
   }
+  if (body.currency !== undefined && !CURRENCIES.includes(body.currency)) {
+    errors.push(`currency must be one of: ${CURRENCIES.join(', ')}`)
+  }
   return errors
 }
 
@@ -128,6 +131,9 @@ function validateExpenseBodyPartial(body) {
   }
   if (body.date !== undefined && isNaN(Date.parse(body.date))) {
     errors.push('date must be a valid date string')
+  }
+  if (body.currency !== undefined && !CURRENCIES.includes(body.currency)) {
+    errors.push(`currency must be one of: ${CURRENCIES.join(', ')}`)
   }
   return errors
 }

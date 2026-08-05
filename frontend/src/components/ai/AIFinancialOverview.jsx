@@ -1,7 +1,7 @@
 import HiveCard from '../design-system/HiveCard.jsx'
 import Hexagon from '../design-system/Hexagon.jsx'
 import UserAvatar from '../design-system/UserAvatar.jsx'
-import { formatCurrency } from '../../utils/formatCurrency.js'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function AIFinancialOverview({
   balance,
@@ -12,6 +12,8 @@ function AIFinancialOverview({
   overviewSummary,
   isLoading,
 }) {
+  const { formatBase } = useCurrency()
+
   if (isLoading) {
     return <div className="h-40 animate-pulse rounded-2xl bg-[var(--honey-50)]" />
   }
@@ -38,18 +40,18 @@ function AIFinancialOverview({
             <div className="rounded-xl border border-[rgba(61,41,20,0.08)] bg-white px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brown-muted)]">Personal</p>
               <p className="mt-1 text-lg font-bold text-[var(--brown-text)] sm:text-xl">
-                {formatCurrency(personalSpend, { maximumFractionDigits: 0 })}
+                {formatBase(personalSpend, { maximumFractionDigits: 0 })}
               </p>
             </div>
             <div className="rounded-xl border border-[rgba(61,41,20,0.08)] bg-white px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brown-muted)]">Shared</p>
               <p className="mt-1 text-lg font-bold text-[var(--brown-text)] sm:text-xl">
-                {formatCurrency(sharedSpend, { maximumFractionDigits: 0 })}
+                {formatBase(sharedSpend, { maximumFractionDigits: 0 })}
               </p>
             </div>
             <div className="rounded-xl border border-[rgba(61,41,20,0.08)] bg-white px-4 py-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-[var(--brown-muted)]">Net balance</p>
-              <p className="mt-1 text-lg font-bold text-[var(--brown-text)] sm:text-xl">{formatCurrency(netBalance)}</p>
+              <p className="mt-1 text-lg font-bold text-[var(--brown-text)] sm:text-xl">{formatBase(netBalance)}</p>
             </div>
           </div>
         </div>
@@ -62,14 +64,14 @@ function AIFinancialOverview({
           <Hexagon size={64} variant="filled" className="hex-glow-static sm:hidden">
             <div className="text-center text-white">
               <p className="px-1 text-[8px] font-semibold uppercase leading-tight tracking-wide opacity-90">{owesLabel}</p>
-              <p className="text-sm font-bold">{formatCurrency(netBalance)}</p>
+              <p className="text-sm font-bold">{formatBase(netBalance)}</p>
             </div>
           </Hexagon>
           <span className="hidden sm:inline-flex">
             <Hexagon size={80} variant="filled" className="hex-glow-static">
               <div className="text-center text-white">
                 <p className="text-[9px] font-semibold uppercase tracking-wide opacity-90">{owesLabel}</p>
-                <p className="text-base font-bold">{formatCurrency(netBalance)}</p>
+                <p className="text-base font-bold">{formatBase(netBalance)}</p>
               </div>
             </Hexagon>
           </span>

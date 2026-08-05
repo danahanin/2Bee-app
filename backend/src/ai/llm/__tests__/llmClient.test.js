@@ -182,7 +182,7 @@ describe('llmClient', () => {
 
     it('gives up after exhausting retries on repeated network failures', async () => {
       jest.useFakeTimers()
-      global.fetch.mockRejectedValue(new TypeError('fetch failed'))
+      global.fetch.mockImplementation(() => Promise.reject(new TypeError('fetch failed')))
 
       const promise = fetchGenerate('say hi')
       const assertion = expect(promise).rejects.toThrow('fetch failed')

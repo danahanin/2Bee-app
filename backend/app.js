@@ -14,6 +14,7 @@ const dashboardRoutes = require('./routes/dashboard')
 const analyticsRoutes = require('./routes/analytics')
 const budgetRoutes = require('./routes/budgets')
 const goalRoutes = require('./routes/goals')
+const currencyRoutes = require('./routes/currency')
 const { AppError } = require('./utils/appError')
 
 function createApp() {
@@ -36,6 +37,9 @@ function createApp() {
   app.use('/analytics', analyticsRoutes)
   app.use('/budgets', budgetRoutes)
   app.use('/goals', goalRoutes)
+  // Mount before /api profile router — that router's auth middleware would
+  // otherwise intercept /api/currency/* and return 401 before we get here.
+  app.use('/api/currency', currencyRoutes)
   app.use('/api', profileRouter)
   app.use('/api', pairRouter)
 

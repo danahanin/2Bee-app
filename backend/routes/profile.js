@@ -12,6 +12,8 @@
  *   GET    /settings/notifications       — get notification preferences
  *   PUT    /settings/notifications       — update notification preferences
  *   PUT    /settings/shared-categories   — replace shared category list
+ *   GET    /settings/currency            — get display currency preference
+ *   PUT    /settings/currency            — update display currency preference
  *   DELETE /pair                         — disconnect from partner
  *   POST   /pair/reconnect               — re-pair with partner
  */
@@ -27,6 +29,8 @@ const {
   getNotificationSettings,
   updateNotificationSettings,
   updateSharedCategories,
+  getDisplayCurrency,
+  updateDisplayCurrency,
   connectBank,
   confirmBank,
   disconnectBank,
@@ -63,6 +67,10 @@ router.put('/settings/notifications', updateNotificationSettings)
 
 // Shared categories
 router.put('/settings/shared-categories', updateSharedCategories)
+
+// Display currency
+router.get('/settings/currency', getDisplayCurrency)
+router.put('/settings/currency', updateDisplayCurrency)
 
 // Bank / Open Finance connection
 router.post('/bank/connect', connectBank)

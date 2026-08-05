@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { formatCurrency } from '../../utils/formatCurrency.js'
+import { useCurrency } from '../../context/CurrencyContext.jsx'
 
 function alertCopy(level) {
   if (level === 'critical') {
@@ -27,6 +27,7 @@ function alertCopy(level) {
  * Returns null when there are no alerted budgets.
  */
 function BudgetAlertBanner({ budgetStatus = [] }) {
+  const { formatBase } = useCurrency()
   const alerts = budgetStatus.filter(
     (item) => item?.alertLevel === 'warning' || item?.alertLevel === 'critical',
   )
@@ -54,7 +55,7 @@ function BudgetAlertBanner({ budgetStatus = [] }) {
                   {item.category}
                 </span>
                 {' · '}
-                {item.percentUsed}% used ({formatCurrency(item.spent)} / {formatCurrency(item.limit)})
+                {item.percentUsed}% used ({formatBase(item.spent)} / {formatBase(item.limit)})
                 <span
                   className={`ml-2 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                     item.alertLevel === 'critical'

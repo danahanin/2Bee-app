@@ -2,12 +2,6 @@ const { classifyCategory } = require('./classifyCategory')
 const { classifyPersonalOrShared } = require('./classifyPersonalOrShared')
 const { suggestHive } = require('../phase2/suggestHive')
 
-function hiveSuggestionSource(hiveSuggestion) {
-  if (!hiveSuggestion) return null
-  const isFallback = /\[fallback\]|No active hive|No expense groups/.test(hiveSuggestion.reasoning || '')
-  return isFallback ? 'fallback' : 'ai'
-}
-
 /**
  * Run every classification task for a single expense and return a suggestion bundle.
  * Pure — no side effects, no persistence. Callers decide what to do with the
@@ -28,8 +22,7 @@ async function classifyExpense(signal, { userId, hiveId, k = 5 } = {}) {
 
   let hive = null
   if (personalOrShared.value === 'shared') {
-    const hiveSuggestion = await suggestHive(signal, { hiveId, userId, k })
-    hive = { ...hiveSuggestion, source: hiveSuggestionSource(hiveSuggestion) }
+    hive = await suggestHive(signal, { hiveId, userId, k })
   }
 
   return { category, personalOrShared, hive }

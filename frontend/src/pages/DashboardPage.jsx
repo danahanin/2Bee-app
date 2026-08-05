@@ -16,7 +16,7 @@ import { useInsights } from '../hooks/useAI.js'
 import InsightCard from '../components/ai/InsightCard.jsx'
 import NeedsReviewPanel from '../components/dashboard/NeedsReviewPanel.jsx'
 import { fetchPersonalDashboard } from '../services/dashboardService.js'
-import { formatCurrency } from '../utils/formatCurrency.js'
+import { useCurrency } from '../context/CurrencyContext.jsx'
 
 const CATEGORY_EMOJI = {
   groceries: '🛒',
@@ -35,6 +35,7 @@ const CATEGORY_EMOJI = {
 
 function DashboardPage() {
   const { currentUser, pairingStatus } = useAuth()
+  const { formatBase, formatNative, formatConverted, displayCurrency } = useCurrency()
   const hiveId = pairingStatus?.hiveId || localStorage.getItem('twobee_hive_id') || ''
   const { hive } = useHive(hiveId)
   const { balance, isLoading: balanceLoading, refetch: refetchBalance } = useHiveBalance(hiveId)
@@ -109,20 +110,20 @@ function DashboardPage() {
       <section className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         <MetricCell
           label="Personal spend"
-          value={formatCurrency(personalData?.totalSpendThisMonth ?? 0, { maximumFractionDigits: 0 })}
+          value={formatBase(personalData?.totalSpendThisMonth ?? 0, { maximumFractionDigits: 0 })}
           subtitle="This month"
         />
         <MetricCell
           label="Shared spend"
-          value={formatCurrency(balance?.totalSharedSpend ?? 0, { maximumFractionDigits: 0 })}
+          value={formatBase(balance?.totalSharedSpend ?? 0, { maximumFractionDigits: 0 })}
           subtitle={hive ? `${hive.userIds?.length || 2} partners` : 'Hive'}
         />
         <MetricCell
           label="Net balance"
           value={
             balance?.remainingImbalance > 0.01
-              ? formatCurrency(balance.remainingImbalance)
-              : formatCurrency(0)
+              ? formatBase(balance.remainingImbalance)
+              : formatBase(0)
           }
           subtitle={balance?.remainingImbalance > 0.01 ? 'Outstanding' : 'All settled'}
         />
@@ -190,8 +191,15 @@ function DashboardPage() {
                     ) : null}
                   </div>
 
-                  <span className="pt-0.5 text-right text-sm font-bold tabular-nums whitespace-nowrap text-[var(--brown-text)]">
-                    {formatCurrency(expense.amount)}
+                  <span className="pt-0.5 text-right whitespace-nowrap">
+                    <span className="block text-sm font-bold tabular-nums text-[var(--brown-text)]">
+                      {formatNative(expense.amount, expense.currency)}
+                    </span>
+                    {(expense.currency || 'ILS') !== displayCurrency ? (
+                      <span className="block text-xs tabular-nums text-[var(--brown-muted)]">
+                        ≈ {formatConverted(expense.amount, expense.currency)}
+                      </span>
+                    ) : null}
                   </span>
                 </li>
               ))}

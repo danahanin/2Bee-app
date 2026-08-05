@@ -37,6 +37,7 @@ const { CATEGORIES } = require('../../models/Expense')
  * @property {number} confidence 0..1
  * @property {string} reasoning
  * @property {RetrievedExample[]} retrieved
+ * @property {'ai'|'fallback'} source Whether the LLM produced this or it fell back to rules.
  */
 
 /**
@@ -47,6 +48,7 @@ const { CATEGORIES } = require('../../models/Expense')
  * @property {number} confidence 0..1
  * @property {string} reasoning
  * @property {Array<{ groupId: string, name: string, score: number }>} alternatives
+ * @property {'ai'|'fallback'} source Whether the LLM produced this or it fell back to rules.
  */
 
 /**
@@ -90,16 +92,16 @@ function makeExtractedReceipt({
 
 /**
  * Build a Classification result.
- * @param {{ type: 'personal'|'shared', confidence: number, reasoning?: string, retrieved?: RetrievedExample[] }} input
+ * @param {{ type: 'personal'|'shared', confidence: number, reasoning?: string, retrieved?: RetrievedExample[], source?: 'ai'|'fallback' }} input
  * @returns {Classification}
  */
-function makeClassification({ type, confidence, reasoning = '', retrieved = [] }) {
-  return { type, confidence, reasoning, retrieved }
+function makeClassification({ type, confidence, reasoning = '', retrieved = [], source = 'ai' }) {
+  return { type, confidence, reasoning, retrieved, source }
 }
 
 /**
  * Build a HiveSuggestion result.
- * @param {{ expenseGroupId?: string|null, groupName?: string|null, confidence?: number, reasoning?: string, alternatives?: Array<{ groupId: string, name: string, score: number }> }} [input]
+ * @param {{ expenseGroupId?: string|null, groupName?: string|null, confidence?: number, reasoning?: string, alternatives?: Array<{ groupId: string, name: string, score: number }>, source?: 'ai'|'fallback' }} [input]
  * @returns {HiveSuggestion}
  */
 function makeHiveSuggestion({
@@ -108,8 +110,9 @@ function makeHiveSuggestion({
   confidence = 0,
   reasoning = '',
   alternatives = [],
+  source = 'ai',
 } = {}) {
-  return { expenseGroupId, groupName, confidence, reasoning, alternatives }
+  return { expenseGroupId, groupName, confidence, reasoning, alternatives, source }
 }
 
 /**
