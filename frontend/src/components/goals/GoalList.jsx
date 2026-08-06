@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { useCurrency } from '../../context/CurrencyContext.jsx'
+import { getGoalGuidance } from '../../services/goalService.js'
+import GoalGuidanceModal from './GoalGuidanceModal.jsx'
 
 function formatDate(value) {
   if (!value) return ''
@@ -7,6 +10,32 @@ function formatDate(value) {
 
 function GoalList({ goals, isLoading, onAddGoal }) {
   const { formatBase } = useCurrency()
+  const [guidanceGoal, setGuidanceGoal] = useState(null)
+  const [guidanceLoading, setGuidanceLoading] = useState(false)
+  const [guidanceError, setGuidanceError] = useState('')
+  const [guidanceData, setGuidanceData] = useState(null)
+
+  async function loadGuidance(goal) {
+    setGuidanceGoal(goal)
+    setGuidanceLoading(true)
+    setGuidanceError('')
+    setGuidanceData(null)
+    try {
+      const result = await getGoalGuidance(goal.id)
+      setGuidanceData(result?.guidance || null)
+    } catch (err) {
+      setGuidanceError(err.message || 'Could not generate AI guidance right now.')
+    } finally {
+      setGuidanceLoading(false)
+    }
+  }
+
+  function closeGuidance() {
+    setGuidanceGoal(null)
+    setGuidanceLoading(false)
+    setGuidanceError('')
+    setGuidanceData(null)
+  }
 
   if (isLoading) {
     return (
@@ -36,31 +65,51 @@ function GoalList({ goals, isLoading, onAddGoal }) {
   }
 
   return (
-    <div className="space-y-3">
-      {goals.map((goal) => (
-        <article key={goal.id} className="rounded-xl border border-slate-200 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="font-semibold text-slate-900">{goal.title}</h3>
-              {goal.category ? (
-                <p className="mt-1 text-xs capitalize text-slate-500">{goal.category}</p>
-              ) : null}
-              <p className="mt-1 text-xs text-slate-500">Deadline: {formatDate(goal.deadline)}</p>
+    <>
+      <div className="space-y-3">
+        {goals.map((goal) => (
+          <article key={goal.id} className="rounded-xl border border-slate-200 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-slate-900">{goal.title}</h3>
+                {goal.category ? (
+                  <p className="mt-1 text-xs capitalize text-slate-500">{goal.category}</p>
+                ) : null}
+                <p className="mt-1 text-xs text-slate-500">Deadline: {formatDate(goal.deadline)}</p>
+              </div>
+              <p className="text-sm font-semibold text-indigo-700">{goal.progressPercent}%</p>
             </div>
-            <p className="text-sm font-semibold text-indigo-700">{goal.progressPercent}%</p>
-          </div>
-          <p className="mt-2 text-sm text-slate-600">
-            {formatBase(goal.currentAmount)} / {formatBase(goal.targetAmount)}
-          </p>
-          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-indigo-500"
-              style={{ width: `${Math.min(100, goal.progressPercent || 0)}%` }}
-            />
-          </div>
-        </article>
-      ))}
-    </div>
+            <p className="mt-2 text-sm text-slate-600">
+              {formatBase(goal.currentAmount)} / {formatBase(goal.targetAmount)}
+            </p>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-indigo-500"
+                style={{ width: `${Math.min(100, goal.progressPercent || 0)}%` }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => loadGuidance(goal)}
+              className="mt-3 w-full rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+            >
+              Get AI Guidance
+            </button>
+          </article>
+        ))}
+      </div>
+
+      {guidanceGoal ? (
+        <GoalGuidanceModal
+          goalTitle={guidanceGoal.title}
+          isLoading={guidanceLoading}
+          error={guidanceError}
+          guidance={guidanceData}
+          onClose={closeGuidance}
+          onRetry={() => loadGuidance(guidanceGoal)}
+        />
+      ) : null}
+    </>
   )
 }
 

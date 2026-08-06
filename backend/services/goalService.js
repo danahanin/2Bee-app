@@ -1,8 +1,13 @@
 const mongoose = require('mongoose')
 const Goal = require('../models/Goal')
 const Hive = require('../models/Hive')
+const User = require('../models/User')
 const { CATEGORIES } = require('../models/Expense')
 const { AppError } = require('../utils/appError')
+const { calculateGoalMetrics } = require('../src/ai/goalGuidanceCalculator')
+const { generateGoalGuidance } = require('../src/ai/goalGuidancePrompt')
+const { getGoalSpendingContext } = require('../src/ai/goalGuidanceSpending')
+const fxService = require('./fxService')
 
 async function assertHiveMember(hiveId, userId) {
   if (!hiveId) {
@@ -107,7 +112,108 @@ async function createGoal(userId, hiveId, payload) {
   return serializeGoal(goal.toObject())
 }
 
+async function assertGoalAccess(goal, userId) {
+  if (goal.hiveId) {
+    await assertHiveMember(goal.hiveId.toString(), userId)
+    return
+  }
+  if (goal.userId !== userId) {
+    throw new AppError(403, 'FORBIDDEN', 'You do not have access to this goal')
+  }
+}
+
+function roundMoney(amount) {
+  return Math.round(amount * 100) / 100
+}
+
+/**
+ * Goal amounts are always stored in the base currency (ILS, same convention as
+ * Expense/Budget). Convert the ones the AI guidance text will actually mention into
+ * whatever currency the requesting user picked in Settings, so the LLM's response
+ * matches what they see everywhere else in the app instead of defaulting to $.
+ */
+function buildDisplayAmounts(goal, metrics, rate) {
+  const convert = (value) => (typeof value === 'number' ? roundMoney(value * rate) : value)
+
+  return {
+    targetAmount: convert(goal.targetAmount),
+    currentAmount: convert(goal.currentAmount),
+    remainingAmount: convert(metrics.remainingAmount),
+    requiredMonthlyAmount: convert(metrics.requiredMonthlyAmount),
+  }
+}
+
+function buildDisplaySpendingCategories(spendingContext, rate) {
+  return spendingContext.map(({ category, avgMonthlyAmount }) => ({
+    category,
+    avgMonthlyAmount: roundMoney(avgMonthlyAmount * rate),
+  }))
+}
+
+/**
+ * Best-effort lookup of recent category spending to ground the AI's advice in the
+ * user's real habits. This is a nice-to-have on top of the goal metrics — if the
+ * aggregation query fails for any reason, guidance should still be generated using
+ * the goal numbers alone rather than failing the whole request.
+ */
+async function safeGetSpendingContext(goal) {
+  try {
+    return await getGoalSpendingContext(goal)
+  } catch (err) {
+    console.warn('[getGoalGuidance] Could not load spending context:', err.message)
+    return []
+  }
+}
+
+/**
+ * Loads a Goal, verifies the caller may view it (owner for a personal goal, any
+ * Hive member for a shared one), computes deterministic progress metrics, and asks
+ * the LLM to explain them in plain language. Nothing here is persisted — this is a
+ * read-only, on-demand explanation of numbers the app already calculated.
+ */
+async function getGoalGuidance(userId, goalId) {
+  if (!mongoose.Types.ObjectId.isValid(goalId)) {
+    throw new AppError(404, 'NOT_FOUND', 'Goal not found')
+  }
+
+  const goal = await Goal.findById(goalId)
+  if (!goal) {
+    throw new AppError(404, 'NOT_FOUND', 'Goal not found')
+  }
+
+  await assertGoalAccess(goal, userId)
+
+  const goalPlain = goal.toObject()
+  const metrics = calculateGoalMetrics(goalPlain)
+  if (!metrics.valid) {
+    throw new AppError(400, 'VALIDATION_ERROR', `Goal data is incomplete or invalid: ${metrics.errors.join('; ')}`)
+  }
+
+  const requestingUser = await User.findById(userId).select('displayCurrency').lean()
+  const displayCurrency = requestingUser?.displayCurrency || fxService.BASE_CURRENCY
+
+  try {
+    const rate = await fxService.getRate(fxService.BASE_CURRENCY, displayCurrency)
+    const displayAmounts = buildDisplayAmounts(goalPlain, metrics, rate)
+    const spendingContext = await safeGetSpendingContext(goalPlain)
+    const topSpendingCategories = buildDisplaySpendingCategories(spendingContext, rate)
+
+    const guidance = await generateGoalGuidance({
+      goal: goalPlain,
+      metrics,
+      displayCurrency,
+      displayAmounts,
+      topSpendingCategories,
+    })
+    return { metrics, guidance }
+  } catch (err) {
+    console.warn('[getGoalGuidance] LLM guidance failed:', err.message)
+    throw new AppError(503, 'AI_GUIDANCE_UNAVAILABLE', 'Could not generate AI guidance right now. Please try again.')
+  }
+}
+
 module.exports = {
   listGoals,
   createGoal,
+  getGoalGuidance,
 }

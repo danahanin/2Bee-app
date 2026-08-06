@@ -44,6 +44,12 @@ export function createGoal(payload) {
   })
 }
 
+export function getGoalGuidance(goalId) {
+  return request(`/goals/${encodeURIComponent(goalId)}/guidance`, {
+    method: 'POST',
+  })
+}
+
 export function goalFromSuggestion(suggestion) {
   const deadline = new Date()
   deadline.setUTCMonth(deadline.getUTCMonth() + 6)
