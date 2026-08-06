@@ -13,7 +13,7 @@ async function authMiddleware(req, res, next) {
     return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Missing or invalid token' } })
   }
 
-  const context = getUserFromToken(token)
+  const context = await getUserFromToken(token)
   if (!context) {
     return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Token expired or invalid' } })
   }

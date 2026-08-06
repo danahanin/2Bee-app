@@ -14,6 +14,7 @@
     "seed:examples": "node scripts/seedClassificationExamples.js",
     "seed:expense-groups": "node scripts/seedExpenseGroups.js",
     "migrate:amount-base": "node scripts/backfillAmountBase.js",
+    "migrate:auth-store": "node scripts/migrateAuthStoreToMongo.js",
     "test:llm": "node scripts/testLlmConnection.js",
     "eval:classifier": "node scripts/evalClassifier.js",
     "test": "jest",
