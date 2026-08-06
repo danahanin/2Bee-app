@@ -1,5 +1,6 @@
 require('dotenv').config()
 const mongoose = require('mongoose')
+const bcrypt = require('bcrypt')
 const { guessCategory } = require('../src/categoryGuess')
 const Hive = require('../models/Hive')
 const Expense = require('../models/Expense')
@@ -234,13 +235,15 @@ async function seed() {
   const hive = await Hive.create({ userIds: [DEMO_USER_A, DEMO_USER_B] })
   console.log(`Created Hive: ${hive._id}`)
 
+  const demoPasswordHash = await bcrypt.hash('123456', 10)
+
   await User.updateOne(
     { _id: DEMO_USER_A },
     {
       $set: {
         email: 'demo@2bee.app',
         emailLower: 'demo@2bee.app',
-        passwordHash: 'seeded-auth-store-user',
+        passwordHash: demoPasswordHash,
         firstName: 'Demo',
         lastName: 'User',
         pairId: DEMO_USER_B,
@@ -262,7 +265,7 @@ async function seed() {
       $set: {
         email: 'partner@2bee.app',
         emailLower: 'partner@2bee.app',
-        passwordHash: 'seeded-demo-partner',
+        passwordHash: demoPasswordHash,
         firstName: 'Partner',
         lastName: 'User',
         pairId: DEMO_USER_A,

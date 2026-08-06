@@ -1,17 +1,8 @@
 const crypto = require('crypto')
 const bcrypt = require('bcrypt')
-const {
-  addRefreshToken,
-  addSession,
-  addUser,
-  findRefreshToken,
-  findSessionByToken,
-  findUserByEmail,
-  findUserById,
-  normalizeEmail,
-  revokeRefreshToken,
-  revokeSession,
-} = require('./authStore')
+const User = require('../models/User')
+const Session = require('../models/Session')
+const RefreshToken = require('../models/RefreshToken')
 const { AppError } = require('../utils/appError')
 
 const ACCESS_TOKEN_TTL_MINUTES = Number(process.env.ACCESS_TOKEN_TTL_MINUTES || 15)
@@ -19,62 +10,48 @@ const REFRESH_TOKEN_TTL_DAYS = Number(process.env.REFRESH_TOKEN_TTL_DAYS || 7)
 const ROTATE_ON_REFRESH = process.env.ROTATE_REFRESH_TOKENS !== 'false'
 const BCRYPT_SALT_ROUNDS = Number(process.env.BCRYPT_SALT_ROUNDS || 10)
 
+function normalizeEmail(email) {
+  if (typeof email !== 'string') {
+    return ''
+  }
+  return email.trim().toLowerCase()
+}
+
 function toSafeUser(user) {
   if (!user) return null
-  const safe = { ...user }
-  delete safe.passwordHash
-  delete safe.emailLower
   return {
-    ...safe,
+    id: user._id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
     pairId: user.pairId ?? null,
     hiveId: user.hiveId ?? null,
+    createdAt: user.createdAt,
   }
 }
 
-function createSession(userId) {
-  const createdAt = new Date()
-  const expiresAt = new Date(createdAt.getTime() + ACCESS_TOKEN_TTL_MINUTES * 60 * 1000)
-  const session = {
+function toSafeToken(doc) {
+  return { token: doc.token, expiresAt: doc.expiresAt.toISOString() }
+}
+
+async function createSession(userId) {
+  const expiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MINUTES * 60 * 1000)
+  const session = await Session.create({
     token: crypto.randomBytes(32).toString('hex'),
     userId,
-    createdAt: createdAt.toISOString(),
-    expiresAt: expiresAt.toISOString(),
-  }
-
-  return addSession(session)
+    expiresAt,
+  })
+  return toSafeToken(session)
 }
 
-function createRefreshToken(userId) {
-  const createdAt = new Date()
-  const expiresAt = new Date(createdAt.getTime() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000)
-  const refreshToken = {
+async function createRefreshToken(userId) {
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const refreshToken = await RefreshToken.create({
     token: crypto.randomBytes(48).toString('hex'),
     userId,
-    createdAt: createdAt.toISOString(),
-    expiresAt: expiresAt.toISOString(),
-  }
-
-  return addRefreshToken(refreshToken)
-}
-
-function ensureDemoUser() {
-  const existing = findUserByEmail('demo@2bee.app')
-  if (existing) {
-    return
-  }
-
-  const passwordHash = bcrypt.hashSync('123456', BCRYPT_SALT_ROUNDS)
-  addUser({
-    id: 'user_demo_1',
-    firstName: 'Demo',
-    lastName: 'User',
-    email: 'demo@2bee.app',
-    emailLower: 'demo@2bee.app',
-    passwordHash,
-    pairId: null,
-    hiveId: null,
-    createdAt: new Date().toISOString(),
+    expiresAt,
   })
+  return toSafeToken(refreshToken)
 }
 
 function generateUserId() {
@@ -84,7 +61,22 @@ function generateUserId() {
   return `user_${crypto.randomBytes(12).toString('hex')}`
 }
 
-ensureDemoUser()
+async function ensureDemoUser() {
+  const existing = await User.findOne({ emailLower: 'demo@2bee.app' }).lean()
+  if (existing) {
+    return
+  }
+
+  const passwordHash = await bcrypt.hash('123456', BCRYPT_SALT_ROUNDS)
+  await User.create({
+    _id: 'user_demo_1',
+    firstName: 'Demo',
+    lastName: 'User',
+    email: 'demo@2bee.app',
+    emailLower: 'demo@2bee.app',
+    passwordHash,
+  })
+}
 
 async function registerUser({ firstName, lastName, email, password }) {
   const normalizedEmail = normalizeEmail(email || '')
@@ -92,22 +84,19 @@ async function registerUser({ firstName, lastName, email, password }) {
     throw new AppError(400, 'INVALID_EMAIL', 'A valid email address is required.')
   }
 
-  const existing = findUserByEmail(normalizedEmail)
+  const existing = await User.findOne({ emailLower: normalizedEmail }).lean()
   if (existing) {
     throw new AppError(409, 'EMAIL_IN_USE', 'That email is already registered.')
   }
 
   const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS)
-  const user = addUser({
-    id: generateUserId(),
+  const user = await User.create({
+    _id: generateUserId(),
     firstName: firstName.trim(),
     lastName: lastName.trim(),
     email: email.trim(),
     emailLower: normalizedEmail,
     passwordHash,
-    pairId: null,
-    hiveId: null,
-    createdAt: new Date().toISOString(),
   })
 
   return toSafeUser(user)
@@ -115,7 +104,7 @@ async function registerUser({ firstName, lastName, email, password }) {
 
 async function loginUser({ email, password }) {
   const normalizedEmail = normalizeEmail(email || '')
-  const user = findUserByEmail(normalizedEmail)
+  const user = await User.findOne({ emailLower: normalizedEmail })
   if (!user) {
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.')
   }
@@ -125,8 +114,7 @@ async function loginUser({ email, password }) {
     throw new AppError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.')
   }
 
-  const session = createSession(user.id)
-  const refreshToken = createRefreshToken(user.id)
+  const [session, refreshToken] = await Promise.all([createSession(user._id), createRefreshToken(user._id)])
   return {
     session,
     refreshToken,
@@ -134,41 +122,44 @@ async function loginUser({ email, password }) {
   }
 }
 
-function logoutUser({ accessToken, refreshToken }) {
+async function logoutUser({ accessToken, refreshToken }) {
   if (!accessToken && !refreshToken) {
     throw new AppError(400, 'TOKEN_REQUIRED', 'A valid session or refresh token is required.')
   }
 
   if (accessToken) {
-    const removed = revokeSession(accessToken)
+    const removed = await Session.findOneAndDelete({ token: accessToken })
     if (!removed) {
       throw new AppError(404, 'SESSION_NOT_FOUND', 'Session already closed or missing.')
     }
   }
 
   if (refreshToken) {
-    revokeRefreshToken(refreshToken)
+    await RefreshToken.deleteOne({ token: refreshToken })
   }
 }
 
-function getUserFromToken(token) {
+async function getUserFromToken(token) {
   if (!token) {
     return null
   }
 
-  const session = findSessionByToken(token)
-  if (!session) {
+  const session = await Session.findOne({ token }).lean()
+  if (!session || session.expiresAt.getTime() <= Date.now()) {
+    if (session) {
+      await Session.deleteOne({ token })
+    }
     return null
   }
 
-  const user = findUserById(session.userId)
+  const user = await User.findById(session.userId)
   if (!user) {
-    revokeSession(token)
+    await Session.deleteOne({ token })
     return null
   }
 
   return {
-    session,
+    session: { token: session.token, expiresAt: session.expiresAt.toISOString() },
     user: toSafeUser(user),
   }
 }
@@ -178,22 +169,24 @@ async function refreshSession({ refreshToken: tokenValue }) {
     throw new AppError(400, 'TOKEN_REQUIRED', 'Refresh token is required.')
   }
 
-  const existing = findRefreshToken(tokenValue)
-  if (!existing) {
+  const existing = await RefreshToken.findOne({ token: tokenValue }).lean()
+  if (!existing || existing.expiresAt.getTime() <= Date.now()) {
+    if (existing) {
+      await RefreshToken.deleteOne({ token: tokenValue })
+    }
     throw new AppError(401, 'INVALID_REFRESH', 'Refresh token expired or invalid.')
   }
 
-  const user = findUserById(existing.userId)
+  const user = await User.findById(existing.userId)
   if (!user) {
-    revokeRefreshToken(tokenValue)
+    await RefreshToken.deleteOne({ token: tokenValue })
     throw new AppError(401, 'INVALID_REFRESH', 'Refresh token expired or invalid.')
   }
 
-  const newSession = createSession(user.id)
-  const newRefreshToken = createRefreshToken(user.id)
+  const [newSession, newRefreshToken] = await Promise.all([createSession(user._id), createRefreshToken(user._id)])
 
   if (ROTATE_ON_REFRESH) {
-    revokeRefreshToken(tokenValue)
+    await RefreshToken.deleteOne({ token: tokenValue })
   }
 
   return {
@@ -204,6 +197,7 @@ async function refreshSession({ refreshToken: tokenValue }) {
 }
 
 module.exports = {
+  ensureDemoUser,
   getUserFromToken,
   loginUser,
   refreshSession,
