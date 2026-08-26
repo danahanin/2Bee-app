@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { apiUrl } from '../../lib/api.js'
 import { classifyExpense } from '../../services/aiService.js'
 import SuggestionBadge from '../ai/SuggestionBadge.jsx'
 import { cleanReasoning, isFallback, suggestionIcon, suggestionLabel, suggestionTone } from '../../utils/aiSource.js'
@@ -28,7 +29,7 @@ function ManualExpenseModal({ onClose, onSaved }) {
 
   useEffect(() => {
     let mounted = true
-    fetch('/hive', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(apiUrl('/hive'), { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => (res.ok ? res.json() : { hives: [] }))
       .then((data) => {
         if (mounted) setHives(data.hives || [])
@@ -116,7 +117,7 @@ function ManualExpenseModal({ onClose, onSaved }) {
         classifiedBy: appliedFromAi ? 'ai' : 'user',
       }
       const url = destination === 'personal' ? '/expenses' : `/hive/${destination}/expenses`
-      const res = await fetch(url, {
+      const res = await fetch(apiUrl(url), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),

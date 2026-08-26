@@ -1,3 +1,5 @@
+import { assetUrl } from '../../lib/api.js'
+
 const SIZES = {
   xs: { outer: 28, text: 'text-[10px]' },
   sm: { outer: 36, text: 'text-xs' },
@@ -18,7 +20,7 @@ function getInitials(user) {
 function UserAvatar({ user, size = 'md', showHexFrame = true, className = '' }) {
   const dims = SIZES[size] || SIZES.md
   const initials = getInitials(user)
-  const src = user?.avatarUrl || null
+  const src = assetUrl(user?.avatarUrl) || null
 
   const inner = src ? (
     <img

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
-
-const API_PREFIX = ''
+import { API_BASE as API_PREFIX } from '../lib/api.js'
 
 function authHeaders(token) {
   return {

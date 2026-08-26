@@ -1,3 +1,5 @@
+import { apiUrl } from '../lib/api.js';
+
 function getAuthHeaders() {
   const stored = localStorage.getItem('twobee_auth');
   if (stored) {
@@ -23,20 +25,20 @@ function imbalanceUrl({ hiveId } = {}) {
 }
 
 export async function fetchInsights() {
-  const res = await fetch('/ai/insights', { headers: getAuthHeaders() });
+  const res = await fetch(apiUrl('/ai/insights'), { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch insights');
   return res.json();
 }
 
 export async function fetchForecast(options) {
   const path = forecastUrl(options ?? {});
-  const res = await fetch(path, { headers: getAuthHeaders() });
+  const res = await fetch(apiUrl(path), { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch forecast');
   return res.json();
 }
 
 export async function fetchRecommendations() {
-  const res = await fetch('/ai/recommendations', { headers: getAuthHeaders() });
+  const res = await fetch(apiUrl('/ai/recommendations'), { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch recommendations');
   return res.json();
 }
@@ -49,7 +51,7 @@ async function parseApiError(res, fallbackMessage) {
 // Runs the full multi-task classifier (category, personal/shared, hive) for the
 // manual-add form. Returns suggestions only — nothing is saved by this call.
 export async function classifyExpense({ description, amount, vendor, category, currency, date, lineItems, hiveId }) {
-  const res = await fetch('/ai/classify-expense', {
+  const res = await fetch(apiUrl('/ai/classify-expense'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -64,7 +66,7 @@ export async function classifyExpense({ description, amount, vendor, category, c
 
 // Pending AI suggestions (currently bank-sync expenses) awaiting user confirmation.
 export async function fetchNeedsReview() {
-  const res = await fetch('/ai/needs-review', { headers: getAuthHeaders() });
+  const res = await fetch(apiUrl('/ai/needs-review'), { headers: getAuthHeaders() });
   if (!res.ok) throw new Error(await parseApiError(res, 'Failed to fetch pending suggestions'));
   const body = await res.json();
   return body.data;
@@ -72,7 +74,7 @@ export async function fetchNeedsReview() {
 
 // Confirm (empty corrections) or correct a pending suggestion for a single expense.
 export async function resolveNeedsReview(expenseId, corrections = {}) {
-  const res = await fetch(`/ai/needs-review/${expenseId}/resolve`, {
+  const res = await fetch(apiUrl(`/ai/needs-review/${expenseId}/resolve`), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -87,13 +89,13 @@ export async function resolveNeedsReview(expenseId, corrections = {}) {
 
 export async function fetchImbalance(options) {
   const path = imbalanceUrl(options ?? {});
-  const res = await fetch(path, { headers: getAuthHeaders() });
+  const res = await fetch(apiUrl(path), { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch imbalance');
   return res.json();
 }
 
 export async function fetchGoalSuggestions() {
-  const res = await fetch('/ai/goal-suggestions', { headers: getAuthHeaders() });
+  const res = await fetch(apiUrl('/ai/goal-suggestions'), { headers: getAuthHeaders() });
   if (!res.ok) throw new Error('Failed to fetch goal suggestions');
   return res.json();
 }
