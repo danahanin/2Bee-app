@@ -1,6 +1,8 @@
 // Temporary local uploader for the receipt-scan flow. Replace with Michelle's
 // shared receiptService/useReceiptScan module when it lands.
 
+import { apiUrl } from '../lib/api.js'
+
 async function parseApiError(res, fallbackMessage) {
   const body = await res.json().catch(() => null)
   return body?.error?.message || fallbackMessage
@@ -10,7 +12,7 @@ export async function scanReceipt(token, file) {
   const formData = new FormData()
   formData.append('image', file)
 
-  const res = await fetch('/receipts/scan', {
+  const res = await fetch(apiUrl('/receipts/scan'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: formData,
@@ -25,7 +27,7 @@ export async function scanReceipt(token, file) {
 }
 
 export async function classifyFromReceipt(token, extracted) {
-  const res = await fetch('/ai/classify-from-receipt', {
+  const res = await fetch(apiUrl('/ai/classify-from-receipt'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -43,7 +45,7 @@ export async function classifyFromReceipt(token, extracted) {
 }
 
 export async function confirmReceipt(token, payload) {
-  const res = await fetch('/receipts/confirm', {
+  const res = await fetch(apiUrl('/receipts/confirm'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { apiUrl } from '../lib/api.js'
+import { apiUrl, assetUrl } from '../lib/api.js'
 
 function getToken() {
   const stored = localStorage.getItem('twobee_auth')
@@ -38,7 +38,7 @@ export function useAvatar({ onSaved } = {}) {
       })
       if (!res.ok) await parseError(res)
       const data = await res.json()
-      setPreviewUrl(data.avatarUrl)
+      setPreviewUrl(assetUrl(data.avatarUrl))
       onSaved?.(data.user)
       return data
     } catch (err) {
@@ -65,7 +65,7 @@ export function useAvatar({ onSaved } = {}) {
       })
       if (!res.ok) await parseError(res)
       const data = await res.json()
-      setPreviewUrl(data.previewUrl || data.avatarUrl)
+      setPreviewUrl(assetUrl(data.previewUrl || data.avatarUrl))
       return data
     } catch (err) {
       setError(err.message)
@@ -92,7 +92,7 @@ export function useAvatar({ onSaved } = {}) {
       })
       if (!res.ok) await parseError(res)
       const data = await res.json()
-      setPreviewUrl(avatarUrl)
+      setPreviewUrl(assetUrl(avatarUrl))
       onSaved?.(data.user)
       return data
     } catch (err) {
